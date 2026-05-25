@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(node:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m ':*)",
+      "Bash(git commit -m 'fix\\(notice\\): address critical review findings:*)",
+      "Bash(git commit:*)",
+      "Bash(npx skills@latest:*)",
+      "WebFetch(domain:cn.electron-vite.org)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(ls src/**/*/index.js)",
+      "Bash(git checkout:*)"
+    ]
+  }
+}
