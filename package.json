@@ -5,10 +5,10 @@
     "type": "commonjs",
     "main": "dist/index.js",
     "bin": {
-        "base-client": "./dist/cli/index.js"
+        "base-client": "./bin/base-client.js"
     },
-    "private": true,
-    "author": "教育部基础教育质量监测中心",
+    "private": false,
+    "author": "lhc-up",
     "scripts": {
         "build": "rollup -c rollup.config.mjs",
         "prepublishOnly": "npm run build"
@@ -31,6 +31,7 @@
         "lodash": "^4.18.1"
     },
     "files": [
+        "bin",
         "dist"
     ]
 }

@@ -55,7 +55,7 @@ const config = {
     // 在 Windows 中用作应用程序用户模型 ID（仅限 NSIS 目标，不支持 Squirrel.Windows）
     // 注意在安装、卸载时，系统区分不同的程序用的不是这个id，而是nsis选项中的guid（由appId根据uuid v5算法得到，appId不变，guid就不会变）
     // 所以appId一旦设置且程序发布之后，就不要再变了，否则guid会变，导致安装、卸载时系统无法识别旧程序（除非显式设置了guid）。
-    appId: `com.eachina.${pkgJson.name}`,
+    appId: `com.base.${pkgJson.name}`,
     // 产品名称（程序名称），未指定时，使用packages.json中的productName，否则使用默认值: ${name}
     productName: pkgJson.productName,
     // 打包产物（安装包）名称格式
@@ -112,7 +112,7 @@ const config = {
     },
     deb: {
         // 软件包名称，国产系统的安装器界面会显示这个名称
-        packageName: 'guojiajiance',
+        packageName: 'baseclient',
         // 优先级，deb包一般都设置为optional
         priority: 'optional',
         // 高级参数，直接传递给fpm，https://fpm.readthedocs.io/en/latest/cli-reference.html
@@ -159,7 +159,7 @@ const config = {
         // 安装、卸载时识别不同的程序，默认根据appId生成，也可以显式指定，一旦设定后就不要再变了
         // 最好是只设置appId，然后由electron-builder根据UUID v5算法生成guid
         // https://www.electron.build/nsis#guid-vs-application-name
-        guid: `com.eachina.${pkgJson.name}`,
+        guid: `com.base.${pkgJson.name}`,
         // 用于自定义安装程序的 NSIS 脚本路径
         include: 'dist/shell/win-installer.nsh',
         // https://learn.microsoft.com/zh-tw/visualstudio/ide/reference/lcid-devenv-exe?view=visualstudio

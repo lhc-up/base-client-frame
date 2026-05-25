@@ -4,7 +4,7 @@ function getMainPreset(root) {
         mode: process.env.NODE_ENV || 'development',
         target: 'electron-main',
         entry: {
-            main: path.resolve(root, 'src/main/index.js'),
+            index: path.resolve(root, 'src/main/index.js'),
         },
         output: {
             path: path.resolve(root, 'out/main'),
@@ -15,9 +15,9 @@ function getMainPreset(root) {
             // fs: 'empty',
             // __dirname: false
         },
-        // externals: {
-        //     electron: 'commonjs electron'
-        // },
+        externals: {
+            electron: 'commonjs electron'
+        },
         module: {
             rules: []
         },

@@ -9,6 +9,7 @@ function getRendererPreset(root) {
             filename: 'index.js'
         },
         devServer: {
+            historyApiFallback: true,
             port: 9000,
             hot: true
         },

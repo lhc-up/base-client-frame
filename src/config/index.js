@@ -41,7 +41,6 @@ function resolveConfig(options = {}) {
         preload: merge(getPreloadPreset(rootDir), userConfig.preload || {}),
         renderer: merge(getRendererPreset(rootDir), userConfig.renderer || {})
     };
-    console.log('finalConfigfinalConfigfinalConfig', finalConfig.main.module.rules)
     return {
         config: finalConfig,
         configFile: {}

@@ -22,7 +22,6 @@ async function dev() {
 
     // 构建主进程和 preload
     console.log('[Base] 构建主进程...');
-    console.log('mainConfigmainConfigmainConfigmainConfigmainConfigmainConfig', JSON.stringify(mainConfig))
     await buildWithWebpack(webpack, mainConfig);
 
     console.log('[Base] 构建 Preload...');
