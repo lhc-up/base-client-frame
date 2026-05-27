@@ -33,13 +33,13 @@ function loadUserConfig(option = {}) {
  * @param {*} options
  * @returns
  */
-function resolveConfig(options = {}) {
+function resolveBuildConfig(options = {}) {
     const rootDir = options.rootDir || process.cwd();
     const userConfig = loadUserConfig();
     const finalConfig = {
-        main: merge(getMainPreset(rootDir), userConfig.main || {}),
-        preload: merge(getPreloadPreset(rootDir), userConfig.preload || {}),
-        renderer: merge(getRendererPreset(rootDir), userConfig.renderer || {})
+        main: merge(getMainPreset(rootDir), userConfig?.main?.build || {}),
+        preload: merge(getPreloadPreset(rootDir), userConfig?.preload?.build || {}),
+        renderer: merge(getRendererPreset(rootDir), userConfig?.renderer?.build || {})
     };
     return {
         config: finalConfig,
@@ -47,6 +47,12 @@ function resolveConfig(options = {}) {
     };
 }
 
+function resolveEnvConfig() {
+    const userConfig = loadUserConfig();
+    return userConfig?.env || {};
+}
+
 module.exports = {
-    resolveConfig
+    resolveBuildConfig,
+    resolveEnvConfig
 };

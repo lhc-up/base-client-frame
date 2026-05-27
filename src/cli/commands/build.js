@@ -15,15 +15,15 @@ async function build() {
         process.exit(1);
     }
 
-    const { resolveConfig } = require('../../config');
+    const { resolveBuildConfig } = require('../../config');
     const config = {
         mode: 'production'
     };
 
     // 并行构建所有进程
-    const mainConfig = { ...resolveConfig('main'), ...config };
-    const preloadConfig = { ...resolveConfig('preload'), ...config };
-    const rendererConfig = { ...resolveConfig('renderer'), ...config };
+    const mainConfig = { ...resolveBuildConfig('main'), ...config };
+    const preloadConfig = { ...resolveBuildConfig('preload'), ...config };
+    const rendererConfig = { ...resolveBuildConfig('renderer'), ...config };
 
     console.log('[Base] 主进程配置:', mainConfig.output.path);
     console.log('[Base] Preload 配置:', preloadConfig.output.path);

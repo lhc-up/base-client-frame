@@ -15,10 +15,10 @@ async function dev() {
     webpack = require('webpack');
     WebpackDevServer = require('webpack-dev-server');
 
-    const { resolveConfig } = require('../../config');
+    const { resolveBuildConfig } = require('../../config');
 
-    const config = resolveConfig();
-    const { main: mainConfig, preload: preloadConfig, renderer: rendererConfig} = config.config;
+    const buildConfig = resolveBuildConfig();
+    const { main: mainConfig, preload: preloadConfig, renderer: rendererConfig} = buildConfig.config;
 
     // 构建主进程和 preload
     console.log('[Base] 构建主进程...');

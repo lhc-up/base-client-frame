@@ -1,4 +1,5 @@
 const path = require('path');
+const plugins = require('./plugins.js');
 function getRendererPreset(root) {
     return {
         mode: process.env.NODE_ENV || 'development',
@@ -21,7 +22,10 @@ function getRendererPreset(root) {
             alias: {
                 // '@': path.resolve(root, userSrcDir, 'renderer')
             }
-        }
+        },
+        plugins: [
+            ...plugins
+        ]
     };
 }
 

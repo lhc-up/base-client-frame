@@ -1,3 +1,4 @@
+require('../env/init.js')();
 const { cac } = require('cac');
 const { version } = require('../../package.json');
 const { dev } = require('./commands/dev');

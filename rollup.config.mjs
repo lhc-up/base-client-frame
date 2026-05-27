@@ -1,12 +1,7 @@
-import { fileURLToPath } from 'url';
-import { createRequire } from 'node:module';
 import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import nodeResolve from '@rollup/plugin-node-resolve';
-
-const __dirname = fileURLToPath(new URL('.', import.meta.url));
-const require = createRequire(import.meta.url);
-const builtinModules = require('module').builtinModules;
+import nodeExternals from 'rollup-plugin-node-externals';
 
 /**
  * Rollup configuration for framework bundling
@@ -14,26 +9,26 @@ const builtinModules = require('module').builtinModules;
  * - Framework: Main bundle + preload independent output
  */
 
-const frameworkExternal = [
-    'electron',
-    ...builtinModules,
-    ...builtinModules.map(m => `node:${m}`),
-    'lodash'
-];
-
 /** @type {import('rollup').RollupOptions[]} */
 export default [
     // CLI: Single bundle output
     {
-        input: 'src/cli/index.js',
-        output: {
-            dir: 'dist/cli',
-            format: 'cjs',
-            entryFileNames: 'index.js',
-            exports: 'auto'
+        input: {
+            'cli/index': 'src/cli/index.js'
         },
-        external: frameworkExternal,
+        output: {
+            dir: 'dist',
+            format: 'cjs',
+            entryFileNames: '[name].js',
+            chunkFileNames: '[name]-[hash].js'
+        },
         plugins: [
+            nodeExternals({
+                devDeps: true,      // 排除所有 devDependencies
+                deps: false,        // 不排除业务依赖
+                builtins: true,     // 排除 Node 内置模块
+            }),
+            nodeResolve(),
             commonjs({
                 ignoreDynamicRequires: true
             }),
@@ -43,8 +38,7 @@ export default [
     // Framework: Main bundle (except preload) + preload independent
     {
         input: {
-            'index': 'src/index.js',
-            'preload': 'src/preload/index.js'
+            'index': 'src/index.js'
         },
         output: {
             dir: 'dist',
@@ -52,8 +46,12 @@ export default [
             entryFileNames: '[name].js',
             chunkFileNames: '[name]-[hash].js'
         },
-        external: frameworkExternal,
         plugins: [
+            nodeExternals({
+                devDeps: true,      // 排除所有 devDependencies
+                deps: false,        // 不排除业务依赖
+                builtins: true,     // 排除 Node 内置模块
+            }),
             nodeResolve(),
             commonjs({
                 ignoreDynamicRequires: true
