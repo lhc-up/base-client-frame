@@ -18,7 +18,7 @@
 - **CLI 命令**：dev / build / preview / pack
 - **三进程 webpack 预设**：main / preload / renderer 的默认构建配置
 - **用户配置协议 `bc.config.js`**：加载、校验，并与预设合并
-- **环境变量加载**：多环境 `.env.*` 约定，注入主进程并 define 到 renderer
+- **环境变量加载**：多环境 `.env.*` 约定；读取后由 webpack 在构建时注入到 main / preload / renderer 三个进程，各进程代码中使用的是注入后的变量
 - **完整 pack 能力**：跨平台安装包构建（Win / macOS / Linux，含龙芯 loong64）、代码签名、安装/卸载钩子等打包相关能力
 
 ## 四、模块划分
@@ -29,7 +29,7 @@ frame 拆分为 7 个模块，分三层。每个模块有独立的详细设计�
 |---|------|------|----------|------------|
 | **M1** | CLI 入口与命令派发 | bin 入口、用 `cac` 注册命令、参数解析、派发到各命令实现 | `bin/` + `src/cli/index.js` | 命令名 / 参数 |
 | **M2** | 用户配置协议（bc.config.js） | 定位 / 加载 / 校验用户 `bc.config.js`；定义字段结构；与预设合并 | `src/config/index.js` | 配置字段 |
-| **M3** | 环境变量（Env） | 按 `BC_ENV` 选择 `.env.*`；保留前缀约定；注入 `process.env`；define 到 renderer | `src/env/` | 变量约定 |
+| **M3** | 环境变量（Env） | 按 `BC_ENV` 选择 `.env.*`；读取解析后由 webpack 在构建时注入到三个进程，运行时代码使用注入后的变量 | `src/env/` | 变量约定 |
 | **M4** | 三进程 webpack 预设 | `getMainPreset / getPreloadPreset / getRendererPreset`：target、externals、output、loader、devtool | `src/config/presets/` | 间接（经 merge） |
 | **M5** | dev 命令 | 并行编译 main+preload、启动 webpack-dev-server（renderer）、启动 Electron、改动自动重启 | `src/cli/commands/dev.js` | 命令行为 |
 | **M6** | build & preview 命令 | build：三进程并行生产构建；preview：直接启动产物 Electron | `src/cli/commands/build.js`、`preview.js` | 命令行为 |
