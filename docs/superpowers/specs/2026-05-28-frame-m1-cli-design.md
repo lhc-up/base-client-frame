@@ -23,7 +23,7 @@ M1 不实现任何命令的具体逻辑（构建、打包等由 M5/M6/M7 实现�
 
 | 选项 | 简写 | 取值 | 默认 | 作用 |
 |------|------|------|------|------|
-| `--env <name>` | `-e` | 任意名称 | `prod` | 指定环境名，加载 `.env.<name>`。名称由项目自行约定，**不做白名单校验** |
+| `--env <name>` | `-e` | 任意名称 | `prod` | 指定环境名，加载 `.env.<name>`。名称由项目自行约定、不做白名单校验，但 `.env.<name>` 必须存在（含默认 `prod`），否则报错 |
 | `--config <path>` | `-c` | 路径 | cwd 自动探测 `bc.config.*` | 指定用户配置文件位置 |
 
 ### 命令专属选项
@@ -111,7 +111,7 @@ module.exports = { cli };
 
 ### env 流转策略
 
-`initEnv(envName)`（M3 提供）是纯函数：读取并合并 `.env` 与 `.env.<name>`，**返回 env 对象，不写 `process.env`**。
+`initEnv(envName)`（M3 提供）是纯函数：读取并合并 `.env` 与 `.env.<name>`，**返回 env 对象，不写 `process.env`**。若 `.env.<name>` 不存在（含默认 `prod`），则抛错，由 `runCommand` 统一捕获并按错误处理流程报告。
 
 业务环境变量在**构建时**经 webpack `DefinePlugin` 注入三进程 bundle，运行时代码使用注入后的值、不读运行时 `process.env`。因此 env 全程显式传递即可，无需设置全局状态。
 
