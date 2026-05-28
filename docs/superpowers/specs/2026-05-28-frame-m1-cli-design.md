@@ -63,7 +63,7 @@ module.exports = {
   options: [
     ['--port <n>', 'dev server 端口', { default: 9000 }],  // 命令专属选项
   ],
-  action: async (ctx) => { /* ctx = { cliOptions, env, mode } */ },
+  action: async (ctx) => { /* ctx = { cliOptions, env, mode, command } */ },
 };
 ```
 
@@ -120,10 +120,11 @@ module.exports = { cli };
 `runCommand` 组装上下文对象 `ctx` 并显式传给 action：
 
 ```js
-const ctx = { cliOptions, env, mode };
+const ctx = { cliOptions, env, mode, command };
 ```
 
-`ctx` 是可扩展容器，后续新增传递项扩展此对象即可，不破坏 action 签名。
+- `command` 为当前命令名（`cmd.name`），供下游（如 `bc.config.js` 的函数形态）按命令分支。
+- `ctx` 是可扩展容器，后续新增传递项扩展此对象即可，不破坏 action 签名。
 
 ### 完整数据流
 
@@ -139,7 +140,7 @@ async function runCommand(cmd, cliOptions) {
   try {
     const env = initEnv(cliOptions.env);                 // ① 以 --env 为输入，拿到 env 对象
     const mode = cmd.mode || 'production';               // ② 命令隐含 mode
-    const ctx = { cliOptions, env, mode };               // ③ 组装上下文
+    const ctx = { cliOptions, env, mode, command: cmd.name };  // ③ 组装上下文
     await cmd.action(ctx);                               // ④ 显式传入
   } catch (err) {
     console.error(`[base-client] ${cmd.name} 失败：${err.message}`);
@@ -153,8 +154,8 @@ async function runCommand(cmd, cliOptions) {
 
 ```js
 // src/cli/commands/dev.js
-action: async ({ cliOptions, env, mode }) => {
-  const { config } = resolveBuildConfig({ env, mode, cliOptions });   // env/mode 显式喂给构建
+action: async ({ cliOptions, env, mode, command }) => {
+  const { config } = resolveBuildConfig({ env, mode, command, cliOptions });   // 显式喂给构建
   // 起 webpack + dev server（端口取 cliOptions.port）+ spawn electron
 }
 ```
@@ -177,7 +178,7 @@ M1 与其他模块的接口：
 | 方向 | 接口 | 说明 |
 |------|------|------|
 | M1 → M3 | `initEnv(envName)` | 传入环境名，拿到 env 对象 |
-| M1 → M2 | `resolveBuildConfig({ env, mode, cliOptions })` | 命令 action 内调用，拿到三进程构建配置 |
+| M1 → M2 | `resolveBuildConfig({ env, mode, command, cliOptions })` | 命令 action 内调用，拿到三进程构建配置 |
 
 M1 **不负责**：env 如何读取/注入（M3/M4）、构建配置如何合并（M2）、各命令的构建/打包实现（M5/M6/M7）。
 
