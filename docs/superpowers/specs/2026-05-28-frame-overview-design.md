@@ -70,7 +70,7 @@ base-client-frame/docs/superpowers/specs/
 ├── 2026-05-28-frame-overview-design.md          # 本总设计
 ├── 2026-05-28-frame-m1-cli-design.md            # M1 详细设计
 ├── 2026-05-28-frame-m2-user-config-design.md    # M2 详细设计
-├── 2026-05-XX-frame-m3-env-design.md            # M3 详细设计
+├── 2026-05-28-frame-m3-env-design.md            # M3 详细设计
 ├── 2026-05-XX-frame-m4-presets-design.md        # M4 详细设计
 ├── 2026-05-XX-frame-m5-dev-design.md            # M5 详细设计
 ├── 2026-05-XX-frame-m6-build-preview-design.md  # M6 详细设计
