@@ -155,7 +155,7 @@ async function runCommand(cmd, cliOptions) {
 ```js
 // src/cli/commands/dev.js
 action: async ({ cliOptions, env, mode, command }) => {
-  const { config } = resolveBuildConfig({ env, mode, command, cliOptions });   // 显式喂给构建
+  const { main, preload, renderer } = resolveBuildConfig({ env, mode, command, cliOptions });  // 三进程构建配置
   // 起 webpack + dev server（端口取 cliOptions.port）+ spawn electron
 }
 ```

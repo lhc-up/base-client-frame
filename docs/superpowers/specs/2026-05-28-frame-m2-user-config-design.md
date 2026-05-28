@@ -63,11 +63,9 @@ function resolveBuildConfig({ env, mode, command, cliOptions }) {
   const userConfig = raw({ command, mode, env });       // 统一函数形态，传入 ctx
 
   return {
-    config: {
-      main:     merge(getMainPreset({ rootDir, env, mode }),     userConfig?.main || {}),
-      preload:  merge(getPreloadPreset({ rootDir, env, mode }),  userConfig?.preload || {}),
-      renderer: merge(getRendererPreset({ rootDir, env, mode }), userConfig?.renderer || {}),
-    },
+    main:     merge(getMainPreset({ rootDir, env, mode }),     userConfig?.main || {}),
+    preload:  merge(getPreloadPreset({ rootDir, env, mode }),  userConfig?.preload || {}),
+    renderer: merge(getRendererPreset({ rootDir, env, mode }), userConfig?.renderer || {}),
   };
 }
 ```
