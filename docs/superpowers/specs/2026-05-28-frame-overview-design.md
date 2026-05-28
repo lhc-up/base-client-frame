@@ -68,7 +68,7 @@ M1 CLI ──→ 派发到 M5 / M6 / M7
 ```
 base-client-frame/docs/superpowers/specs/
 ├── 2026-05-28-frame-overview-design.md          # 本总设计
-├── 2026-05-XX-frame-m1-cli-design.md            # M1 详细设计
+├── 2026-05-28-frame-m1-cli-design.md            # M1 详细设计
 ├── 2026-05-XX-frame-m2-user-config-design.md    # M2 详细设计
 ├── 2026-05-XX-frame-m3-env-design.md            # M3 详细设计
 ├── 2026-05-XX-frame-m4-presets-design.md        # M4 详细设计
