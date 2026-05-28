@@ -24,7 +24,7 @@ getRendererPreset({ rootDir, env, mode })  // → renderer 进程预设
 | `env` | M3 返回的完整环境变量对象，供 `DefinePlugin` 过滤 `BC_` 子集注入 |
 | `mode` | `development` / `production`（命令隐含），决定 `webpack.mode` 与 `devtool` |
 
-三者共享一个内部 `getBasePreset({ env, mode })`，统一 `mode`、`devtool`、`resolve.extensions` 基线、Asset Modules、`DefinePlugin`；各进程在其上叠加自身差异。
+三个 getter **各自独立产出完整预设，不共享中间层**：`mode`、`devtool`、`resolve.extensions` 基线、Asset Modules、`DefinePlugin` 在每个 getter 内分别构造。其中 `BC_` 注入逻辑复用同一个纯函数 `defineEnvPlugin`（见第六节），以免注入契约在三处漂移。
 
 ## 三、三进程骨架
 
@@ -58,7 +58,7 @@ entry / output 等是默认约定，用户在 `bc.config.js` 对应进程下覆�
 
 ## 五、静态资源（Asset Modules）
 
-预设内置的唯一 `module.rules`，使用 webpack 5 原生 Asset Modules（零额外依赖，不涉及编译目标），放在 `getBasePreset`，三进程共用：
+预设内置的唯一 `module.rules`，使用 webpack 5 原生 Asset Modules（零额外依赖，不涉及编译目标），三进程各自包含相同规则：
 
 ```js
 module: {
@@ -95,7 +95,7 @@ function defineEnvPlugin(env) {
 
 - **逐键定义 `process.env.BC_XXX`，不整体替换 `process.env`**：整体替换会清空运行时其余 `process.env.*` 读取（main / preload 跑在 Node，运行时仍可能读真实环境变量）；逐键定义只替换 `BC_` 引用，其余保持不变。
 - 三进程注入同一份 `BC_` 子集（M3 规则：三者都可能被反编译，不分进程）。
-- 该插件由 `getBasePreset` 放入 `plugins`，三进程都带上。
+- `defineEnvPlugin` 是供三者复用的纯函数；各进程在自己的 `plugins` 中调用它放入该插件。
 
 ## 七、模块边界
 
@@ -110,9 +110,8 @@ M4 **不负责**：读取 `.env`（M3）、合并用户配置（M2）、`devServ
 
 ```
 src/config/presets/
-├── base.js       # getBasePreset({ env, mode }) + defineEnvPlugin：mode / devtool / resolve 基线 / Asset Modules / DefinePlugin
-├── main.js       # getMainPreset：base 上叠加 electron-main / commonjs2 / externals / 入口出口
+├── main.js       # getMainPreset：electron-main / commonjs2 / externals / 入口出口 + mode / devtool / resolve / Asset Modules / DefinePlugin
 ├── preload.js    # getPreloadPreset：同 main，target = electron-preload
-├── renderer.js   # getRendererPreset：base 上叠加 web / publicPath './' / 入口出口
-└── index.js      # 汇出三个 getter 给 M2
+├── renderer.js   # getRendererPreset：web / publicPath './' / 入口出口 + mode / devtool / resolve / Asset Modules / DefinePlugin
+└── index.js      # 汇出三个 getter 给 M2；并提供共享纯函数 defineEnvPlugin
 ```
