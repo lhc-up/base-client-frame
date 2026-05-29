@@ -30,7 +30,11 @@ M1 不实现任何命令的具体逻辑（构建、打包等由 M5/M6/M7 实现�
 
 | 命令 | 选项 | 默认 | 作用 |
 |------|------|------|------|
-| `dev` | `--port <n>` | 9000 | dev server 端口 |
+| `dev` | `--port <n>` | M5 兜底 8023 | dev server 端口（优先级 `--port` > `bc.config` > 8023，见 M5） |
+| `dev` | `--host <host>` | M5 兜底 localhost | dev server host（优先级同 `--port`） |
+| `dev` | `--watch-main` | 关 | watch main + preload，改动自动重启 Electron（见 M5） |
+
+> `--port` / `--host` 在 CLI 层**不预置默认值**：cac 默认值会使 `cliOptions.port` 恒有值、按 CLI flag 最高优先级生效，导致 `bc.config` 永远无法覆盖。其默认值由 dev 命令（M5）在 `bc.config` 之后兜底，从而实现 `CLI > bc.config > 默认` 的优先级。
 
 ### mode 维度
 
@@ -61,7 +65,8 @@ module.exports = {
   description: '启动开发服务器 + Electron',
   mode: 'development',                                   // 隐含 mode，缺省按 production
   options: [
-    ['--port <n>', 'dev server 端口', { default: 9000 }],  // 命令专属选项
+    ['--port <n>', 'dev server 端口'],    // 不预置默认值，默认由命令兜底（便于 bc.config 覆盖）
+    ['--host <host>', 'dev server host'],
   ],
   action: async (ctx) => { /* ctx = { cliOptions, env, mode, command } */ },
 };
