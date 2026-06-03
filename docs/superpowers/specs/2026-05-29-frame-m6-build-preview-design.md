@@ -15,15 +15,22 @@ M6 是命令执行层的生产侧，mode 固定 `production`（M1 隐含）：
 
 ### 流程
 
+build 命令的 action 调用共享步骤 `runProductionBuild({ env, command, cliOptions })`（亦供 M7 pack 复用）。
+
+### 共享步骤 runProductionBuild
+
 ```
-① 清空输出根目录 app/
-② { main, preload, renderer } = resolveBuildConfig({ env, mode:'production', command:'build', cliOptions })   // M2
-③ 并行三进程生产构建（Promise.all(webpack(main), webpack(preload), webpack(renderer))）
-   产物：app/main/index.js、app/preload/index.js、app/renderer/（index.html + index.js + assets）
+runProductionBuild({ env, command, cliOptions })
+  ① 清空输出根目录 app/
+  ② { main, preload, renderer } = resolveBuildConfig({ env, mode:'production', command, cliOptions })   // M2
+  ③ 并行三进程生产构建（Promise.all(webpack(main), webpack(preload), webpack(renderer))）
+     产物：app/main/index.js、app/preload/index.js、app/renderer/（index.html + index.js + assets）
 ```
 
+- `command` 由调用方显式传入：build 命令传 `'build'`，M7 pack 命令传 `'pack'`，由 `resolveBuildConfig` 透传至用户 `bc.config.js`，使用户能据此分支配置。
 - renderer 经 `html-webpack-plugin` 以 `src/renderer/index.html` 为模板产出 `index.html` 并注入 `index.js`（见 M4）；production 下 `devtool=false`（见 M4）。
 - 三进程**并行**构建，互不依赖。
+- 抽为独立函数后，build 与 pack 共用同一份"清空 + 三进程生产构建"实现，避免漂移。
 
 ### 输出清理
 
@@ -97,6 +104,7 @@ M6 **不负责**：构建配置合并（M2）、预设内容（M4）、env 读�
 ## 七、文件结构
 
 ```
-src/cli/commands/build.js     # build：清空 app/ → 并行三进程生产构建
-src/cli/commands/preview.js   # preview：resolveElectron + resolveMainEntry + spawn（production）
+src/cli/commands/build.js          # build：调用 runProductionBuild
+src/cli/commands/preview.js        # preview：resolveElectron + resolveMainEntry + spawn（production）
+src/cli/utils/production-build.js  # runProductionBuild：清空 app/ + 三进程并行生产构建（build / pack 共用）
 ```

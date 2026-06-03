@@ -33,7 +33,7 @@ frame 拆分为 7 个模块，分三层。每个模块有独立的详细设计�
 | **M4** | 三进程 webpack 预设 | `getMainPreset / getPreloadPreset / getRendererPreset`：target / externals / output / resolve / devtool、静态资源（Asset Modules）、env 注入（DefinePlugin） | `src/config/presets/` | 间接（经 merge） |
 | **M5** | dev 命令 | 构建 main+preload、启动 webpack-dev-server（renderer，HMR）、启动 Electron；main/preload 可选自动重启（`--watch-main`） | `src/cli/commands/dev.js` | 命令行为 |
 | **M6** | build & preview 命令 | build：三进程并行生产构建；preview：直接启动产物 Electron | `src/cli/commands/build.js`、`preview.js` | 命令行为 |
-| **M7** | pack（安装包构建与签名） | 跨平台安装包构建、代码签名、安装/卸载钩子、用户自定义打包配置约定 | `electron-builder-config.js` + `src/cli/commands/pack.js` | 打包配置 |
+| **M7** | pack（安装包构建与签名） | 跨平台安装包构建、代码签名、用户自定义打包配置 | `src/cli/commands/pack.js`、`src/cli/utils/electron-builder.js`、`src/config/pack.js`、`src/config/presets/pack.js` | CLI 选项 + 打包配置 |
 
 ### 分层
 
@@ -74,7 +74,7 @@ base-client-frame/docs/superpowers/specs/
 ├── 2026-05-28-frame-m4-presets-design.md        # M4 详细设计
 ├── 2026-05-29-frame-m5-dev-design.md            # M5 详细设计
 ├── 2026-05-29-frame-m6-build-preview-design.md  # M6 详细设计
-└── 2026-05-XX-frame-m7-pack-design.md           # M7 详细设计
+└── 2026-06-03-frame-m7-pack-design.md           # M7 详细设计
 ```
 
 > 本总设计是活文档。后续各模块详细设计若需调整模块边界或职责，应反过来更正本文档，保持一致。

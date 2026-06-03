@@ -177,7 +177,7 @@ function customMerge(preset, user) {
    ├─ userConfig = userFn({ command, mode, env, cliOptions, replace })
    ├─ preset = getPackPreset({ rootDir, env, mode, cliOptions, pkgJson })
    └─ mergedConfig = customMerge(preset, userConfig)
-② 复用 M6 build 流程：清空 app/ + 三进程生产构建
+② runProductionBuild({ env, command:'pack', cliOptions })  // M6 共享步骤：清空 app/ + 三进程生产构建
 ③ electronBuilder = require(resolveElectronBuilder(rootDir))
 ④ targets = buildTargets(cliOptions)
 ⑤ await electronBuilder.build({ ...targets, config: mergedConfig })
@@ -257,8 +257,8 @@ electron-builder **不**列入 frame 的 `dependencies` / `peerDependencies`；�
 | 方向 | 接口 | 说明 |
 |------|------|------|
 | M1 → M7 | `action(ctx)`，`ctx = { cliOptions, env, mode, command }` | 命令派发入口 |
-| M7 → M2 | `resolveBuildConfig({ env, mode, command, cliOptions })` | 复用 M6 build 流程时使用 |
-| M7 → M6 | build 流程（清空 `app/` + 三进程生产构建） | 抽出为可独立调用步骤，供 M6 build 命令与 M7 pack 共用 |
+| M7 → M6 | `runProductionBuild({ env, command:'pack', cliOptions })` | M6 共享步骤，pack 内部前置调用 |
+| M7 → M2 | 间接（经 `runProductionBuild` 内调 `resolveBuildConfig`） | 三进程构建配置 |
 | M7 → M3 | 间接（经 `ctx.env`） | 解析后的 env 对象 |
 
 ### M7 自有接口
@@ -278,10 +278,6 @@ electron-builder **不**列入 frame 的 `dependencies` / `peerDependencies`；�
 - env 加载（M3）
 - CLI 解析与命令派发（M1）
 - Electron 启动（M5 / M6；pack 阶段不启动 Electron）
-
-### 反向影响
-
-M6 build 命令现有的"清空 `app/` + 三进程生产构建"流程需抽出为可独立调用的步骤函数，供 M6 build 与 M7 pack 共用。M6 详细设计与总览文档需反向同步标注此共享点。
 
 ## 七、文件结构
 
