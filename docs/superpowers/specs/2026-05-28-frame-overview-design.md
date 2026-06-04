@@ -21,7 +21,28 @@
 - **环境变量加载**：多环境 `.env.*` 约定；读取后由 webpack 在构建时注入到 main / preload / renderer 三个进程，各进程代码中使用的是注入后的变量
 - **完整 pack 能力**：跨平台安装包构建（Win / macOS / Linux，含龙芯 loong64）、代码签名、安装/卸载钩子等打包相关能力
 
-## 四、模块划分
+## 四、用户项目约定
+
+frame 与用户项目之间的目录与文件约定。命令默认按这些路径运行；如需偏离，**在 `bc.config.js` / `electron-builder.config.js` 显式覆盖对应字段**。
+
+| 项 | 约定 | 涉及命令 | 偏离方式 |
+|----|------|----------|----------|
+| 三进程源码入口 | `src/main/index.js`、`src/preload/index.js`、`src/renderer/index.js` | dev / build / pack | 在 `bc.config.js` 各进程下覆盖 `entry`（M4） |
+| renderer HTML 模板 | `src/renderer/index.html`（html-webpack-plugin 模板，用户不写 `<script>`） | dev / build / pack | 在 `bc.config.js` renderer 下覆盖 html-webpack-plugin（M4） |
+| 构建产物目录 | `app/`（纯生成物，不要手写；`build` 整体清空） | build / dev / preview / pack | 否（强约定） |
+| `package.json.main` | 必须指向 main 进程的构建产物（按预设默认 = `"app/main/index.js"`） | dev / preview 启动 Electron / pack 间接 | 偏离时需同步改 M4 main 预设的 `output.path` |
+| 环境变量文件 | `.env`（可选，共享）+ `.env.<name>`（由 `--env` 指定，必需） | 全部 | 位置固定在项目根（M3） |
+| `bc.config.{js,mjs,cjs}` | cwd 探测；调用 `resolveBuildConfig` 的命令必需 | dev / build / pack | `--config <path>` 改路径（M1） |
+| `electron-builder.config.{js,mjs,cjs}` | cwd 探测；仅 pack 必需 | pack | `--pack-config <path>` 改路径（M7） |
+| 项目依赖 | `electron`（dev / preview / pack 解析）、`electron-builder`（仅 pack 解析） | 各自命令 | frame 都不声明，由用户项目自带 |
+
+要点：
+
+- **`package.json.main` 是 dev / preview / pack 的共享真相源**：dev / preview 经它派发 Electron 入口（M5/M6 `resolveMainEntry`）；pack 通过 electron-builder 的 `extraMetadata.main` 在安装包内将其覆盖为 `main/index.js`（M7 §三）。
+- **`app/` 由 build 命令独占清理**（M6）：dev 只覆盖 `app/main`、`app/preload`，不清空；preview 直接读现成产物。
+- **`preview` 不读 `bc.config.js`**：它只 spawn Electron + 加载产物，与构建配置无关。
+
+## 五、模块划分
 
 frame 拆分为 7 个模块，分三层。每个模块有独立的详细设计文档，可分别实现与验证。
 
@@ -35,13 +56,15 @@ frame 拆分为 7 个模块，分三层。每个模块有独立的详细设计�
 | **M6** | build & preview 命令 | build：三进程并行生产构建；preview：直接启动产物 Electron | `src/cli/commands/build.js`、`preview.js` | 命令行为 |
 | **M7** | pack（安装包构建与签名） | 跨平台安装包构建、代码签名、用户自定义打包配置 | `src/cli/commands/pack.js`、`src/cli/utils/electron-builder.js`、`src/config/pack.js`、`src/config/presets/pack.js` | CLI 选项 + 打包配置 |
 
+> 命令之间共享的工具（`resolveElectron` / `resolveMainEntry` / `killElectron` 见 M5、`runProductionBuild` 见 M6）未在上表"主要文件"列展开，详见各模块详设。
+
 ### 分层
 
 - **基础设施层**：M1（CLI 框架）
 - **配置 / 约定层**：M2（用户配置）、M3（环境变量）、M4（webpack 预设）
 - **命令执行层**：M5（dev）、M6（build / preview）、M7（pack）
 
-## 五、模块依赖关系
+## 六、模块依赖关系
 
 ```
 M3 Env ────────┐
@@ -57,13 +80,13 @@ M1 CLI ──→ 派发到 M5 / M6 / M7
 - M5 / M6 / M7 在执行时依赖配置约定层（M2 / M3 / M4）。
 - M2 负责把 M4 的预设与用户配置合并，是预设与命令之间的桥梁。
 
-## 六、实施顺序
+## 七、实施顺序
 
 1. **配置约定层**：M2 用户配置、M3 环境变量、M4 webpack 预设。
 2. **命令执行层**：M1 CLI、M5 dev、M6 build / preview。
 3. **打包发布**：M7 pack。
 
-## 七、文档结构
+## 八、文档结构
 
 ```
 base-client-frame/docs/superpowers/specs/
@@ -79,6 +102,6 @@ base-client-frame/docs/superpowers/specs/
 
 > 本总设计是活文档。后续各模块详细设计若需调整模块边界或职责，应反过来更正本文档，保持一致。
 
-## 八、后续方向
+## 九、后续方向
 
 - **项目脚手架（`init` / `create` 命令）**：让用户能一键生成新项目骨架。本轮不实现，作为后续模块评估。

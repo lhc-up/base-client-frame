@@ -23,8 +23,9 @@ M1 不实现任何命令的具体逻辑（构建、打包等由 M5/M6/M7 实现�
 
 | 选项 | 简写 | 取值 | 默认 | 作用 |
 |------|------|------|------|------|
-| `--env <name>` | `-e` | 任意名称 | `prod` | 指定环境名，加载 `.env.<name>`。名称由项目自行约定、不做白名单校验，但 `.env.<name>` 必须存在（含默认 `prod`），否则报错 |
+| `--env <name>` | `-e` | 任意名称 | `prod` | 指定环境名，加载 `.env.<name>`。名称由项目自行约定，文件存在性校验见 M3 §四 |
 | `--config <path>` | `-c` | 路径 | cwd 自动探测 `bc.config.*` | 指定用户配置文件位置 |
+| `--debug` | — | boolean | 关 | 出错时附打印 `err.stack`（默认仅打印错误消息） |
 
 ### 命令专属选项
 
@@ -64,6 +65,7 @@ module.exports = {
   name: 'dev',
   description: '启动开发服务器 + Electron',
   mode: 'development',                                   // 隐含 mode，缺省按 production
+  skipEnv: false,                                        // 缺省 false：派发前 initEnv；preview 声明 true 跳过
   options: [
     ['--port <n>', 'dev server 端口'],    // 不预置默认值，默认由命令兜底（便于 bc.config 覆盖）
     ['--host <host>', 'dev server host'],
@@ -71,6 +73,8 @@ module.exports = {
   action: async (ctx) => { /* ctx = { cliOptions, env, mode, command } */ },
 };
 ```
+
+`skipEnv: true` 的命令（目前仅 preview）在派发前**不调 `initEnv`**，`ctx.env` 为 `undefined`。preview 既不调 `resolveBuildConfig`、也不需要 env 注入，跳过可避免被 `.env.<name>` 缺失误拦（呼应 M6 §三 "preview 不读 bc.config.js"）。
 
 ### 注册器
 
@@ -91,7 +95,7 @@ const commands = [
   require('./commands/dev'),
   require('./commands/build'),
   require('./commands/preview'),
-  // require('./commands/pack'),   // M7 接入
+  require('./commands/pack'),
 ];
 
 for (const cmd of commands) {
@@ -116,7 +120,7 @@ module.exports = { cli };
 
 ### env 流转策略
 
-`initEnv(envName)`（M3 提供）是纯函数：读取并合并 `.env` 与 `.env.<name>`，**返回 env 对象，不写 `process.env`**。若 `.env.<name>` 不存在（含默认 `prod`），则抛错，由 `runCommand` 统一捕获并按错误处理流程报告。
+`initEnv(envName)`（M3 提供）是纯函数：读取并合并 `.env` 与 `.env.<name>`，**返回 env 对象，不写 `process.env`**。`.env.<name>` 存在性校验由 M3 §四 实施；抛错经 `runCommand` 统一捕获并按错误处理流程报告。
 
 业务环境变量在**构建时**经 webpack `DefinePlugin` 注入三进程 bundle，运行时代码使用注入后的值、不读运行时 `process.env`。因此 env 全程显式传递即可，无需设置全局状态。
 
@@ -143,13 +147,13 @@ const ctx = { cliOptions, env, mode, command };
 ```js
 async function runCommand(cmd, cliOptions) {
   try {
-    const env = initEnv(cliOptions.env);                 // ① 以 --env 为输入，拿到 env 对象
-    const mode = cmd.mode || 'production';               // ② 命令隐含 mode
-    const ctx = { cliOptions, env, mode, command: cmd.name };  // ③ 组装上下文
-    await cmd.action(ctx);                               // ④ 显式传入
+    const env = cmd.skipEnv ? undefined : initEnv(cliOptions.env);  // ① skipEnv 命令跳过 initEnv
+    const mode = cmd.mode || 'production';                          // ② 命令隐含 mode
+    const ctx = { cliOptions, env, mode, command: cmd.name };       // ③ 组装上下文
+    await cmd.action(ctx);                                          // ④ 显式传入
   } catch (err) {
     console.error(`[base-client] ${cmd.name} 失败：${err.message}`);
-    console.error(err.stack);                            // 开发阶段默认打印；预留 --debug 扩展点
+    if (cliOptions.debug) console.error(err.stack);                 // 默认仅打印 message；--debug 附 stack
     process.exit(1);
   }
 }
@@ -173,8 +177,8 @@ action: async ({ cliOptions, env, mode, command }) => {
 2. **命令内部一律 `throw`**：前置检查失败（找不到产物、依赖缺失等）以 `throw new Error(...)` 表达，由 `runCommand` 统一处理。
 3. **统一输出格式**：`[base-client] <command> 失败：<message>`。
 4. **退出码**：成功 `0`，失败 `1`（不细分错误码）。
-5. **堆栈打印**：开发阶段默认打印 `err.stack`；"是否打印"为单点判断，后续可接 `--debug` 调整为条件打印。
-6. **编译错误独立于堆栈**：webpack 编译错误（`stats.toString()`）由各命令实现完整输出，与 `err.stack` 无关，始终可见。
+5. **堆栈打印**：默认仅打印错误消息；带 `--debug` 时附加 `err.stack`。贴近常见 CLI 习惯（vite / eslint / jest）。
+6. **编译错误独立于堆栈**：webpack 编译错误（`stats.toString()`）由各命令实现完整输出，与 `err.stack` 无关，始终可见（不受 `--debug` 影响）。
 
 ## 七、模块边界
 

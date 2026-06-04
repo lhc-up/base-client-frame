@@ -67,6 +67,10 @@ electron.on('close', (code) => process.exit(code));
 
 **preview 在 `build` 之后运行。** 未构建时 `resolveMainEntry` 校验失败抛错（即"请先 build"）。
 
+**preview 不读 `bc.config.js`**：preview 只 spawn Electron + 加载产物，与构建配置无关，不调 `resolveBuildConfig`。即便项目里没有 `bc.config.js`（如发布场景仅交付 `app/` 与 `package.json`），preview 也能跑（呼应 M2 §四"按需必需"）。
+
+**preview 命令模板声明 `skipEnv: true`**：preview 既不调 `resolveBuildConfig`、也不需要 env 注入，M1 派发器据此跳过 `initEnv`，`.env.<name>` 缺失不会拦住 preview（呼应 M1 §四 "skipEnv" 字段）。
+
 文档须点明一个使用顺序的坑（不做产物模式 / 新鲜度检测，YAGNI）：`dev` 跑完后 `app/main` 是 development 产物（`NODE_ENV` 焊成 `development`），此时直接 `preview` 会因判别成立去读未注入的 `RENDERER_DEV_URL` 而白屏。正确路径是 `build → preview`——`build` 以 production 覆盖产物。
 
 ### SIGINT 与退出

@@ -47,6 +47,8 @@ getRendererPreset({ rootDir, env, mode })  // → renderer 进程预设
 
 entry / output 等是默认约定，用户在 `bc.config.js` 对应进程下覆盖即可（经 M2 的 `webpack-merge` 生效）。
 
+> **分包 / 多入口场景**：预设按"单入口、固定 `index.js` 文件名"约定，若需 `optimization.splitChunks` 或多 entry，请在 `bc.config.js` 该进程下覆盖 `entry` / `output.filename`；并**同步检查 `package.json` 的 `main` 字段**——它必须指向 main 进程的实际入口产物（参考 overview §四 用户项目约定）。
+
 ### 入口页面（renderer，html-webpack-plugin）
 
 renderer 预设内置 `html-webpack-plugin`，以 `<root>/src/renderer/index.html` 为模板生成入口页面、自动注入 `index.js`：

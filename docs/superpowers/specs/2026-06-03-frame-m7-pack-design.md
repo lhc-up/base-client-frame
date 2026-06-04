@@ -53,9 +53,10 @@ module.exports = ({ command, mode, env, cliOptions, replace }) => ({
 ### 配置定位
 
 1. 默认在 `process.cwd()` 探测 `electron-builder.config.{js,mjs,cjs}`。
-2. **配置文件必需**：探测不到时抛错 `未找到 electron-builder.config.js`，由 M1 `runCommand` 统一报告。
+2. 若 pack 命令带 `--pack-config <path>`（pack 专属选项，见第五节），改用指定路径。
+3. **配置文件必需**：既无 `--pack-config`、cwd 也无 `electron-builder.config.*` 时，抛错 `未找到 electron-builder.config.js`，由 M1 `runCommand` 统一报告。
 
-不复用 M1 全局 `--config <path>`——那是 `bc.config.js` 的入口；pack 涉及两份配置（webpack 用 `bc.config.js` + electron-builder 用 `electron-builder.config.js`），分别有独立默认路径，避免 `--config` 一处指多义。
+不复用 M1 全局 `--config <path>`：M1 `--config` 始终指向 `bc.config.js`（pack 内部经 `runProductionBuild` 也会用到），electron-builder 的配置走独立 `--pack-config`。两份配置两个 flag、语义互不抢占。
 
 ## 三、预设字段（getPackPreset）
 
@@ -77,7 +78,8 @@ function getPackPreset({ rootDir, env, mode, cliOptions, pkgJson }) {
     extraMetadata: { main: 'main/index.js' },   // 安装包内的 electron 入口
 
     // ── B. pkgJson 派生默认（user 可覆盖）─────────────────────────────
-    appId: `com.base.${pkgJson.name}`,
+    // appId：故意不设默认。产品身份是发布级强标识，必须由 user 在 electron-builder.config 中显式声明，
+    //        缺失时由 electron-builder 自身校验报错（"appId is required"）。frame 不替 user 决定。
     productName: pkgJson.productName ?? pkgJson.name,
     copyright: `Copyright © ${year} ${author}`,
     artifactName: '${productName}_${os}_${arch}_${env.BC_ENV}_v${version}.${ext}',
@@ -104,7 +106,7 @@ function getPackPreset({ rootDir, env, mode, cliOptions, pkgJson }) {
 | `directories.output` | A | 可（少见） | 安装包落 `dist/` |
 | `files` | A | 可（用 `replace` 整组覆盖最稳） | 把 `app/` 拍平到安装包根 |
 | `extraMetadata.main` | A | 可（少见） | 覆盖 package.json 的 main 字段，指向安装包内 `main/index.js` |
-| `appId` | B | 可 | `com.base.<name>` 默认；正式产品必覆盖 |
+| `appId` | — | **必填** | 预设不提供默认；user 必须在 `electron-builder.config` 显式声明（如 `com.foo.bar`），缺失时由 electron-builder 报错 |
 | `productName` | B | 可 | `pkgJson.productName ?? pkgJson.name` |
 | `copyright` | B | 可 | 按 author 自动生成 |
 | `artifactName` | B | 可 | 默认带 BC_ENV 维度，便于多环境产物并存 |
@@ -191,14 +193,14 @@ function customMerge(preset, user) {
 function resolvePackConfig({ env, mode, command, cliOptions }) {
   const rootDir = process.cwd();
   const pkgJson = require(path.resolve(rootDir, 'package.json'));
-  const raw = loadPackUserConfig(rootDir);                          // 必需，找不到抛错
+  const raw = loadPackUserConfig(rootDir, cliOptions.packConfig);   // 接入 --pack-config；找不到抛错
   const userConfig = raw({ command, mode, env, cliOptions, replace });
   const preset = getPackPreset({ rootDir, env, mode, cliOptions, pkgJson });
   return customMerge(preset, userConfig);
 }
 ```
 
-`rootDir` 取 `process.cwd()`、`pkgJson` 由 `rootDir/package.json` 读取，与 M2 `resolveBuildConfig` 同源。
+`rootDir` 取 `process.cwd()`、`pkgJson` 由 `rootDir/package.json` 读取，与 M2 `resolveBuildConfig` 同源。`loadPackUserConfig` 优先用 `cliOptions.packConfig`（`--pack-config` 解析后的值），否则走 cwd 探测，找不到抛错。
 
 ### targets 推导（buildTargets）
 
@@ -243,10 +245,14 @@ electron-builder **不**列入 frame 的 `dependencies` / `peerDependencies`；�
 | flag | 必选 | 含义 |
 |------|------|------|
 | `--env <name>` | 是（M1 全局） | 指定 `.env.<name>` |
+| `--config <path>` | 否（M1 全局） | 指定 `bc.config.js` 路径（pack 内部经 `runProductionBuild` 调 `resolveBuildConfig` 时使用） |
+| `--pack-config <path>` | 否（pack 专属） | 指定 `electron-builder.config.js` 路径；未传则在 cwd 探测 |
 | `--platform <win\|mac\|linux>` | 是 | 目标平台 |
 | `--arch <ia32\|x64\|armv7l\|arm64\|universal\|loong64>` | 是 | 目标架构 |
 | `--unpack` | 否（boolean） | 产出免安装目录（不打 installer） |
 | `--sign` | 否（boolean） | 触发签名；具体证书等字段由 user config 函数读 `cliOptions.sign` 自行注入 |
+
+`--config` 与 `--pack-config` **语义互不抢占**：前者始终指 webpack 用的 `bc.config.js`，后者始终指 electron-builder 用的 `electron-builder.config.js`。
 
 后续新增选项按 M1 命令模板的 `options` 数组追加即可。
 
