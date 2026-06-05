@@ -1,5 +1,11 @@
 const fs = require('fs');
 const path = require('path');
+const { merge } = require('webpack-merge');
+const {
+  getMainPreset,
+  getPreloadPreset,
+  getRendererPreset,
+} = require('./presets');
 
 const SUPPORTED_EXTS = ['.js', '.cjs'];
 const UNSUPPORTED_EXTS_WITH_HINT = ['.mjs'];
@@ -38,4 +44,25 @@ function probeFromCwd() {
   return null;
 }
 
-module.exports = { loadUserConfig };
+function resolveBuildConfig({ env, mode, command, cliOptions }) {
+  const rootDir = process.cwd();
+  const userFn = loadUserConfig(cliOptions && cliOptions.config);
+  const userConfig = userFn({ command, mode, env, cliOptions }) || {};
+
+  return {
+    main: merge(
+      getMainPreset({ rootDir, env, mode }),
+      userConfig.main || {}
+    ),
+    preload: merge(
+      getPreloadPreset({ rootDir, env, mode }),
+      userConfig.preload || {}
+    ),
+    renderer: merge(
+      getRendererPreset({ rootDir, env, mode }),
+      userConfig.renderer || {}
+    ),
+  };
+}
+
+module.exports = { loadUserConfig, resolveBuildConfig };
