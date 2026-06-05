@@ -13,7 +13,15 @@
       "Bash(npm run:*)",
       "Bash(ls src/**/*/index.js)",
       "Bash(git checkout:*)",
-      "Bash(xargs wc -l)"
+      "Bash(xargs wc -l)",
+      "Bash(git rm *)",
+      "Bash(npm i *)",
+      "Bash(npm test *)",
+      "Bash(npx jest *)",
+      "Bash(git merge *)",
+      "Bash(git branch *)",
+      "Bash(rm scripts/classify-indent.js scripts/detect-multiline-tpl.js scripts/reindent-2to4.js)",
+      "Bash(ls scripts/)"
     ]
   }
 }
