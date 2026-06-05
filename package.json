@@ -28,7 +28,8 @@
         "jest": "^30.4.2",
         "rollup": "^4.60.0",
         "rollup-plugin-node-externals": "^8.1.2",
-        "webpack": "^5.107.2"
+        "webpack": "^5.107.2",
+        "webpack-merge": "^6.0.1"
     },
     "dependencies": {
         "cac": "^6.7.14",
