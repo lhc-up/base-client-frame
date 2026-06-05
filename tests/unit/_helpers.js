@@ -15,4 +15,17 @@ function withTempCwd() {
   };
 }
 
-module.exports = { withTempCwd };
+function writeFakePackage(rootDir, pkgName, exportsContent) {
+  const fs = require('fs');
+  const path = require('path');
+  const pkgDir = path.join(rootDir, 'node_modules', pkgName);
+  fs.mkdirSync(pkgDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(pkgDir, 'package.json'),
+    JSON.stringify({ name: pkgName, main: 'index.js' })
+  );
+  fs.writeFileSync(path.join(pkgDir, 'index.js'), exportsContent);
+  return pkgDir;
+}
+
+module.exports = { withTempCwd, writeFakePackage };
