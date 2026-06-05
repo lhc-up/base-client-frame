@@ -4,8 +4,8 @@ const { getRendererPreset } = require('./renderer');
 const { defineEnvPlugin } = require('./define-env');
 
 module.exports = {
-  getMainPreset,
-  getPreloadPreset,
-  getRendererPreset,
-  defineEnvPlugin,
+    getMainPreset,
+    getPreloadPreset,
+    getRendererPreset,
+    defineEnvPlugin,
 };
