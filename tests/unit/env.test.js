@@ -39,3 +39,51 @@ describe('readEnvFile', () => {
     expect(process.env.FRAME_TEST_VAR).toBeUndefined();
   });
 });
+
+describe('initEnv', () => {
+  let tmp;
+  beforeEach(() => { tmp = withTempCwd(); });
+  afterEach(() => { tmp.cleanup(); });
+
+  test('.env.<name> 不存在时抛错', () => {
+    expect(() => initEnv('prod')).toThrow(/\.env\.prod/);
+  });
+
+  test('只有 .env.<name>，返回 specific', () => {
+    fs.writeFileSync(path.join(tmp.dir, '.env.prod'), 'BC_API=https://prod\n');
+    expect(initEnv('prod')).toEqual({ BC_API: 'https://prod' });
+  });
+
+  test('.env 与 .env.<name> 合并；specific 覆盖 base', () => {
+    fs.writeFileSync(
+      path.join(tmp.dir, '.env'),
+      'SHARED=common\nBC_API=base\n'
+    );
+    fs.writeFileSync(
+      path.join(tmp.dir, '.env.prod'),
+      'BC_API=prod-only\nBC_VERSION=1.0\n'
+    );
+    expect(initEnv('prod')).toEqual({
+      SHARED: 'common',
+      BC_API: 'prod-only',
+      BC_VERSION: '1.0',
+    });
+  });
+
+  test('默认 envName = prod', () => {
+    fs.writeFileSync(path.join(tmp.dir, '.env.prod'), 'X=1\n');
+    expect(initEnv()).toEqual({ X: '1' });
+  });
+
+  test('支持非 prod 的环境名（dev/test/custom）', () => {
+    fs.writeFileSync(path.join(tmp.dir, '.env.staging'), 'X=staging\n');
+    expect(initEnv('staging')).toEqual({ X: 'staging' });
+  });
+
+  test('initEnv 也不污染 process.env', () => {
+    fs.writeFileSync(path.join(tmp.dir, '.env.prod'), 'FRAME_INIT_VAR=leaked\n');
+    delete process.env.FRAME_INIT_VAR;
+    initEnv('prod');
+    expect(process.env.FRAME_INIT_VAR).toBeUndefined();
+  });
+});

@@ -8,4 +8,13 @@ function readEnvFile(file) {
   return dotenv.parse(fs.readFileSync(p));
 }
 
-module.exports = { readEnvFile };
+function initEnv(envName = 'prod') {
+  const base = readEnvFile('.env') || {};
+  const specific = readEnvFile(`.env.${envName}`);
+  if (specific === null) {
+    throw new Error(`.env.${envName} not found in ${process.cwd()}`);
+  }
+  return { ...base, ...specific };
+}
+
+module.exports = { readEnvFile, initEnv };
