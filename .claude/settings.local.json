@@ -12,7 +12,8 @@
       "Bash(npm install:*)",
       "Bash(npm run:*)",
       "Bash(ls src/**/*/index.js)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(xargs wc -l)"
     ]
   }
 }
