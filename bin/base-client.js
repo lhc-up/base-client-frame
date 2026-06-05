@@ -1,5 +1,3 @@
 #!/usr/bin/env node
-
-const { cli } = require('../dist/cli');
-
-cli.parse();
+const { createCli } = require('../dist/cli');
+createCli().parse();
