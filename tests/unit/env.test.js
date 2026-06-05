@@ -4,6 +4,12 @@ const path = require('path');
 
 const { readEnvFile, initEnv } = require('../../src/env');
 
+test('模块导出 readEnvFile 与 initEnv', () => {
+  const mod = require('../../src/env');
+  expect(typeof mod.readEnvFile).toBe('function');
+  expect(typeof mod.initEnv).toBe('function');
+});
+
 /** 把当前 cwd 切到一个干净的临时目录，返回该路径与还原函数。 */
 function withTempCwd() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'frame-env-'));
