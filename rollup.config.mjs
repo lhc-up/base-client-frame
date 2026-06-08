@@ -25,7 +25,8 @@ export default [
         plugins: [
             nodeExternals({
                 devDeps: true,      // 排除所有 devDependencies
-                deps: false,        // 不排除业务依赖
+                deps: true,         // 排除 dependencies（CLI 常规做法：运行时从 consumer node_modules 加载）
+                peerDeps: true,     // 排除 peerDependencies
                 builtins: true,     // 排除 Node 内置模块
             }),
             nodeResolve(),
@@ -49,7 +50,8 @@ export default [
         plugins: [
             nodeExternals({
                 devDeps: true,      // 排除所有 devDependencies
-                deps: false,        // 不排除业务依赖
+                deps: true,         // 排除 dependencies（CLI 常规做法：运行时从 consumer node_modules 加载）
+                peerDeps: true,     // 排除 peerDependencies
                 builtins: true,     // 排除 Node 内置模块
             }),
             nodeResolve(),

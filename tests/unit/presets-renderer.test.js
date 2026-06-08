@@ -1,6 +1,5 @@
 const path = require('path');
 const webpack = require('webpack');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { getRendererPreset } = require('../../src/config/presets/renderer');
 
 const ROOT = '/tmp/proj';
@@ -30,12 +29,12 @@ describe('getRendererPreset', () => {
         expect(cfg.output.libraryTarget).toBeUndefined();
     });
 
-    test('plugins 含 HtmlWebpackPlugin，模板路径正确，inject=true', () => {
+    test('plugins 不内置 HtmlWebpackPlugin（由用户在 bc.config.js 自行注册）', () => {
         const cfg = getRendererPreset({ rootDir: ROOT, env: ENV, mode: 'production' });
-        const html = cfg.plugins.find((p) => p instanceof HtmlWebpackPlugin);
-        expect(html).toBeDefined();
-        expect(html.userOptions.template).toBe(path.resolve(ROOT, 'src/renderer/index.html'));
-        expect(html.userOptions.inject).toBe(true);
+        const hasHtmlPlugin = cfg.plugins.some(
+            (p) => p && p.constructor && p.constructor.name === 'HtmlWebpackPlugin'
+        );
+        expect(hasHtmlPlugin).toBe(false);
     });
 
     test('plugins 含 DefinePlugin，BC_ 前缀过滤生效', () => {

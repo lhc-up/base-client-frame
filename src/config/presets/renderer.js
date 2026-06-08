@@ -1,5 +1,4 @@
 const path = require('path');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { defineEnvPlugin } = require('./define-env');
 
 function getRendererPreset({ rootDir, env, mode }) {
@@ -24,10 +23,6 @@ function getRendererPreset({ rootDir, env, mode }) {
         },
         plugins: [
             defineEnvPlugin(env),
-            new HtmlWebpackPlugin({
-                template: path.resolve(rootDir, 'src/renderer/index.html'),
-                inject: true,
-            }),
         ],
     };
 }
