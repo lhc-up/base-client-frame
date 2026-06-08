@@ -28,7 +28,7 @@ runProductionBuild({ env, command, cliOptions })
 ```
 
 - `command` 由调用方显式传入：build 命令传 `'build'`，M7 pack 命令传 `'pack'`，由 `resolveBuildConfig` 透传至用户 `bc.config.js`，使用户能据此分支配置。
-- renderer 经 `html-webpack-plugin` 以 `src/renderer/index.html` 为模板产出 `index.html` 并注入 `index.js`（见 M4）；production 下 `devtool=false`（见 M4）。
+- renderer 的 `index.html` 由用户在 `bc.config.js` 的 `renderer.plugins` 自注册的 `html-webpack-plugin` 产出（frame 不内置；见 M4 §三入口页面）；production 下 `devtool=false`（见 M4）。
 - 三进程**并行**构建，互不依赖。
 - 抽为独立函数后，build 与 pack 共用同一份"清空 + 三进程生产构建"实现，避免漂移。
 

@@ -41,7 +41,7 @@ getRendererPreset({ rootDir, env, mode })  // → renderer 进程预设
 
 要点：
 
-- **`output.filename` 固定且不带 hash**：main / preload 的产物路径稳定，便于 Electron 加载；renderer 的入口页面由 `html-webpack-plugin` 生成并自动注入 `index.js`（见第五节·入口页面）。
+- **`output.filename` 固定且不带 hash**：main / preload 的产物路径稳定，便于 Electron 加载；renderer 入口页面（`index.html`）由用户在 `bc.config.js` 自行注册 `html-webpack-plugin` 产出（frame 不内置该插件，详见第五节）。
 - **renderer `output.publicPath: './'`**：以相对路径输出，使打包后经 `file://` 加载时静态资源能正确解析。
 - **`resolve.extensions` 仅给基线**：`.vue` / `.ts` / `.jsx` 等扩展名由用户在追加对应 loader 时一并追加。
 
@@ -49,14 +49,22 @@ entry / output 等是默认约定，用户在 `bc.config.js` 对应进程下覆�
 
 > **分包 / 多入口场景**：预设按"单入口、固定 `index.js` 文件名"约定，若需 `optimization.splitChunks` 或多 entry，请在 `bc.config.js` 该进程下覆盖 `entry` / `output.filename`；并**同步检查 `package.json` 的 `main` 字段**——它必须指向 main 进程的实际入口产物（参考 overview §四 用户项目约定）。
 
-### 入口页面（renderer，html-webpack-plugin）
+### 入口页面（renderer）
 
-renderer 预设内置 `html-webpack-plugin`，以 `<root>/src/renderer/index.html` 为模板生成入口页面、自动注入 `index.js`：
+renderer 预设**不包含 `html-webpack-plugin`**——`renderer.plugins` 只包含 `defineEnvPlugin`。入口页面由用户在 `bc.config.js` 的 `renderer.plugins` 自行注册 `html-webpack-plugin` 产出。
 
-- **dev**：dev-server 在内存生成页面，根路径 `http://localhost:<port>/` 即可打开（HMR 由 M5 的 dev-server 开启）。
-- **生产构建**：产出 `<root>/app/renderer/index.html`，main 进程经 `loadFile` 加载（约定位置，见 M5）。
+设计取舍：
 
-用户只提供 `src/renderer/index.html` 模板（不手写 `<script>` 引用，由插件注入）。`html-webpack-plugin` 是 frame 的**直接依赖**（frame 内部构建用，不与用户运行时版本耦合）。
+- `html-webpack-plugin` 的模板路径、`filename`、`inject`、`title`、`favicon`、`hash` 等参数因项目而异，预设若写死任何一项都会与用户期望冲突；`webpack-merge` 对 `plugins` 数组是 concat，预设内置 + 用户自注册会同时输出 `index.html`，触发 `Prevent writing to file that only differs in casing or query string` 之类的冲突。
+- frame 的责任面收窄到"约定 entry / output / target / Asset Modules / DefinePlugin"。其它单例插件（如 `VueLoaderPlugin`、`MiniCssExtractPlugin`）同理——预设不包含，由用户在 `bc.config.js` 注册。
+
+用户侧使用约定（不强制，是常见写法）：
+
+- 模板放 `src/renderer/index.html` 或 `.ejs`，由用户在 `template` 字段指定
+- `inject` 推荐 `true` 或 `'body'`，让 webpack 自动注入 `index.js`
+- 生产构建产物入口约定为 `<root>/app/renderer/index.html`（由用户 `filename` 决定，默认即是），main 进程经 `loadFile` 加载（见 M5）
+
+`html-webpack-plugin` 由用户在自己的 `devDependencies` 中声明。
 
 ## 四、devtool
 
@@ -85,7 +93,7 @@ output: {
 ```
 
 - 统一用 `asset/resource`：一律产出独立文件、不做 base64 内联，输出可预测。
-- 资源被 bundle 引用的路径由 webpack 自动改写，故资源文件名带 hash 不影响生成的 `index.html`（hash 仅作用于资源，不作用于 `index.js` 入口）。
+- 资源被 bundle 引用的路径由 webpack 自动改写，故资源文件名带 hash 不影响用户侧 `html-webpack-plugin` 生成的 `index.html`（hash 仅作用于资源，不作用于 `index.js` 入口）。
 - SVG-as-component、CSS 预处理器等仍由用户在 `bc.config.js` 追加规则，`webpack-merge` 将其 rules 追加到此基线之后。
 
 ## 六、环境变量注入（DefinePlugin）
@@ -123,6 +131,6 @@ M4 **不负责**：读取 `.env`（M3）、合并用户配置（M2）、`devServ
 src/config/presets/
 ├── main.js       # getMainPreset：electron-main / commonjs2 / externals / 入口出口 + mode / devtool / resolve / Asset Modules / DefinePlugin
 ├── preload.js    # getPreloadPreset：同 main，target = electron-preload
-├── renderer.js   # getRendererPreset：web / publicPath './' / 入口出口 + mode / devtool / resolve / Asset Modules / DefinePlugin / html-webpack-plugin
+├── renderer.js   # getRendererPreset：web / publicPath './' / 入口出口 + mode / devtool / resolve / Asset Modules / DefinePlugin（html-webpack-plugin 由用户自注册）
 └── index.js      # 汇出三个 getter 给 M2；并提供共享纯函数 defineEnvPlugin
 ```

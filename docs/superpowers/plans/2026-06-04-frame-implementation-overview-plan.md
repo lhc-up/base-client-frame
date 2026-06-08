@@ -10,8 +10,10 @@
 - **语言**：Node.js 20+ / CommonJS（与 `package.json` `type: commonjs` 一致）
 - **构建**：Rollup（既有 `rollup.config.mjs`，frame 源码出 `dist/cli.js`）
 - **测试**：Jest 30（新增到 devDependencies）
-- **关键运行时依赖**：cac（CLI 解析）、dotenv（env 解析）、webpack 5、webpack-dev-server 5、webpack-merge 6、html-webpack-plugin（M4 内置）、lodash（已声明）
-- **按需依赖（用户项目自带）**：electron、electron-builder（frame 解析时从用户 `node_modules` 找）
+- **关键运行时依赖（frame 直接 require）**：cac（CLI 解析）、dotenv（env 解析）、lodash
+- **构建/合并依赖（peerDependencies，用户项目自带）**：webpack 5、webpack-dev-server 5、webpack-merge 6
+- **按需依赖（用户项目自带，frame 解析时从用户 `node_modules` 找）**：electron、electron-builder
+- **不纳入预设、由用户在 `bc.config.js` 注册的运行时插件**：`html-webpack-plugin` 等单例插件（详见 overview §四 / M4 §三入口页面）
 
 ---
 
@@ -89,7 +91,7 @@ base-client-frame/
 │   │   └── pack-command.test.js      # M7
 │   └── fixtures/
 │       └── sample-project/           # 各 plan 按需新增子目录
-├── rollup.config.mjs                 # 既有；本 plan 不动
+├── rollup.config.mjs                 # nodeExternals 外置全部 deps/peerDeps（CLI 工具常规做法）
 └── package.json                      # 按各 plan 增添依赖
 ```
 
@@ -112,10 +114,10 @@ base-client-frame/
 ### 3. 包依赖管理
 
 frame 源码用 `require`，依赖分两类：
-- **dependencies**：frame 直接 require 的运行时包（cac、dotenv、webpack-merge、html-webpack-plugin、lodash）
-- **peerDependencies**：用户项目自带的（webpack、webpack-dev-server、electron、electron-builder）
+- **dependencies**：frame 直接 require 的运行时包（cac、dotenv、lodash）
+- **peerDependencies**：用户项目自带、frame 在构建/运行时引用的（webpack、webpack-dev-server、webpack-merge、electron、electron-builder；其中 electron / electron-builder 走 `require.resolve(..., { paths: [rootDir] })` 路径解析）
 
-> 当前 `package.json` 里 `dotenv` 误为 peer——M3 plan 会把它迁到 dependencies。`html-webpack-plugin` 当前未声明——M4 plan 会加为 dependency。
+**rollup 打包策略**：`nodeExternals({ deps: true, peerDeps: true, devDeps: true, builtins: true })`——frame 自身只 bundle 业务逻辑代码，所有第三方依赖运行时由 consumer 的 `node_modules` 加载。这是 CLI 工具的常规做法：依赖类包（如 `html-webpack-plugin`）内部常用 `require.resolve('./lib/...')` 引用兄弟文件，若被打进 bundle 这类路径会失效；外置后，发布到 npm 的 frame 由 consumer `npm install` 自动带上 `dependencies`，`peerDependencies` 由 consumer 自己声明。
 
 ### 4. 模块边界纪律
 

@@ -28,7 +28,7 @@ frame 与用户项目之间的目录与文件约定。命令默认按这些路�
 | 项 | 约定 | 涉及命令 | 偏离方式 |
 |----|------|----------|----------|
 | 三进程源码入口 | `src/main/index.js`、`src/preload/index.js`、`src/renderer/index.js` | dev / build / pack | 在 `bc.config.js` 各进程下覆盖 `entry`（M4） |
-| renderer HTML 模板 | `src/renderer/index.html`（html-webpack-plugin 模板，用户不写 `<script>`） | dev / build / pack | 在 `bc.config.js` renderer 下覆盖 html-webpack-plugin（M4） |
+| renderer HTML 模板 | 由用户在 `bc.config.js` 的 `renderer.plugins` 自行注册 `html-webpack-plugin`（frame 不内置；模板路径与 inject 策略由用户决定） | dev / build / pack | 模板路径 / filename / inject 等全部由用户自定，frame 不约定 |
 | 构建产物目录 | `app/`（纯生成物，不要手写；`build` 整体清空） | build / dev / preview / pack | 否（强约定） |
 | `package.json.main` | 必须指向 main 进程的构建产物（按预设默认 = `"app/main/index.js"`） | dev / preview 启动 Electron / pack 间接 | 偏离时需同步改 M4 main 预设的 `output.path` |
 | 环境变量文件 | `.env`（可选，共享）+ `.env.<name>`（由 `--env` 指定，必需） | 全部 | 位置固定在项目根（M3） |

@@ -63,7 +63,7 @@ renderer 不受此开关影响：始终走 dev-server HMR，改 renderer 不重�
 frame 在渲染入口上只产出**自己独有的构建信息**，运行时如何加载由用户自行编写的 main 决定：
 
 - **dev**：spawn Electron 时注入 `RENDERER_DEV_URL=http://<host>:<port>`（dev-server 地址只有 frame 知道，host / port 见第六节解析）。
-- **生产构建**：入口页面产到约定位置 `app/renderer/index.html`（见 M4）。
+- **生产构建**：入口页面产物的**约定位置**仍是 `app/renderer/index.html`——由用户在 `bc.config.js` 自注册的 `html-webpack-plugin` 决定（默认 `filename` 即 `index.html`，常规写法落到该位置；frame 不强制）。
 
 判别开关用 `process.env.NODE_ENV`（由构建 mode 焊入：dev 为 `development`，build / preview 为 `production`，三态可分），值由 `RENDERER_DEV_URL` 提供。用户 main 的约定写法（frame 不注入任何运行时对象，用户自行读取）：
 
@@ -164,7 +164,7 @@ spawn(resolveElectron(rootDir), [resolveMainEntry(rootDir)], {
 
 M5 **不负责**：构建配置合并（M2）、预设内容（M4）、env 读取（M3）。
 
-frame 在渲染入口上**只提供构建信息**（dev 的 `RENDERER_DEV_URL`、生产入口约定位置 `app/renderer/index.html`）；运行时入口选择由用户运行时代码负责。
+frame 在渲染入口上**只提供构建信息**：dev 的 `RENDERER_DEV_URL`；生产入口的约定位置 `app/renderer/index.html`（由用户自注册的 `html-webpack-plugin` 决定，frame 不内置该插件）。运行时入口选择由用户运行时代码负责。
 
 ## 十、文件结构
 

@@ -6,7 +6,7 @@
 
 **Architecture:** 四个独立文件 + 一个汇出 index：`define-env.js`（共享）、`main.js` / `preload.js` / `renderer.js`（三个 getter 各自独立产出完整预设，不共享中间层）、`index.js`（聚合导出）。三 getter 入参一致 `{ rootDir, env, mode }`、出参为 webpack 配置对象。`defineEnvPlugin` 从 env 对象过滤 `BC_` 前缀键、逐键定义为 `process.env.<key>`，返回 `webpack.DefinePlugin` 实例。
 
-**Tech Stack:** Node 20+ / Jest 30 / webpack 5 / html-webpack-plugin 5 / CommonJS
+**Tech Stack:** Node 20+ / Jest 30 / webpack 5 / CommonJS
 
 > **Spec 参考**：`docs/superpowers/specs/2026-05-28-frame-m4-presets-design.md`
 
@@ -31,7 +31,7 @@
 - `tests/unit/presets-index.test.js`
 
 **Modify:**
-- `package.json`：新增 `html-webpack-plugin` 到 dependencies；`webpack` 加到 devDependencies（peer 已存在，本地测试需要装到 frame 自身 node_modules）
+- `package.json`：`webpack` 加到 devDependencies（peer 已存在，本地测试需要装到 frame 自身 node_modules）
 
 ---
 
@@ -40,20 +40,18 @@
 **Files:**
 - Modify: `package.json`
 
-- [ ] **Step 0.1：安装 html-webpack-plugin（dependency）与 webpack（devDependency）**
+- [ ] **Step 0.1：安装 webpack（devDependency）**
 
 Run:
 ```bash
-npm i html-webpack-plugin@^5.6.0
 npm i -D webpack@^5.90.0
 ```
 
-Expected：`dependencies.html-webpack-plugin` 与 `devDependencies.webpack` 出现；`peerDependencies.webpack` 保持不动（用户项目仍需自带）。
+Expected：`devDependencies.webpack` 出现；`peerDependencies.webpack` 保持不动（用户项目仍需自带）。
 
 - [ ] **Step 0.2：核对 package.json**
 
 打开 `package.json` 确认：
-- `dependencies` 含 `html-webpack-plugin@^5.x`
 - `devDependencies` 含 `webpack@^5.x`
 - `peerDependencies` 仍含 `webpack` 与 `webpack-dev-server`
 
@@ -66,7 +64,7 @@ Expected：M3 既有用例全绿。
 
 ```bash
 git add package.json package-lock.json
-git commit -m "chore(M4): 准备 html-webpack-plugin (dep) 与 webpack (devDep)"
+git commit -m "chore(M4): 准备 webpack (devDep)"
 ```
 
 ---
@@ -490,7 +488,7 @@ git commit -m "feat(M4): getPreloadPreset — electron-preload 进程预设骨�
 
 ---
 
-## Task 4：getRendererPreset（含 html-webpack-plugin）
+## Task 4：getRendererPreset
 
 **Files:**
 - Create: `src/config/presets/renderer.js`
@@ -505,7 +503,7 @@ git commit -m "feat(M4): getPreloadPreset — electron-preload 进程预设骨�
 - `output.publicPath: './'`
 - **无** `libraryTarget`
 - **无** `externals`
-- `plugins` 多一个 `HtmlWebpackPlugin`，模板 `<rootDir>/src/renderer/index.html`、`inject: true`
+- `plugins` 仅含 `defineEnvPlugin(env)`——`html-webpack-plugin` 等单例插件由用户在 `bc.config.js` 的 `renderer.plugins` 自行注册（详见 spec §三入口页面）
 - 其余字段（resolve / devtool / mode / Asset Modules / DefinePlugin）与 main / preload 一致
 
 ### TDD
@@ -516,7 +514,6 @@ git commit -m "feat(M4): getPreloadPreset — electron-preload 进程预设骨�
 // tests/unit/presets-renderer.test.js
 const path = require('path');
 const webpack = require('webpack');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { getRendererPreset } = require('../../src/config/presets/renderer');
 
 const ROOT = '/tmp/proj';
@@ -548,7 +545,6 @@ Expected：FAIL，模块不存在。
 ```js
 // src/config/presets/renderer.js
 const path = require('path');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { defineEnvPlugin } = require('./define-env');
 
 function getRendererPreset({ rootDir, env, mode }) {
@@ -573,10 +569,6 @@ function getRendererPreset({ rootDir, env, mode }) {
     },
     plugins: [
       defineEnvPlugin(env),
-      new HtmlWebpackPlugin({
-        template: path.resolve(rootDir, 'src/renderer/index.html'),
-        inject: true,
-      }),
     ],
   };
 }
@@ -603,19 +595,19 @@ test('不设 output.libraryTarget（renderer 不是 CJS 库）', () => {
 });
 ```
 
-- [ ] **Step 4.6：补 html-webpack-plugin 配置测试**
+- [ ] **Step 4.6：补"预设不内置 HtmlWebpackPlugin"反向断言**
 
 ```js
-test('plugins 含 HtmlWebpackPlugin，模板路径正确，inject=true', () => {
+test('plugins 不内置 HtmlWebpackPlugin（由用户在 bc.config.js 自行注册）', () => {
   const cfg = getRendererPreset({ rootDir: ROOT, env: ENV, mode: 'production' });
-  const html = cfg.plugins.find((p) => p instanceof HtmlWebpackPlugin);
-  expect(html).toBeDefined();
-  expect(html.userOptions.template).toBe(path.resolve(ROOT, 'src/renderer/index.html'));
-  expect(html.userOptions.inject).toBe(true);
+  const hasHtmlPlugin = cfg.plugins.some(
+    (p) => p && p.constructor && p.constructor.name === 'HtmlWebpackPlugin'
+  );
+  expect(hasHtmlPlugin).toBe(false);
 });
 ```
 
-> `HtmlWebpackPlugin` 5.x 把构造入参挂在 `plugin.userOptions` 上，是稳定的内部字段。
+> 用 `constructor.name === 'HtmlWebpackPlugin'` 而非 `instanceof`，避免 frame 自身仍需 `require('html-webpack-plugin')`（frame 不依赖该包）。
 
 - [ ] **Step 4.7：补"DefinePlugin 行为与 main 一致"回归**
 
@@ -648,13 +640,13 @@ test('resolve.extensions 与 main / preload 一致', () => {
 - [ ] **Step 4.8：跑全部 renderer 测试**
 
 Run: `npx jest tests/unit/presets-renderer.test.js`
-Expected：7 passed。
+Expected：8 passed。
 
 - [ ] **Step 4.9：提交 Task 4**
 
 ```bash
 git add src/config/presets/renderer.js tests/unit/presets-renderer.test.js
-git commit -m "feat(M4): getRendererPreset — web 进程 + HtmlWebpackPlugin + publicPath ./"
+git commit -m "feat(M4): getRendererPreset — web 进程预设 + publicPath ./"
 ```
 
 ---
@@ -751,14 +743,14 @@ git commit -m "feat(M4): presets/index 汇出三 getter + defineEnvPlugin"
 | §二 接口 | 三 getter 各自独立产出完整预设，不共享中间层 | 三文件各自完整列出 mode/devtool/resolve/AssetModules/DefinePlugin（实现里没有共享 helper） |
 | §二 接口 | `defineEnvPlugin` 是复用的纯函数 | Task 1 |
 | §三 三进程骨架 | target / entry / output / externals / resolve | Task 2/3/4 |
-| §三 入口页面 | renderer 内置 html-webpack-plugin，模板 `src/renderer/index.html`，inject | Task 4 Step 4.6 |
+| §三 入口页面 | renderer 预设不内置 html-webpack-plugin，由用户在 `bc.config.js` 自注册 | Task 4 Step 4.6（反向断言：plugins 中无 HtmlWebpackPlugin） |
 | §四 devtool | dev → source-map；其他 → false | Task 2/3/4 |
 | §五 Asset Modules | 三 rules（图片/字体/媒体）+ `output.assetModuleFilename` | Task 2/3/4 |
 | §五 Asset Modules | 一律 `asset/resource`，不做 base64 | Task 2/3/4 实现里全为 `asset/resource` |
 | §六 DefinePlugin | 只注入 `BC_` 前缀 | Task 1 Step 1.5 |
 | §六 DefinePlugin | 逐键定义 `process.env.<key>`，不整体替换 `process.env` | Task 1 Step 1.5 |
 | §六 DefinePlugin | 三进程注入同一份 BC_ 子集 | Task 2/3/4 plugins 测试均覆盖 BC_ 过滤 |
-| §七 模块边界 | M4 不读 `.env`、不合并用户配置、不起 devServer | 实现仅依赖 `path/webpack/html-webpack-plugin/defineEnvPlugin`，不碰 fs / merge / devServer |
+| §七 模块边界 | M4 不读 `.env`、不合并用户配置、不起 devServer | 实现仅依赖 `path/webpack/defineEnvPlugin`，不碰 fs / merge / devServer |
 | §八 文件结构 | `main.js` / `preload.js` / `renderer.js` / `index.js` | Task 2/3/4/5；`define-env.js` 拆出为微调（已在卷首声明） |
 
 **Placeholder 扫描**：无 TBD / TODO。代码块全部完整。
@@ -767,7 +759,7 @@ git commit -m "feat(M4): presets/index 汇出三 getter + defineEnvPlugin"
 - `getMainPreset / getPreloadPreset / getRendererPreset({ rootDir, env, mode })` 三处签名一致；
 - `defineEnvPlugin(env) → webpack.DefinePlugin` 在 Task 1 定义、Task 2/3/4 内部 require 使用、Task 5 汇出 —— 一致。
 
-**模块边界**：M4 仅 `require` `path` / `webpack` / `html-webpack-plugin` / 同目录 `./define-env`；不 `require` M3 的 env 模块（env 对象通过参数传入）、不 `require` `webpack-merge`、不 `require` `fs`。
+**模块边界**：M4 仅 `require` `path` / `webpack` / 同目录 `./define-env`；不 `require` M3 的 env 模块（env 对象通过参数传入）、不 `require` `webpack-merge`、不 `require` `fs`、不 `require` `html-webpack-plugin`（renderer 预设不内置该插件，由用户自注册）。
 
 ---
 
