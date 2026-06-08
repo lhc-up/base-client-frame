@@ -21,7 +21,12 @@
       "Bash(git merge *)",
       "Bash(git branch *)",
       "Bash(rm scripts/classify-indent.js scripts/detect-multiline-tpl.js scripts/reindent-2to4.js)",
-      "Bash(ls scripts/)"
+      "Bash(ls scripts/)",
+      "Read(//d/Desktop/npm/client-playground/node_modules/@base-client/frame/dist/**)",
+      "Read(//d/Desktop/npm/client-playground/node_modules/@base-client/frame/dist/cli/**)",
+      "Read(//d/Desktop/npm/client-playground/**)",
+      "Read(//d/Desktop/npm/client-playground/node_modules/@base-client/frame/**)",
+      "Bash(yalc push *)"
     ]
   }
 }

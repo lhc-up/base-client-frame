@@ -500,7 +500,7 @@ git commit -m "feat(M4): getPreloadPreset — electron-preload 进程预设骨�
 - `target: 'web'`
 - `entry: <rootDir>/src/renderer/index.js`
 - `output.path: <rootDir>/app/renderer`
-- `output.publicPath: './'`
+- `output.publicPath` 按 mode 分支：`production` → `'./'`（file:// 加载用相对路径）；`development` → `'/'`（dev-server 挂根路径）
 - **无** `libraryTarget`
 - **无** `externals`
 - `plugins` 仅含 `defineEnvPlugin(env)`——`html-webpack-plugin` 等单例插件由用户在 `bc.config.js` 的 `renderer.plugins` 自行注册（详见 spec §三入口页面）
@@ -528,9 +528,11 @@ describe('getRendererPreset', () => {
     expect(cfg.output.filename).toBe('index.js');
   });
 
-  test('output.publicPath = "./"', () => {
-    const cfg = getRendererPreset({ rootDir: ROOT, env: ENV, mode: 'production' });
-    expect(cfg.output.publicPath).toBe('./');
+  test('output.publicPath 按 mode 分支：production -> "./"，development -> "/"', () => {
+    const prod = getRendererPreset({ rootDir: ROOT, env: ENV, mode: 'production' });
+    const dev = getRendererPreset({ rootDir: ROOT, env: ENV, mode: 'development' });
+    expect(prod.output.publicPath).toBe('./');
+    expect(dev.output.publicPath).toBe('/');
   });
 });
 ```
@@ -555,7 +557,7 @@ function getRendererPreset({ rootDir, env, mode }) {
     output: {
       path: path.resolve(rootDir, 'app/renderer'),
       filename: 'index.js',
-      publicPath: './',
+      publicPath: mode === 'production' ? './' : '/',
       assetModuleFilename: 'assets/[name].[hash:8][ext][query]',
     },
     resolve: { extensions: ['.js', '.mjs', '.cjs', '.json'] },
@@ -646,7 +648,7 @@ Expected：8 passed。
 
 ```bash
 git add src/config/presets/renderer.js tests/unit/presets-renderer.test.js
-git commit -m "feat(M4): getRendererPreset — web 进程预设 + publicPath ./"
+git commit -m "feat(M4): getRendererPreset — web 进程预设 + publicPath 按 mode 分支"
 ```
 
 ---

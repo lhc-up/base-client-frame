@@ -30,6 +30,12 @@ function createCli(commandList) {
 async function runCommand(cmd, cliOptions) {
     try {
         const env = cmd.skipEnv ? undefined : initEnv(cliOptions.env);
+        if (env) {
+            if (!env.BC_ENV) env.BC_ENV = cliOptions.env;
+            for (const k of Object.keys(env)) {
+                if (k.startsWith('BC_')) process.env[k] = env[k];
+            }
+        }
         const mode = cmd.mode || 'production';
         const ctx = { cliOptions, env, mode, command: cmd.name };
         await cmd.action(ctx);

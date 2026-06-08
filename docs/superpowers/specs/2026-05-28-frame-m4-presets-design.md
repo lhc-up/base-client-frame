@@ -35,14 +35,14 @@ getRendererPreset({ rootDir, env, mode })  // → renderer 进程预设
 | `output.path` | `<root>/app/main` | `<root>/app/preload` | `<root>/app/renderer` |
 | `output.filename` | `index.js` | `index.js` | `index.js` |
 | `output.libraryTarget` | `commonjs2` | `commonjs2` | —（默认） |
-| `output.publicPath` | — | — | `'./'` |
+| `output.publicPath` | — | — | `'./'`（production） / `'/'`（development） |
 | `externals` | `{ electron: 'commonjs electron' }` | 同 main | 无 |
 | `resolve.extensions` | `.js` / `.mjs` / `.cjs` / `.json` | 同 main | 同 main |
 
 要点：
 
 - **`output.filename` 固定且不带 hash**：main / preload 的产物路径稳定，便于 Electron 加载；renderer 入口页面（`index.html`）由用户在 `bc.config.js` 自行注册 `html-webpack-plugin` 产出（frame 不内置该插件，详见第五节）。
-- **renderer `output.publicPath: './'`**：以相对路径输出，使打包后经 `file://` 加载时静态资源能正确解析。
+- **renderer `output.publicPath` 按 mode 分支**：production 用 `'./'`，让打包后经 `file://` 加载时静态资源以相对路径正确解析；development 用 `'/'`，让 webpack-dev-server 把内存中的 emit assets（含 `index.html`）挂在根路径下，浏览器访问 `http://localhost:<port>/` 才能命中。两种 mode 用同一个值会顾此失彼：用 `'./'` 会导致 dev 时 dev-server 找不到根资源（`Cannot GET /`），用 `'/'` 会让生产产物在 `file://` 协议下定位到磁盘根目录而失败。
 - **`resolve.extensions` 仅给基线**：`.vue` / `.ts` / `.jsx` 等扩展名由用户在追加对应 loader 时一并追加。
 
 entry / output 等是默认约定，用户在 `bc.config.js` 对应进程下覆盖即可（经 M2 的 `webpack-merge` 生效）。

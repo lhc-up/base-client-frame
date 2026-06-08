@@ -109,8 +109,14 @@ function getPackPreset({ rootDir, env, mode, cliOptions, pkgJson }) {
 | `appId` | — | **必填** | 预设不提供默认；user 必须在 `electron-builder.config` 显式声明（如 `com.foo.bar`），缺失时由 electron-builder 报错 |
 | `productName` | B | 可 | `pkgJson.productName ?? pkgJson.name` |
 | `copyright` | B | 可 | 按 author 自动生成 |
-| `artifactName` | B | 可 | 默认带 BC_ENV 维度，便于多环境产物并存 |
+| `artifactName` | B | 可 | 默认带 BC_ENV 维度，便于多环境产物并存（见下方说明） |
 | `electronDownload` / `electronVersion` | C | 可 | 仅 `--arch loong64` 时注入龙芯镜像；其它架构默认不出现 |
+
+### `artifactName` 中的 `${env.BC_ENV}`
+
+`${env.BC_ENV}` 由 electron-builder 从 `process.env` 读取（这是 electron-builder 的模板语法）。**期望**用户已在 `.env.<name>` 中显式声明 `BC_ENV`（业务环境标识，详见 M3 §六 BC_ENV 小节）；M1 `runCommand` 在调用 action 前会把 `env` 对象中 BC_ 前缀键整体写入 frame 进程的 `process.env`，electron-builder 即由此读到。
+
+**fallback 兜底**：若用户未声明 `BC_ENV`（或值为空串），M1 `runCommand` 用 `cliOptions.env`（即 `--env` 的值，默认 `prod`）赋给 `env.BC_ENV` 后再注入 `process.env`，避免该字段展开为空段（如 `产品_win_x64__v1.0.0.exe`）。该 fallback 仅为健壮性降级，规范路径仍是用户在 `.env` 中显式声明。
 
 ### 不入预设的字段
 

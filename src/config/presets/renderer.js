@@ -9,7 +9,7 @@ function getRendererPreset({ rootDir, env, mode }) {
         output: {
             path: path.resolve(rootDir, 'app/renderer'),
             filename: 'index.js',
-            publicPath: './',
+            publicPath: mode === 'production' ? './' : '/',
             assetModuleFilename: 'assets/[name].[hash:8][ext][query]',
         },
         resolve: { extensions: ['.js', '.mjs', '.cjs', '.json'] },

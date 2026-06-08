@@ -27,7 +27,7 @@ describe('killElectron 平台分支', () => {
     test('Windows: 调用 taskkill /T /F', () => {
         Object.defineProperty(process, 'platform', { value: 'win32' });
         killElectron({ pid: 1234 });
-        expect(execSyncSpy).toHaveBeenCalledWith('taskkill /pid 1234 /T /F');
+        expect(execSyncSpy).toHaveBeenCalledWith('taskkill /pid 1234 /T /F', { stdio: 'ignore' });
         expect(processKillSpy).not.toHaveBeenCalled();
     });
 

@@ -112,7 +112,7 @@ describe('runCommand', () => {
       expect(action).toHaveBeenCalledTimes(1);
       expect(action.mock.calls[0][0]).toEqual({
         cliOptions,
-        env: { BC_API: 'http://x' },
+        env: { BC_API: 'http://x', BC_ENV: 'prod' },   // ← BC_ENV fallback：用户未声明，frame 用 cliOptions.env 兜底
         mode: 'production',
         command: 'mycmd',
       });
@@ -137,6 +137,12 @@ const { initEnv } = require('../env');
 async function runCommand(cmd, cliOptions) {
   try {
     const env = cmd.skipEnv ? undefined : initEnv(cliOptions.env);
+    if (env) {
+      if (!env.BC_ENV) env.BC_ENV = cliOptions.env;   // BC_ENV fallback（详见 M3 §六 BC_ENV 小节）
+      for (const k of Object.keys(env)) {             // BC_ 前缀键整体注入 frame 进程 process.env
+        if (k.startsWith('BC_')) process.env[k] = env[k];
+      }
+    }
     const mode = cmd.mode || 'production';
     const ctx = { cliOptions, env, mode, command: cmd.name };
     await cmd.action(ctx);
@@ -273,16 +279,63 @@ test('--debug 为真时附打印 err.stack', async () => {
 });
 ```
 
-- [ ] **Step 1.8：跑全部 runCommand 测试**
+- [ ] **Step 1.8：补 BC_ 注入 process.env + BC_ENV fallback 测试**
+
+测试钩子（beforeEach/afterEach）需备份/还原 process.env 中所有 BC_ 前缀键，避免测试间互相污染：
+
+```js
+let envSnapshot;
+beforeEach(() => {
+  envSnapshot = Object.fromEntries(
+    Object.entries(process.env).filter(([k]) => k.startsWith('BC_'))
+  );
+});
+afterEach(() => {
+  for (const k of Object.keys(process.env)) {
+    if (k.startsWith('BC_')) delete process.env[k];
+  }
+  Object.assign(process.env, envSnapshot);
+});
+```
+
+5 个新测试用例：
+```js
+test('BC_ 前缀键整体写入 process.env；非 BC_ 不写', async () => {
+  // .env.prod: BC_API=http://x, BC_LOG=info, FOO=bar
+  // 断言 process.env.BC_API / BC_LOG 被写入；process.env.FOO 仍 undefined
+});
+
+test('BC_ENV 未声明时 fallback 为 cliOptions.env，env 对象与 process.env 同步更新', async () => {
+  // .env.prod: BC_API=http://x（没有 BC_ENV）
+  // 断言 process.env.BC_ENV === 'prod' 且 action 收到的 ctx.env.BC_ENV === 'prod'
+});
+
+test('BC_ENV 在 .env 中显式声明时不被 fallback 覆盖', async () => {
+  // .env.staging: BC_ENV=staging-custom, BC_API=...
+  // 断言 process.env.BC_ENV === 'staging-custom'
+});
+
+test('BC_ENV 为空串时仍 fallback（避免 artifactName 等出现空段）', async () => {
+  // .env.prod: BC_ENV=（空）, BC_API=...
+  // 断言 process.env.BC_ENV === 'prod'
+});
+
+test('skipEnv: true 时不动 process.env', async () => {
+  // cmd.skipEnv: true，无 .env 文件
+  // 断言 process.env.BC_ENV 和 process.env.BC_API 均 undefined
+});
+```
+
+- [ ] **Step 1.9：跑全部 runCommand 测试**
 
 Run: `npx jest tests/unit/cli-runCommand.test.js`
-Expected：8 passed（1 ctx + 2 skipEnv + 2 mode + 3 error）。
+Expected：13 passed（1 ctx + 2 skipEnv + 2 mode + 3 error + 5 BC_ 注入/fallback）。
 
-- [ ] **Step 1.9：提交 Task 1**
+- [ ] **Step 1.10：提交 Task 1**
 
 ```bash
 git add src/cli/index.js tests/unit/cli-runCommand.test.js
-git commit -m "feat(M1): runCommand — initEnv 派发 + skipEnv + --debug 错误处理"
+git commit -m "feat(M1): runCommand — initEnv 派发 + BC_ 注入 process.env + BC_ENV fallback + --debug 错误处理"
 ```
 
 ---

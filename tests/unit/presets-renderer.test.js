@@ -14,9 +14,11 @@ describe('getRendererPreset', () => {
         expect(cfg.output.filename).toBe('index.js');
     });
 
-    test('output.publicPath = "./"', () => {
-        const cfg = getRendererPreset({ rootDir: ROOT, env: ENV, mode: 'production' });
-        expect(cfg.output.publicPath).toBe('./');
+    test('output.publicPath 按 mode 分支：production -> "./"，development -> "/"', () => {
+        const prod = getRendererPreset({ rootDir: ROOT, env: ENV, mode: 'production' });
+        const dev = getRendererPreset({ rootDir: ROOT, env: ENV, mode: 'development' });
+        expect(prod.output.publicPath).toBe('./');
+        expect(dev.output.publicPath).toBe('/');
     });
 
     test('不设 externals（renderer 跑在 Chromium，不外置 electron）', () => {

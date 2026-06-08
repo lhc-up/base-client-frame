@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fse = require('fs-extra');
 const path = require('path');
 const webpack = require('webpack');
 const { resolveBuildConfig } = require('../../config');
@@ -21,7 +21,7 @@ async function runProductionBuild({ env, command, cliOptions }) {
     const rootDir = process.cwd();
 
     const appDir = path.resolve(rootDir, 'app');
-    fs.rmSync(appDir, { recursive: true, force: true });
+    fse.emptyDirSync(appDir);
 
     const { main, preload, renderer } = resolveBuildConfig({
         env, mode: 'production', command, cliOptions,

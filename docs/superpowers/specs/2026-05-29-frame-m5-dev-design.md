@@ -52,7 +52,7 @@ watch 模式下，**首次 Electron 启动由首次成功编译触发**，与后
 - **同一时刻只持有一个 Electron 子进程句柄**；重启时**先等旧进程 `exit`，再 spawn 新进程**，避免双实例 / 单例锁冲突——这是"下次起不来"的根因。
 - main、preload 短时间内接连重编译 → **debounce** 合并为一次重启，避免连环重启。
 - `killElectron` **跨平台**终止整棵进程树（否则 Electron 的 GPU / helper 子进程会成孤儿累积、污染环境）：
-  - win32：`taskkill /pid <pid> /T /F`
+  - win32：`taskkill /pid <pid> /T /F`（`execSync` 传 `{ stdio: 'ignore' }`：进程可能在 SIGINT 透传后已自行退出，`taskkill` 会向 stderr 打印 `ERROR: The process "<pid>" not found.`，外层 try/catch 只能吞抛错、吞不了已经写出的 stderr，故 stdio 静默）
   - 其余平台：`child.kill('SIGTERM')`（spawn 时建独立进程组，必要时终止进程组）
 - `intentionalKill` 标志：frame 主动 kill（重启）时置位，使 `electron.on('close')` 跳过整体收尾；仅用户自行退出 app 才触发收尾退出（见第八节）。
 

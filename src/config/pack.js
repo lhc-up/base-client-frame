@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fse = require('fs-extra');
 const path = require('path');
 const { mergeWithCustomize } = require('webpack-merge');
 const { getPackPreset } = require('./presets/pack');
@@ -26,7 +26,7 @@ const UNSUPPORTED_EXTS_WITH_HINT = ['.mjs'];
 function probePackConfigFromCwd(rootDir) {
     for (const ext of [...SUPPORTED_EXTS, ...UNSUPPORTED_EXTS_WITH_HINT]) {
         const p = path.resolve(rootDir, `electron-builder.config${ext}`);
-        if (fs.existsSync(p)) return p;
+        if (fse.existsSync(p)) return p;
     }
     return null;
 }

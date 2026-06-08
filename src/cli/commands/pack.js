@@ -1,3 +1,5 @@
+const fse = require('fs-extra');
+const path = require('path');
 const { resolvePackConfig } = require('../../config/pack');
 const { runProductionBuild } = require('../utils/production-build');
 const {
@@ -10,6 +12,8 @@ async function action(ctx) {
     const rootDir = process.cwd();
 
     const mergedConfig = resolvePackConfig({ env, mode, command, cliOptions });
+
+    fse.emptyDirSync(path.resolve(rootDir, mergedConfig?.directories?.output));
 
     await runProductionBuild({ env, command, cliOptions });
 

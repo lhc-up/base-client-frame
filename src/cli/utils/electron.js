@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fse = require('fs-extra');
 const path = require('path');
 const childProcess = require('child_process');
 
@@ -17,7 +17,7 @@ function resolveMainEntry(rootDir) {
     delete require.cache[pkgPath];
     const pkg = require(pkgPath);
     const entry = path.resolve(rootDir, pkg.main || '');
-    if (!fs.existsSync(entry) || !fs.statSync(entry).isFile()) {
+    if (!fse.existsSync(entry) || !fse.statSync(entry).isFile()) {
         throw new Error(
             `主进程入口不存在：${entry}（请先构建，或检查 package.json 的 main 字段）`
         );
@@ -29,7 +29,7 @@ function killElectron(child) {
     if (!child || !child.pid) return;
     try {
         if (process.platform === 'win32') {
-            childProcess.execSync(`taskkill /pid ${child.pid} /T /F`);
+            childProcess.execSync(`taskkill /pid ${child.pid} /T /F`, { stdio: 'ignore' });
         } else {
             try {
                 process.kill(-child.pid, 'SIGTERM');

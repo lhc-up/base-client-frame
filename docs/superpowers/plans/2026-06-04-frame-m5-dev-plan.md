@@ -305,7 +305,7 @@ git commit -m "feat(M5): resolveMainEntry — 经 package.json.main 解析产物
 killElectron(child: ChildProcess): void
 ```
 - `child` 为空或无 `pid` → 安静 return
-- Windows（`process.platform === 'win32'`）：`execSync('taskkill /pid <pid> /T /F')`，捕获异常（进程可能已退出）
+- Windows（`process.platform === 'win32'`）：`execSync('taskkill /pid <pid> /T /F', { stdio: 'ignore' })`，捕获异常（进程可能已退出）；stdio 静默以避免 `taskkill` 在进程已退出时向终端输出 `ERROR: The process "<pid>" not found.`（try/catch 吞不掉 stderr）
 - 其他平台：先尝试 `process.kill(-child.pid, 'SIGTERM')`（杀进程组），失败则 fallback `child.kill('SIGTERM')`
 - 任意分支抛错均不再向外冒泡（确保上游调用方安全 reset 句柄）
 
@@ -343,7 +343,7 @@ function killElectron(child) {
   if (!child || !child.pid) return;
   try {
     if (process.platform === 'win32') {
-      execSync(`taskkill /pid ${child.pid} /T /F`);
+      execSync(`taskkill /pid ${child.pid} /T /F`, { stdio: 'ignore' });
     } else {
       try {
         process.kill(-child.pid, 'SIGTERM');
@@ -386,7 +386,7 @@ describe('killElectron 平台分支', () => {
   test('Windows: 调用 taskkill /T /F', () => {
     Object.defineProperty(process, 'platform', { value: 'win32' });
     killElectron({ pid: 1234 });
-    expect(execSyncSpy).toHaveBeenCalledWith('taskkill /pid 1234 /T /F');
+    expect(execSyncSpy).toHaveBeenCalledWith('taskkill /pid 1234 /T /F', { stdio: 'ignore' });
     expect(processKillSpy).not.toHaveBeenCalled();
   });
 

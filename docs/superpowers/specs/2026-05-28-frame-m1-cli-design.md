@@ -120,9 +120,14 @@ module.exports = { cli };
 
 ### env 流转策略
 
-`initEnv(envName)`（M3 提供）是纯函数：读取并合并 `.env` 与 `.env.<name>`，**返回 env 对象，不写 `process.env`**。`.env.<name>` 存在性校验由 M3 §四 实施；抛错经 `runCommand` 统一捕获并按错误处理流程报告。
+`initEnv(envName)`（M3 提供）是纯函数：读取并合并 `.env` 与 `.env.<name>`，**返回 env 对象**。`.env.<name>` 存在性校验由 M3 §四 实施；抛错经 `runCommand` 统一捕获并按错误处理流程报告。
 
-业务环境变量在**构建时**经 webpack `DefinePlugin` 注入三进程 bundle，运行时代码使用注入后的值、不读运行时 `process.env`。因此 env 全程显式传递即可，无需设置全局状态。
+`runCommand` 拿到 env 对象后，做两件事再调 `cmd.action(ctx)`：
+
+1. **`BC_ENV` fallback**：若 `env.BC_ENV` 为假值（缺失或空串），用 `cliOptions.env` 兜底（详见 M3 §六 BC_ENV 小节）。
+2. **`BC_` 前缀键整体写入 frame 进程的 `process.env`**：使 frame 内 require/调用的子工具（如 `electron-builder`）能从 `process.env` 读到运行时业务变量；这是 frame 流程层面的能力，与 M4 经 `DefinePlugin` 焊进三进程 bundle 是两条独立通道，源自同一份 env。
+
+业务环境变量在**构建时**经 webpack `DefinePlugin` 注入三进程 bundle，运行时代码使用注入后的值。三进程 bundle 不读 frame 进程的 `process.env`（DefinePlugin 已经替换为字面量）；frame 自身进程 / 子工具走 `process.env` 通道。
 
 ### 上下文容器
 
@@ -138,7 +143,9 @@ const ctx = { cliOptions, env, mode, command };
 ### 完整数据流
 
 ```
---env  →  initEnv()  →  env 对象  →  ctx.env  →  action  →  resolveBuildConfig({ env, mode, cliOptions })
+--env  →  initEnv()  →  env 对象 ──┬─ BC_ENV fallback（若缺失/空，用 cliOptions.env）
+                                   ├─ BC_ 前缀键 → frame 进程 process.env（供 frame 内子工具读）
+                                   └─ ctx.env →  action  →  resolveBuildConfig({ env, mode, cliOptions })
                                                               →  各 preset 的 DefinePlugin  →  焊进三进程 bundle
 ```
 
@@ -148,9 +155,15 @@ const ctx = { cliOptions, env, mode, command };
 async function runCommand(cmd, cliOptions) {
   try {
     const env = cmd.skipEnv ? undefined : initEnv(cliOptions.env);  // ① skipEnv 命令跳过 initEnv
-    const mode = cmd.mode || 'production';                          // ② 命令隐含 mode
-    const ctx = { cliOptions, env, mode, command: cmd.name };       // ③ 组装上下文
-    await cmd.action(ctx);                                          // ④ 显式传入
+    if (env) {
+      if (!env.BC_ENV) env.BC_ENV = cliOptions.env;                 // ② BC_ENV fallback（详见 M3 §六）
+      for (const k of Object.keys(env)) {                           // ③ BC_ 前缀注入 frame 进程 process.env
+        if (k.startsWith('BC_')) process.env[k] = env[k];
+      }
+    }
+    const mode = cmd.mode || 'production';                          // ④ 命令隐含 mode
+    const ctx = { cliOptions, env, mode, command: cmd.name };       // ⑤ 组装上下文
+    await cmd.action(ctx);                                          // ⑥ 显式传入
   } catch (err) {
     console.error(`[base-client] ${cmd.name} 失败：${err.message}`);
     if (cliOptions.debug) console.error(err.stack);                 // 默认仅打印 message；--debug 附 stack

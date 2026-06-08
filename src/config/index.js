@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fse = require('fs-extra');
 const path = require('path');
 const { merge } = require('webpack-merge');
 const {
@@ -39,7 +39,7 @@ function loadUserConfig(configPath) {
 function probeFromCwd() {
     for (const ext of [...SUPPORTED_EXTS, ...UNSUPPORTED_EXTS_WITH_HINT]) {
         const p = path.resolve(process.cwd(), `bc.config${ext}`);
-        if (fs.existsSync(p)) return p;
+        if (fse.existsSync(p)) return p;
     }
     return null;
 }
