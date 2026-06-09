@@ -9,7 +9,7 @@ function getPreloadPreset({ rootDir, env, mode }) {
         output: {
             path: path.resolve(rootDir, 'app/preload'),
             filename: 'index.js',
-            libraryTarget: 'commonjs2',
+            // libraryTarget: 'commonjs2',
             assetModuleFilename: 'assets/[name].[hash:8][ext][query]',
         },
         externals: { electron: 'commonjs electron' },
