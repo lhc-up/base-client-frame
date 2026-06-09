@@ -1,6 +1,7 @@
 const fse = require('fs-extra');
 const path = require('path');
 const { merge } = require('webpack-merge');
+const { deriveMode } = require('../mode');
 const {
     getMainPreset,
     getPreloadPreset,
@@ -44,10 +45,12 @@ function probeFromCwd() {
     return null;
 }
 
-function resolveBuildConfig({ env, mode, command, cliOptions }) {
+function resolveBuildConfig(ctx) {
+    const { env, mode, command, cliOptions } = ctx;
     const rootDir = process.cwd();
+    const { isDev, isProd } = deriveMode(mode);
     const userFn = loadUserConfig(cliOptions && cliOptions.config);
-    const userConfig = userFn({ command, mode, env, cliOptions }) || {};
+    const userConfig = userFn({ command, mode, env, cliOptions, isDev, isProd }) || {};
 
     return {
         main: merge(

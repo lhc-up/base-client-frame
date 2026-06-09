@@ -1,5 +1,6 @@
 const { cac } = require('cac');
 const { initEnv } = require('../env');
+const { MODES, deriveMode } = require('../mode');
 const { version } = require('../../package.json');
 
 function createCli(commandList) {
@@ -36,8 +37,11 @@ async function runCommand(cmd, cliOptions) {
                 if (k.startsWith('BC_')) process.env[k] = env[k];
             }
         }
-        const mode = cmd.mode || 'production';
-        const ctx = { cliOptions, env, mode, command: cmd.name };
+        const mode = cmd.mode || MODES.PROD;
+        const ctx = {
+            cliOptions, env, mode, command: cmd.name,
+            ...deriveMode(mode),
+        };
         await cmd.action(ctx);
     } catch (err) {
         console.error(`[base-client] ${cmd.name} 失败：${err.message}`);

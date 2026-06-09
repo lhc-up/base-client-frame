@@ -55,7 +55,7 @@ describe('resolvePackConfig', () => {
             command: 'pack',
             cliOptions: { platform: 'mac', arch: 'arm64', sign: true },
         });
-        expect(merged.win.__ctxKeys).toBe('cliOptions,command,env,mode,replace');
+        expect(merged.win.__ctxKeys).toBe('cliOptions,command,env,isDev,isProd,mode,replace');
         expect(merged.win.__replaceIsFn).toBe(true);
     });
 

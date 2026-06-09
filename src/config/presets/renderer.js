@@ -1,7 +1,9 @@
 const path = require('path');
+const { deriveMode } = require('../../mode');
 const { defineEnvPlugin } = require('./define-env');
 
 function getRendererPreset({ rootDir, env, mode }) {
+    const { isDev, isProd } = deriveMode(mode);
     return {
         target: 'web',
         mode,
@@ -9,11 +11,11 @@ function getRendererPreset({ rootDir, env, mode }) {
         output: {
             path: path.resolve(rootDir, 'app/renderer'),
             filename: 'index.js',
-            publicPath: mode === 'production' ? './' : '/',
+            publicPath: isProd ? './' : '/',
             assetModuleFilename: 'assets/[name].[hash:8][ext][query]',
         },
         resolve: { extensions: ['.js', '.mjs', '.cjs', '.json'] },
-        devtool: mode === 'development' ? 'source-map' : false,
+        devtool: isDev ? 'source-map' : false,
         module: {
             rules: [
                 { test: /\.(png|jpe?g|gif|svg|webp|avif)$/i, type: 'asset/resource' },

@@ -1,6 +1,7 @@
 const webpack = require('webpack');
 const WebpackDevServer = require('webpack-dev-server');
 const childProcess = require('child_process');
+const { MODES } = require('../../mode');
 const { resolveBuildConfig } = require('../../config');
 const {
     resolveElectron,
@@ -10,12 +11,10 @@ const {
 const { resolveDevServerOptions } = require('./dev-options');
 
 async function action(ctx) {
-    const { cliOptions, env, mode, command } = ctx;
+    const { cliOptions } = ctx;
     const rootDir = process.cwd();
 
-    const { main, preload, renderer } = resolveBuildConfig({
-        env, mode, command, cliOptions,
-    });
+    const { main, preload, renderer } = resolveBuildConfig(ctx);
 
     const { devServer: userDevServer, ...rendererWebpack } = renderer;
 
@@ -102,7 +101,7 @@ async function action(ctx) {
 module.exports = {
     name: 'dev',
     description: '启动开发服务器 + Electron',
-    mode: 'development',
+    mode: MODES.DEV,
     options: [
         ['--port <n>', 'dev server 端口'],
         ['--host <host>', 'dev server host'],

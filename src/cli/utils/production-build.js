@@ -17,15 +17,13 @@ function runOne(config, name) {
     });
 }
 
-async function runProductionBuild({ env, command, cliOptions }) {
+async function runProductionBuild(ctx) {
     const rootDir = process.cwd();
 
     const appDir = path.resolve(rootDir, 'app');
     fse.emptyDirSync(appDir);
 
-    const { main, preload, renderer } = resolveBuildConfig({
-        env, mode: 'production', command, cliOptions,
-    });
+    const { main, preload, renderer } = resolveBuildConfig(ctx);
 
     await Promise.all([
         runOne(main, 'main'),

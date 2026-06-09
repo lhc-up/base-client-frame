@@ -60,12 +60,8 @@ describe('pack 命令', () => {
         ];
         expect(callOrder).toEqual([...callOrder].sort((a, b) => a - b));
 
-        expect(resolvePackConfig).toHaveBeenCalledWith({
-            env: ctx.env, mode: 'production', command: 'pack', cliOptions: ctx.cliOptions,
-        });
-        expect(runProductionBuild).toHaveBeenCalledWith({
-            env: ctx.env, command: 'pack', cliOptions: ctx.cliOptions,
-        });
+        expect(resolvePackConfig).toHaveBeenCalledWith(ctx);
+        expect(runProductionBuild).toHaveBeenCalledWith(ctx);
         expect(buildTargets).toHaveBeenCalledWith(ctx.cliOptions);
         expect(mockBuilderBuild).toHaveBeenCalledWith({
             win: ['nsis'], x64: true,

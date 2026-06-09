@@ -1,7 +1,9 @@
 const path = require('path');
+const { deriveMode } = require('../../mode');
 const { defineEnvPlugin } = require('./define-env');
 
 function getPreloadPreset({ rootDir, env, mode }) {
+    const { isDev } = deriveMode(mode);
     return {
         target: 'electron-preload',
         mode,
@@ -14,7 +16,7 @@ function getPreloadPreset({ rootDir, env, mode }) {
         },
         externals: { electron: 'commonjs electron' },
         resolve: { extensions: ['.js', '.mjs', '.cjs', '.json'] },
-        devtool: mode === 'development' ? 'source-map' : false,
+        devtool: isDev ? 'source-map' : false,
         module: {
             rules: [
                 { test: /\.(png|jpe?g|gif|svg|webp|avif)$/i, type: 'asset/resource' },

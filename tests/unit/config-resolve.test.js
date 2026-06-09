@@ -44,6 +44,8 @@ describe('resolveBuildConfig', () => {
             mode: 'development',
             env: { BC_API: 'http://x' },
             cliOptions: { port: 9000, debug: true },
+            isDev: true,
+            isProd: false,
         });
     });
 

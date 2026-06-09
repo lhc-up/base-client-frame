@@ -43,6 +43,8 @@ describe('runCommand', () => {
                 env: { BC_API: 'http://x', BC_ENV: 'prod' },
                 mode: 'production',
                 command: 'mycmd',
+                isDev: false,
+                isProd: true,
             });
         } finally {
             tmp.cleanup();

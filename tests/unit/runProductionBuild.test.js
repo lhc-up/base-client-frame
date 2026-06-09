@@ -36,6 +36,7 @@ describe('runProductionBuild', () => {
         const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
         await runProductionBuild({
             env: { BC_API: 'http://x' },
+            mode: 'production',
             command: 'build',
             cliOptions: { foo: 'bar' },
         });
@@ -70,6 +71,7 @@ describe('runProductionBuild', () => {
 
         await expect(runProductionBuild({
             env: {},
+            mode: 'production',
             command: 'build',
             cliOptions: {},
         })).rejects.toThrow(/renderer 编译失败/);
@@ -85,6 +87,7 @@ describe('runProductionBuild', () => {
         });
         await expect(runProductionBuild({
             env: {},
+            mode: 'production',
             command: 'build',
             cliOptions: {},
         })).rejects.toThrow(/webpack crashed/);
@@ -94,6 +97,7 @@ describe('runProductionBuild', () => {
         const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
         await expect(runProductionBuild({
             env: {},
+            mode: 'production',
             command: 'build',
             cliOptions: {},
         })).resolves.toBeUndefined();
@@ -104,6 +108,7 @@ describe('runProductionBuild', () => {
         const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
         await runProductionBuild({
             env: { BC_X: '1' },
+            mode: 'production',
             command: 'pack',
             cliOptions: { platform: 'win', arch: 'x64' },
         });

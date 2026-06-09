@@ -21,11 +21,7 @@ describe('build 命令', () => {
             cliOptions: { config: undefined, debug: false },
         };
         await build.action(ctx);
-        expect(runProductionBuild).toHaveBeenCalledWith({
-            env: ctx.env,
-            command: 'build',
-            cliOptions: ctx.cliOptions,
-        });
+        expect(runProductionBuild).toHaveBeenCalledWith(ctx);
     });
 
     test('runProductionBuild 抛错 → action 透传抛出（交 M1 runCommand 收尾）', async () => {

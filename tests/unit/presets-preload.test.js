@@ -22,9 +22,9 @@ describe('getPreloadPreset', () => {
             .toEqual({ electron: 'commonjs electron' });
     });
 
-    test('output.libraryTarget=commonjs2', () => {
+    test('output.libraryTarget 未设置（沙箱 preload 不能走 commonjs2 输出）', () => {
         expect(getPreloadPreset({ rootDir: ROOT, env: ENV, mode: 'production' }).output.libraryTarget)
-            .toBe('commonjs2');
+            .toBeUndefined();
     });
 
     test('devtool 按 mode', () => {

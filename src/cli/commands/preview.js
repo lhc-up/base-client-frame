@@ -1,4 +1,5 @@
 const { spawn } = require('child_process');
+const { MODES } = require('../../mode');
 const { resolveElectron, resolveMainEntry } = require('../utils/electron');
 
 async function action() {
@@ -25,7 +26,7 @@ async function action() {
 module.exports = {
     name: 'preview',
     description: '启动已构建产物（生产模式）',
-    mode: 'production',
+    mode: MODES.PROD,
     skipEnv: true,
     options: [],
     action,

@@ -1,6 +1,7 @@
 const fse = require('fs-extra');
 const path = require('path');
 const { mergeWithCustomize } = require('webpack-merge');
+const { deriveMode } = require('../mode');
 const { getPackPreset } = require('./presets/pack');
 
 const REPLACE = Symbol('$replace');
@@ -56,14 +57,16 @@ function loadPackUserConfig(rootDir, packConfigPath) {
     return fn;
 }
 
-function resolvePackConfig({ env, mode, command, cliOptions }) {
+function resolvePackConfig(ctx) {
+    const { env, mode, command, cliOptions } = ctx;
     const rootDir = process.cwd();
+    const { isDev, isProd } = deriveMode(mode);
     const pkgJsonPath = path.resolve(rootDir, 'package.json');
     delete require.cache[pkgJsonPath];
     const pkgJson = require(pkgJsonPath);
 
     const userFn = loadPackUserConfig(rootDir, cliOptions && cliOptions.packConfig);
-    const userConfig = userFn({ command, mode, env, cliOptions, replace }) || {};
+    const userConfig = userFn({ command, mode, env, cliOptions, replace, isDev, isProd }) || {};
 
     const preset = getPackPreset({ rootDir, env, mode, cliOptions, pkgJson });
     return customMerge(preset, userConfig);
