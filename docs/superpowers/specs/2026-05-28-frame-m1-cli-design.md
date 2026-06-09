@@ -4,9 +4,11 @@
 
 ## 一、定位
 
-M1 是 frame 的**命令入口层**：解析 `base-client <command>` 的命令与参数，完成环境初始化，把控制权派发给各命令实现。它定义 frame 对用户暴露的命令行契约，并为所有命令统一提供：参数收集、环境初始化、上下文组装、错误处理。
+M1 是 frame 的**命令入口层**：解析 `base-client <command>` 的命令与参数，完成环境初始化，把控制权派发给各命令实现。它定义 frame 对用户暴露的命令行契约，并为所有命令统一提供：参数收集、环境初始化、mode 派生、上下文组装、启动横幅、错误处理。
 
 M1 不实现任何命令的具体逻辑（构建、打包等由 M5/M6/M7 实现），只负责"解析 → 初始化 → 派发"。
+
+M1 同时负责 frame 全局共享基础设施的归属：`src/mode.js`（mode 抽象）与 `src/logger.js`（CLI 输出层）的契约由本模块定义，详见 §九 / §十。
 
 ## 二、命令清单
 
@@ -61,16 +63,18 @@ CLI flag (cliOptions)  >  命令/env 默认  >  bc.config.js  >  预设默认
 
 ```js
 // src/cli/commands/dev.js
+const { MODES } = require('../../mode');
+
 module.exports = {
   name: 'dev',
   description: '启动开发服务器 + Electron',
-  mode: 'development',                                   // 隐含 mode，缺省按 production
+  mode: MODES.DEV,                                       // 隐含 mode，缺省按 MODES.PROD（见 §九 mode 抽象）
   skipEnv: false,                                        // 缺省 false：派发前 initEnv；preview 声明 true 跳过
   options: [
     ['--port <n>', 'dev server 端口'],    // 不预置默认值，默认由命令兜底（便于 bc.config 覆盖）
     ['--host <host>', 'dev server host'],
   ],
-  action: async (ctx) => { /* ctx = { cliOptions, env, mode, command } */ },
+  action: async (ctx) => { /* ctx = { cliOptions, env, mode, command, isDev, isProd } */ },
 };
 ```
 
@@ -134,11 +138,15 @@ module.exports = { cli };
 `runCommand` 组装上下文对象 `ctx` 并显式传给 action：
 
 ```js
-const ctx = { cliOptions, env, mode, command };
+const { MODES, deriveMode } = require('./mode');
+const ctx = { cliOptions, env, mode, command, ...deriveMode(mode) };
+// → { cliOptions, env, mode, command, isDev, isProd }
 ```
 
 - `command` 为当前命令名（`cmd.name`），供下游（如 `bc.config.js` 的函数形态）按命令分支。
+- `isDev` / `isProd` 由 `deriveMode(mode)` 在 runCommand 一次性派生注入，供命令实现、用户 `bc.config.js` 函数、用户 `electron-builder.config.js` 函数直接读取，免去各处 `mode === 'development'` 字面量判断。
 - `ctx` 是可扩展容器，后续新增传递项扩展此对象即可，不破坏 action 签名。
+- 命令执行层（M5/M6/M7）传给配置层的函数（`resolveBuildConfig` / `resolvePackConfig` / `runProductionBuild`）一律收 `ctx` 整体，不再解构成 `{env, mode, command, cliOptions}`，避免调用方"解构-重组"样板。
 
 ### 完整数据流
 
@@ -152,6 +160,9 @@ const ctx = { cliOptions, env, mode, command };
 ### 派发器伪代码
 
 ```js
+const { MODES, deriveMode } = require('./mode');
+const logger = require('./logger');
+
 async function runCommand(cmd, cliOptions) {
   try {
     const env = cmd.skipEnv ? undefined : initEnv(cliOptions.env);  // ① skipEnv 命令跳过 initEnv
@@ -161,12 +172,19 @@ async function runCommand(cmd, cliOptions) {
         if (k.startsWith('BC_')) process.env[k] = env[k];
       }
     }
-    const mode = cmd.mode || 'production';                          // ④ 命令隐含 mode
-    const ctx = { cliOptions, env, mode, command: cmd.name };       // ⑤ 组装上下文
-    await cmd.action(ctx);                                          // ⑥ 显式传入
+    const mode = cmd.mode || MODES.PROD;                            // ④ 命令隐含 mode（MODES 常量）
+    const ctx = {
+      cliOptions, env, mode, command: cmd.name,
+      ...deriveMode(mode),                                          // ⑤ 派生 isDev/isProd 注入 ctx
+    };
+
+    process.title = `bc-${cmd.name}|env=${env?.BC_ENV ?? '?'}`;     // ⑥ 进程标题，便于 ps / 任务管理器识别
+    logger.banner({ command: cmd.name, mode, env });                // ⑦ 启动横幅：版本 + 命令 + env + mode
+
+    await cmd.action(ctx);                                          // ⑧ 显式传入
   } catch (err) {
-    console.error(`[base-client] ${cmd.name} 失败：${err.message}`);
-    if (cliOptions.debug) console.error(err.stack);                 // 默认仅打印 message；--debug 附 stack
+    logger.error(`${cmd.name} 失败：`, err.message);                 // 红色前缀 + bold scope（见 §十 logger）
+    if (cliOptions && cliOptions.debug) console.error(err.stack);   // 默认仅打印 message；--debug 附 stack
     process.exit(1);
   }
 }
@@ -176,8 +194,9 @@ async function runCommand(cmd, cliOptions) {
 
 ```js
 // src/cli/commands/dev.js
-action: async ({ cliOptions, env, mode, command }) => {
-  const { main, preload, renderer } = resolveBuildConfig({ env, mode, command, cliOptions });  // 三进程构建配置
+action: async (ctx) => {
+  const { cliOptions, env, isDev } = ctx;                          // 直接读派生标志，免去 mode === '...' 字面量
+  const { main, preload, renderer } = resolveBuildConfig(ctx);     // 收 ctx 整体，不再解构-重组
   // 起 webpack + dev server（端口取 cliOptions.port）+ spawn electron
 }
 ```
@@ -188,10 +207,10 @@ action: async ({ cliOptions, env, mode, command }) => {
 
 1. **统一 try/catch**：所有命令异常集中捕获，命令内部不再各自退出。
 2. **命令内部一律 `throw`**：前置检查失败（找不到产物、依赖缺失等）以 `throw new Error(...)` 表达，由 `runCommand` 统一处理。
-3. **统一输出格式**：`[base-client] <command> 失败：<message>`。
+3. **统一输出格式**：经 `logger.error(scope, msg)` 输出 → 红色 `[base-client]` 前缀 + bold `<command> 失败：` + 错误消息（详见 §十 logger 契约）。
 4. **退出码**：成功 `0`，失败 `1`（不细分错误码）。
-5. **堆栈打印**：默认仅打印错误消息；带 `--debug` 时附加 `err.stack`。贴近常见 CLI 习惯（vite / eslint / jest）。
-6. **编译错误独立于堆栈**：webpack 编译错误（`stats.toString()`）由各命令实现完整输出，与 `err.stack` 无关，始终可见（不受 `--debug` 影响）。
+5. **堆栈打印**：默认仅打印错误消息；带 `--debug` 时附加 `err.stack`（直接 `console.error`，不走 logger 上色）。贴近常见 CLI 习惯（vite / eslint / jest）。
+6. **编译错误独立于堆栈**：webpack 编译错误由各命令实现在调用 `logger.compileFailure(name)` 后用 `stats.toString({ colors: true })` 完整输出，与 `err.stack` 无关，始终可见（不受 `--debug` 影响）。
 
 ## 七、模块边界
 
@@ -214,3 +233,54 @@ cli.parse();
 ```
 
 bin 引入 frame 自身的构建产物（`dist/cli`），是发布形态的入口。
+
+## 九、mode 抽象（src/mode.js）
+
+`src/mode.js` 是 frame 内 `'development'` / `'production'` 字面量的**唯一来源**。所有需要 mode 字面量或 dev/prod 判断的位置，都从这里取。
+
+```js
+const MODES = Object.freeze({
+    DEV: 'development',
+    PROD: 'production',
+});
+
+function deriveMode(mode) {
+    if (!VALID_MODES.has(mode)) {
+        throw new Error(`[base-client] mode 必须是 ${MODES.DEV} 或 ${MODES.PROD}，收到: ...`);
+    }
+    return { isDev: mode === MODES.DEV, isProd: mode === MODES.PROD };
+}
+```
+
+### 设计意图
+
+- **唯一字面量来源**：源码中 `'development'` / `'production'` 字面量只允许出现在 `mode.js`（定义处）和**生态边界注入**两处（`process.env.NODE_ENV` 的字面量赋值——webpack/Electron 生态约定，与 frame 的 mode 抽象耦合无益处，故保留字面量）。其余位置一律走 `MODES.DEV` / `MODES.PROD`，源码 grep `'development'` / `'production'` 字面量可验证。
+- **fail-fast**：`deriveMode` 收到非法 mode 直接抛错，避免静默走错分支。
+- **两处使用**：① M1 `runCommand` 一次性派生注入 `ctx`；② M4 三个 preset 内部各自 `deriveMode(mode)` 自包含派生（preset 不依赖外部 ctx）。两条独立通道源自同一份契约。
+- **不开放 `--mode` 覆盖**：mode 由命令文件声明（`MODES.DEV` 或 `MODES.PROD`），不接受 CLI flag 覆盖。
+
+## 十、CLI 输出契约（src/logger.js）
+
+`src/logger.js` 是 frame 自有输出的**唯一通道**。所有 frame 主动输出的信息一律走 logger，不直接 `console.*`（命令实现内的 webpack stats 完整打印是例外，见下方）。
+
+### API 清单
+
+| API | 用途 | 调用方 |
+|------|------|--------|
+| `info(msg)` | 常规信息，`[base-client]` 前缀 | M1 / M5 |
+| `success(msg)` | 成功（绿色 ✓ 前缀） | 各命令完成时 |
+| `warn(msg)` | 警告（黄色 ⚠ 前缀） | 待 |
+| `error(scope, msg)` | 错误（红色前缀 + bold scope） | M1 `runCommand` catch |
+| `banner({ command, mode, env })` | 启动横幅：`[base-client] v<ver>  <command> \| env=<BC_ENV> \| mode=<mode>` | M1 `runCommand` 进入时 |
+| `footer({ env, url, watch })` | dev 完成 footer：`[base-client] env=... \| <url> \| watch:on` | M5 renderer `hooks.done` |
+| `compileSuccess(name, ms, sizeBytes)` | `[base-client] ✓ <name> 编译完成 (<ms> \| <size>)` | M5 / M6 编译完成 |
+| `compileFailure(name)` | `[base-client] ✗ <name> 编译失败`（不打印 stats 主体，由调用方紧随其后 `stats.toString({colors:true})` 输出详情） | M5 / M6 编译失败 |
+| `compileWarning(name, count)` | `[base-client] ⚠ <name> N warnings` | M5 / M6 |
+| `formatBytes` / `formatMs` | 容量 / 耗时格式化 helper（导出供需要拼接行的位置复用） | 各处 |
+
+### 设计意图
+
+- **统一前缀**：所有 frame 输出带 `[base-client]` cyan 前缀，与 webpack / dev-server / Electron 的原生输出可视区分（webpack 已被 M4 静默化，详见 M4）。
+- **接管 webpack stats**：编译反馈走 `compileSuccess` / `compileFailure` 摘要行（一行内含 name + ms + size），不再让用户面对默认 `stats.toString()` 的整屏输出。**仅在失败时**才输出 `stats.toString({ colors: true })` 全量信息以便排查。
+- **基于 picocolors**：极简 ANSI 上色，零依赖压力（picocolors 已是 dependency）。不引入 chalk / kleur 等大体量库。
+- **可测试**：所有 API 走 `console.log` / `console.error`，测试时 mock 即可断言（见 M1 plan）。

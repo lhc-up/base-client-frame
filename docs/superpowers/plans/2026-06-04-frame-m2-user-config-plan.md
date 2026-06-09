@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 实现 `src/config/index.js`，提供 `loadUserConfig(configPath?)` 与 `resolveBuildConfig({ env, mode, command, cliOptions })`：定位 / 加载 `bc.config.js`，调用其函数形态拿到用户覆盖，用 `webpack-merge` 与 M4 预设深合并，输出三进程 webpack 配置。
+**Goal:** 实现 `src/config/index.js`，提供 `loadUserConfig(configPath?)` 与 `resolveBuildConfig(ctx)`：定位 / 加载 `bc.config.js`，调用其函数形态拿到用户覆盖，用 `webpack-merge` 与 M4 预设深合并，输出三进程 webpack 配置。
 
-**Architecture:** 两个互补的函数：`loadUserConfig` 负责"找到并加载"（cwd 探测 + `--config` 优先），返回**用户配置函数**（spec 要求统一函数形态）；`resolveBuildConfig` 负责"调用 + 合并"，把 `{ command, mode, env, cliOptions }` 传给用户函数，将返回值与 M4 三 getter 的预设逐进程 `webpack-merge`。
+**Architecture:** 两个互补的函数：`loadUserConfig` 负责"找到并加载"（cwd 探测 + `--config` 优先），返回**用户配置函数**（spec 要求统一函数形态）；`resolveBuildConfig` 负责"调用 + 合并"，**收 ctx 整体**（含 `cliOptions / env / mode / command / isDev / isProd`，与 M1 §五"上下文容器"约定一致），把整个 ctx 透传给用户函数，将返回值与 M4 三 getter 的预设逐进程 `webpack-merge`。
 
 **Tech Stack:** Node 20+ / Jest 30 / webpack-merge 6 / CommonJS
 
@@ -294,14 +294,15 @@ git commit -m "feat(M2): loadUserConfig — cwd 探测 / --config 路径 / 函�
 ### 接口契约
 
 ```js
-resolveBuildConfig({ env, mode, command, cliOptions }): {
+resolveBuildConfig(ctx): {
   main:     webpackConfig,
   preload:  webpackConfig,
   renderer: webpackConfig,
 }
 ```
-- 内部：`loadUserConfig(cliOptions.config)` → 得到用户函数
-- 调用用户函数，传 `{ command, mode, env, cliOptions }` 作为 ctx
+- 入参 `ctx` 来自 M1 派发器：`{ cliOptions, env, mode, command, isDev, isProd }`
+- 内部：解构出 `env / mode / cliOptions`；`loadUserConfig(cliOptions.config)` 得到用户函数
+- 调用用户函数，**把整个 ctx 透传**（含 `isDev / isProd`）；ctx 新增字段自动可见，无需改本函数
 - 用户函数返回 `{ main?, preload?, renderer? }` 三个进程的覆盖（任意缺省）
 - 用 `webpack-merge` 把 M4 预设与对应进程的用户覆盖逐进程合并
 - 返回最终三进程 webpack 配置对象
@@ -329,17 +330,19 @@ describe('resolveBuildConfig', () => {
   test('返回包含 main / preload / renderer 三个键的对象', () => {
     writeUserConfig(tmp.dir, 'module.exports = () => ({});');
     const cfg = resolveBuildConfig({
+      cliOptions: {},
       env: { BC_X: '1' },
       mode: 'production',
       command: 'build',
-      cliOptions: {},
+      isDev: false,
+      isProd: true,
     });
     expect(cfg).toHaveProperty('main');
     expect(cfg).toHaveProperty('preload');
     expect(cfg).toHaveProperty('renderer');
   });
 
-  test('ctx 完整透传给用户函数（command/mode/env/cliOptions）', () => {
+  test('ctx 完整透传给用户函数（含 isDev/isProd）', () => {
     writeUserConfig(
       tmp.dir,
       `module.exports = (ctx) => {
@@ -348,17 +351,21 @@ describe('resolveBuildConfig', () => {
        };`
     );
     const cfg = resolveBuildConfig({
+      cliOptions: { port: 9000, debug: true },
       env: { BC_API: 'http://x' },
       mode: 'development',
       command: 'dev',
-      cliOptions: { port: 9000, debug: true },
+      isDev: true,
+      isProd: false,
     });
     const passedCtx = JSON.parse(cfg.main.output.__ctx);
     expect(passedCtx).toEqual({
-      command: 'dev',
-      mode: 'development',
-      env: { BC_API: 'http://x' },
       cliOptions: { port: 9000, debug: true },
+      env: { BC_API: 'http://x' },
+      mode: 'development',
+      command: 'dev',
+      isDev: true,
+      isProd: false,
     });
   });
 });
@@ -382,10 +389,11 @@ const {
   getRendererPreset,
 } = require('./presets');
 
-function resolveBuildConfig({ env, mode, command, cliOptions }) {
+function resolveBuildConfig(ctx) {
+  const { env, mode, cliOptions } = ctx;
   const rootDir = process.cwd();
   const userFn = loadUserConfig(cliOptions && cliOptions.config);
-  const userConfig = userFn({ command, mode, env, cliOptions }) || {};
+  const userConfig = userFn(ctx) || {};   // 整体透传 ctx（含 isDev/isProd），不解构-重组
 
   return {
     main: merge(
@@ -630,14 +638,15 @@ git commit -m "test(M2): 补 API 表面 smoke test 与全套回归"
 | Spec 章节 | 要求 | 覆盖在哪 |
 |-----------|------|----------|
 | §二 配置形态 | 统一函数形态 `(ctx) => config`，非函数抛错 | Task 1 Step 1.8 |
-| §二 ctx 字段 | `{ command, mode, env, cliOptions }` 四项 | Task 2 Step 2.1 |
+| §二 ctx 字段 | `{ cliOptions, env, mode, command, isDev, isProd }` 六项（含 M1 派生） | Task 2 Step 2.1（ctx 透传含 isDev/isProd） |
 | §三 协议结构 | 顶层 `main / preload / renderer` | Task 2 Step 2.1 |
 | §三 renderer.devServer | 字段保留、由 dev 命令消费 | Task 2 Step 2.8 |
 | §四 定位 | cwd 探测 `{js,cjs}`；`.mjs` 抛"暂不支持" | Task 1 Step 1.6 / 1.7 |
 | §四 按需必需 | dev / build / pack 调到 → 缺失抛错 | Task 1 Step 1.2 |
 | §四 按需必需 | preview 不读 → 不在 M2 内做（preview 由 M1 派发器跳过 initEnv 与 resolveBuildConfig） | M1 plan 覆盖；本 plan 已保留"调到即必需"语义 |
 | §四 不支持 TS | 加载链路简，仅 `require` | Task 1 实现仅用 `require` |
-| §五 加载与合并 | `loadUserConfig(cliOptions.config)` → 函数 → ctx | Task 1 + Task 2 |
+| §五 加载与合并 | `loadUserConfig(cliOptions.config)` → 函数；ctx 整体透传给 userFn（不解构-重组） | Task 1 + Task 2 Step 2.3 |
+| §五 函数签名 | `resolveBuildConfig(ctx)`（收 ctx 整体，与 M1 §五对齐） | Task 2 Step 2.3 |
 | §五 合并语义 | 用 `webpack-merge` 的 `merge`：数组追加、对象深合并 | Task 2 Step 2.6 / 2.7 |
 | §五 用户进程缺省 | `userConfig?.main \|\| {}` | Task 2 Step 2.9 |
 | §六 优先级 | CLI > 命令 > bc.config > 预设 — bc.config 用 webpack-merge 覆盖预设 | Task 2 Step 2.5（标量覆盖）/ 2.6（数组追加） |
@@ -648,7 +657,7 @@ git commit -m "test(M2): 补 API 表面 smoke test 与全套回归"
 
 **类型一致**：
 - `loadUserConfig(configPath?: string) → Function`：Task 1 定义、Task 2 内部调用、Task 3 表面测试一致。
-- `resolveBuildConfig({ env, mode, command, cliOptions }) → { main, preload, renderer }`：Task 2 定义、内部 require M4 三 getter、Task 3 表面测试一致。
+- `resolveBuildConfig(ctx) → { main, preload, renderer }`：Task 2 定义、内部 require M4 三 getter、Task 3 表面测试一致（ctx 整体透传，含 isDev/isProd）。
 - `loadUserConfig` 抛错文本（"未找到 bc.config" / "暂不支持" / "必须导出函数"）跨 step 一致。
 
 **模块边界**：M2 `require` 的外部模块仅 `fs` / `path` / `webpack-merge` / `./presets`（M4）；**没有** `require('webpack')`、`require('webpack-dev-server')`、`require('../env')`、`require('child_process')`。

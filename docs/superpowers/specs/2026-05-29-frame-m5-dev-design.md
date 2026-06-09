@@ -21,12 +21,15 @@ renderer 始终由 dev-server 监听、热更新，不受 `--watch-main` 影响�
 ## 三、启动流程（默认模式，`--watch-main` 关）
 
 ```
-ctx = { cliOptions, env, mode:'development', command:'dev' }   // 来自 M1
+ctx = { cliOptions, env, mode:MODES.DEV, command:'dev', isDev:true, isProd:false }   // 来自 M1
 { main, preload, renderer } = resolveBuildConfig(ctx)          // M2
 
 并行：
-  ① 一次性构建 main + preload（webpack(config, cb)），产物落 app/main、app/preload
-  ② 启动 renderer dev-server（内存生成入口页面 + HMR）
+  ① 一次性构建 main + preload（webpack([main, preload]).run(cb)），产物落 app/main、app/preload
+     编译反馈走 logger.compileSuccess / compileFailure / compileWarning（见第十节）
+  ② 启动 renderer dev-server（内存生成入口页面 + HMR），编译反馈接管见 renderer hooks.done
+全程：
+  ora 编译 spinner 在 server.start() 之后启动，三路 compiler（main / preload / renderer）首次完成后停 spinner
 待 ① ② 均就绪：
   ③ 解析 electron 可执行文件 + 解析主进程入口（见第七节）
   ④ spawn Electron，注入 env：NODE_ENV=development、RENDERER_DEV_URL=http://<host>:<port>
@@ -42,8 +45,8 @@ main + preload 改用 webpack **watch 模式**（`compiler.watch(...)`）持续�
 
 | 编译结果 | 动作 |
 |---|---|
-| 成功 | `killElectron(当前进程)` → 重新 spawn（加载新代码） |
-| 失败 | 打印 `stats.toString()` 错误到控制台；**不动 Electron**——保留正在运行的上一版本、不重启。破坏的构建即便重启也起不来，控制台报错即第一时间的反馈 |
+| 成功 | logger.compileSuccess 摘要行 → `killElectron(当前进程)` → 重新 spawn（加载新代码） |
+| 失败 | logger.compileFailure 摘要 + `stats.toString({colors:true})` 错误全量到控制台；**不动 Electron**——保留正在运行的上一版本、不重启。破坏的构建即便重启也起不来，控制台报错即第一时间的反馈 |
 
 watch 模式下，**首次 Electron 启动由首次成功编译触发**，与后续重启走同一条路径（dev-server 仍独立先行启动）。若首次编译即失败，则只打印错误、暂不启动 Electron，待编译成功后再启动。
 
@@ -94,6 +97,10 @@ const devServerOptions = {
   host,                    // 优先级：--host > renderer.devServer.host > localhost
   port,                    // 优先级：--port > renderer.devServer.port > 8023
   hot: true,               // frame 保留：HMR 为 dev 的核心约定
+  devMiddleware: {
+    stats: false,          // 静默 dev-middleware 自动 stats 输出（与 M4 renderer stats:'none' 配套）
+    ...(userDevServer.devMiddleware || {}),
+  },
 };
 const server = new WebpackDevServer(devServerOptions, webpack(rendererWebpack));
 ```
@@ -101,6 +108,7 @@ const server = new WebpackDevServer(devServerOptions, webpack(rendererWebpack));
 - **用户可配**：proxy、headers、setupMiddlewares 等一切 devServer 选项，含 `host` / `port`。
 - **`host` / `port` 三级优先级**：CLI `--host` / `--port` > `renderer.devServer` 中的对应值 > 默认（`localhost` / `8023`）。因此 CLI 未显式传入时，用户在 `bc.config.js` 配的 host / port 才能生效——故 `--host` / `--port` 在 CLI 层不预置默认值，由本命令兜底（见 M1）。
 - **frame 仅强制 `hot: true`**：HMR 为 dev 的核心约定，置于 `...userDevServer` 之后不可被覆盖；`historyApiFallback` 仅为默认值（位于 spread 之前），用户可覆盖。
+- **`devMiddleware.stats: false` 为默认**（位于 `...(userDevServer.devMiddleware || {})` 之前），用户可在 `bc.config.js` 的 `renderer.devServer.devMiddleware.stats` 重新打开；与 M4 renderer 预设 `stats: 'none'` 配套实现"webpack 与 dev-server 联合静默 + frame logger 接管"。
 - `devServer` 仅由 webpack-dev-server 消费，故在传给 `webpack()` 前从 renderer 配置中摘出，不混入 compiler。
 - 注入的 `RENDERER_DEV_URL` 使用解析后的 `host` / `port`：`http://${host}:${port}`。
 - HMR 能否保留状态取决于用户为 renderer 追加的框架 loader；frame 的职责至"开启 `hot`"为止。
@@ -159,16 +167,74 @@ spawn(resolveElectron(rootDir), [resolveMainEntry(rootDir)], {
 
 | 方向 | 接口 | 说明 |
 |------|------|------|
-| M1 → M5 | `action(ctx)`，`ctx = { cliOptions, env, mode, command }` | 命令派发入口 |
-| M5 → M2 | `resolveBuildConfig({ env, mode, command, cliOptions })` | 取三进程构建配置 |
+| M1 → M5 | `action(ctx)`，`ctx = { cliOptions, env, mode, command, isDev, isProd }` | 命令派发入口 |
+| M5 → M2 | `resolveBuildConfig(ctx)` | 取三进程构建配置（收 ctx 整体） |
+| M5 → logger | `info` / `compileSuccess` / `compileFailure` / `compileWarning` / `footer` / `error` | 输出反馈（详见 §十） |
 
 M5 **不负责**：构建配置合并（M2）、预设内容（M4）、env 读取（M3）。
 
 frame 在渲染入口上**只提供构建信息**：dev 的 `RENDERER_DEV_URL`；生产入口的约定位置 `app/renderer/index.html`（由用户自注册的 `html-webpack-plugin` 决定，frame 不内置该插件）。运行时入口选择由用户运行时代码负责。
 
-## 十、文件结构
+## 十、编译反馈与输出接管
+
+dev 全程的 frame 自有输出由 `src/logger.js`（M1 §十）统一负责，与 M4 renderer 的 `stats:'none'` + `infrastructureLogging.level:'warn'` + §六的 `devMiddleware.stats:false` 配套，实现"webpack 自身静默 + frame 摘要反馈"双线分离。
+
+### 编译 spinner（src/cli/utils/compile-spinner.js）
+
+```js
+const spinner = createCompileSpinner('编译中...');
+spinner.start();
+// 三个 compiler（main / preload / renderer）各自首次完成后调 tickInitial()，
+// 累计达 3 次后 spinner.stop()。watch 期间不再挂 spinner。
+```
+
+- 基于 `ora`，文案显示 `编译中... <累计耗时>`，1s 间隔刷新。
+- `setInterval` 加 `.unref()` 避免阻塞 Node 退出。
+- 每次 logger 输出前调 `spinner.clear()`，避免 spinner 行被 stdout 卡断。
+
+### stats 摘要（src/cli/utils/format.js）
+
+```js
+function extractStatsSummary(stats, fallbackName) {
+  // stats.toJson({ assets, errors, warnings, modules:false, chunks:false, children:false, ... })
+  return { name, ms, totalSize, errorCount, warningCount };
+}
+```
+
+纯函数提取摘要字段，输入是 webpack `Stats` 对象，输出供 logger.compileSuccess / Failure / Warning 消费。三处共用一份摘要逻辑，避免反馈格式漂移。
+
+### renderer hooks.done 接管
+
+```js
+const rendererCompiler = webpack(rendererWebpack);
+rendererCompiler.hooks.done.tap('base-client', (stats) => {
+  const summary = extractStatsSummary(stats, 'renderer');
+  spinner.clear();
+  if (summary.errorCount > 0) {
+    logger.compileFailure(summary.name);
+    console.error(stats.toString({ colors: true }));  // 失败时才打印 stats 全量
+    tickInitial();
+    return;
+  }
+  logger.compileSuccess(summary.name, summary.ms, summary.totalSize);
+  logger.compileWarning(summary.name, summary.warningCount);
+  logger.footer({ env, url, watch: !!cliOptions.watchMain });  // 完成时打 footer
+  tickInitial();
+});
+```
+
+- 首次成功后输出 footer：`[base-client] env=<BC_ENV> | <url> | watch:on`；watch 模式下每次重编成功也会输出 footer，与 banner 形成可视边界。
+
+### main + preload 反馈
+
+非 watch 路径使用 `webpack([main, preload]).run(cb)`，回调内对 `multiStats.stats` 数组逐一调 logger（与 renderer 同源），失败时 reject。watch 路径在 `compiler.watch(...)` 回调里同样调 logger，debounce 100ms 合并连续重编。
+
+## 十一、文件结构
 
 ```
-src/cli/commands/dev.js     # dev 命令：流程编排、watch 重启、dev-server、spawn Electron
-src/cli/utils/electron.js   # resolveElectron(rootDir) + resolveMainEntry(rootDir) + killElectron(child)，M5/M6/M7 共用
+src/cli/commands/dev.js                # dev 命令：流程编排、watch 重启、dev-server、spawn Electron
+src/cli/commands/dev-options.js        # resolveDevServerOptions：三级优先级 + frame 强制项 + devMiddleware.stats 默认
+src/cli/utils/electron.js              # resolveElectron(rootDir) + resolveMainEntry(rootDir) + killElectron(child)，M5/M6/M7 共用
+src/cli/utils/format.js                # extractStatsSummary（M5/M6 共用）
+src/cli/utils/compile-spinner.js       # createCompileSpinner（M5/M6 共用）
 ```

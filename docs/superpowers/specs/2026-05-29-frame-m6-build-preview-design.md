@@ -15,26 +15,39 @@ M6 是命令执行层的生产侧，mode 固定 `production`（M1 隐含）：
 
 ### 流程
 
-build 命令的 action 调用共享步骤 `runProductionBuild({ env, command, cliOptions })`（亦供 M7 pack 复用）。
+build 命令的 action 调用共享步骤 `runProductionBuild(ctx)`（亦供 M7 pack 复用）。
 
 ### 共享步骤 runProductionBuild
 
 ```
-runProductionBuild({ env, command, cliOptions })
-  ① 清空输出根目录 app/
-  ② { main, preload, renderer } = resolveBuildConfig({ env, mode:'production', command, cliOptions })   // M2
-  ③ 并行三进程生产构建（Promise.all(webpack(main), webpack(preload), webpack(renderer))）
+runProductionBuild(ctx)   // ctx 来自 M1，含 { cliOptions, env, mode:MODES.PROD, command, isDev:false, isProd:true }
+  ① 清空输出根目录 app/（fse.emptyDirSync）
+  ② { main, preload, renderer } = resolveBuildConfig(ctx)   // M2，收 ctx 整体
+  ③ 启动编译 spinner（createCompileSpinner，详见 M5 §十）
+  ④ 并行三进程生产构建（Promise.all(runOne(main), runOne(preload), runOne(renderer))）
+     每个 runOne 内：webpack(config, cb) → spinner.clear() → logger.compileSuccess/Failure + compileWarning
      产物：app/main/index.js、app/preload/index.js、app/renderer/（index.html + index.js + assets）
+  ⑤ finally 中 spinner.stop()
 ```
 
-- `command` 由调用方显式传入：build 命令传 `'build'`，M7 pack 命令传 `'pack'`，由 `resolveBuildConfig` 透传至用户 `bc.config.js`，使用户能据此分支配置。
+- **签名收 ctx 整体**：`runProductionBuild(ctx)` 与 M1 §五"上下文容器"约定一致；M7 pack 也按 `runProductionBuild(ctx)` 调用，`command` 已在 ctx 中（pack 传 `'pack'`、build 传 `'build'`）。
+- `command` 由 ctx 透传至用户 `bc.config.js`，使用户能据此分支配置。
+- **清理方式**：`fse.emptyDirSync(appDir)`（fs-extra），目录不存在时也安全；优于 `fs.rmSync`，避免 Node 版本与递归 rm 行为差异。
 - renderer 的 `index.html` 由用户在 `bc.config.js` 的 `renderer.plugins` 自注册的 `html-webpack-plugin` 产出（frame 不内置；见 M4 §三入口页面）；production 下 `devtool=false`（见 M4）。
 - 三进程**并行**构建，互不依赖。
-- 抽为独立函数后，build 与 pack 共用同一份"清空 + 三进程生产构建"实现，避免漂移。
+- 抽为独立函数后，build 与 pack 共用同一份"清空 + 三进程生产构建 + 编译反馈"实现，避免漂移。
+
+### 编译反馈
+
+复用 M5 §十 的输出契约（同一份 logger / spinner / extractStatsSummary）：
+
+- spinner 在三个 runOne 启动前 start，每次 logger 输出前 `spinner.clear()`，全部完成后 finally 中 stop。
+- 单进程成功：`logger.compileSuccess(name, ms, sizeBytes)` + `logger.compileWarning(name, count)`。
+- 单进程失败：`logger.compileFailure(name)` + `stats.toString({colors:true})` 全量，reject Promise。任一失败由 M1 `runCommand` 统一报告、退出码 `1`。
 
 ### 输出清理
 
-`build` 在构建前**整体清空 `app/`**，是输出目录生命周期的**唯一 owner**：
+`build` 在构建前**整体清空 `app/`**（`fse.emptyDirSync(appDir)`），是输出目录生命周期的**唯一 owner**：
 
 - 一次清空覆盖 `app/main`、`app/preload`、`app/renderer`，以及将来可能新增的公共目录（如 `app/public`、`app/resource`），**新增目录零成本覆盖、无需逐处补清理逻辑**。
 - 不采用 webpack 各进程 `output.clean`（那只清各自 `output.path`、漏掉公共目录）；M4 预设不含 clean。
@@ -42,7 +55,7 @@ runProductionBuild({ env, command, cliOptions })
 
 ### 失败处理
 
-任一进程编译失败 → `throw`，并完整打印 `stats.toString()`，由 M1 `runCommand` 统一报告、退出码 `1`。
+任一进程编译失败 → `runOne` 内 `logger.compileFailure(name)` + `console.error(stats.toString({colors:true}))` 后 reject；由 `Promise.all` 向外抛出，最终由 M1 `runCommand` 统一报告、退出码 `1`。
 
 ### 命令选项
 
@@ -53,6 +66,9 @@ runProductionBuild({ env, command, cliOptions })
 ### 流程
 
 ```js
+const { MODES } = require('../../mode');
+// 命令模板：module.exports = { name: 'preview', mode: MODES.PROD, skipEnv: true, action }
+
 spawn(resolveElectron(rootDir), [resolveMainEntry(rootDir)], {
   stdio: 'inherit',
   env: { ...process.env, NODE_ENV: 'production' },   // 不注入 RENDERER_DEV_URL
@@ -62,6 +78,7 @@ electron.on('close', (code) => process.exit(code));
 
 - 不注入 `RENDERER_DEV_URL` → `NODE_ENV` 为 `production`，用户 main 走 `loadFile(app/renderer/index.html)`（生产产物）。
 - `resolveElectron` / `resolveMainEntry` 复用 M5 的共享工具（见第五节）。
+- 命令模板 mode 字段写 `MODES.PROD`（mode 抽象详见 M1 §九），与 build 共用同一份字面量来源。
 
 ### 契约
 
@@ -100,8 +117,9 @@ electron.on('close', (code) => process.exit(code));
 
 | 方向 | 接口 | 说明 |
 |------|------|------|
-| M1 → M6 | `action(ctx)`，`ctx = { cliOptions, env, mode, command }` | 命令派发入口 |
-| M6 → M2 | `resolveBuildConfig({ env, mode, command, cliOptions })` | 取三进程构建配置（仅 build） |
+| M1 → M6 | `action(ctx)`，`ctx = { cliOptions, env, mode, command, isDev, isProd }` | 命令派发入口 |
+| M6 → M2 | `resolveBuildConfig(ctx)` | 取三进程构建配置（仅 build；收 ctx 整体） |
+| M6 → logger | `compileSuccess` / `compileFailure` / `compileWarning` | 编译反馈（复用 M5 §十契约） |
 
 M6 **不负责**：构建配置合并（M2）、预设内容（M4）、env 读取（M3）、安装包构建（M7）。
 

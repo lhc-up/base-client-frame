@@ -18,7 +18,7 @@ M7 不负责：webpack 三进程构建本身（M6 build 流程）、配置预设
 
 ```js
 // 项目根 electron-builder.config.js
-module.exports = ({ command, mode, env, cliOptions, replace }) => ({
+module.exports = ({ command, mode, env, cliOptions, isDev, isProd, replace }) => ({
   appId: 'com.foo.bar',
   productName: 'FooBar',
   win: {
@@ -40,15 +40,16 @@ module.exports = ({ command, mode, env, cliOptions, replace }) => ({
 
 返回值即官方 electron-builder Configuration 对象，无额外嵌套层。
 
-`ctx` 字段：
+`ctx` 字段（与 M1 §五"上下文容器" + `replace` 工具的并集）：
 
 | 字段 | 取值 | 含义 |
 |------|------|------|
 | `command` | `'pack'` | 当前命令名 |
-| `mode` | `'production'` | 命令隐含 |
+| `mode` | `MODES.PROD` | 命令隐含（字面量 `'production'`） |
 | `env` | 对象 | 解析后的环境变量（M3 提供） |
 | `cliOptions` | 对象 | 本次命令的 CLI 参数（含 `platform` / `arch` / `unpack` / `sign` 等） |
-| `replace` | `(arr) => taggedArr` | 标记数组字段"整组替换预设值"（见第四节） |
+| `isDev` / `isProd` | `boolean` | 来自 M1 `deriveMode(mode)` 派生（pack 必为 `isProd=true`），与 bc.config 函数 ctx 对齐 |
+| `replace` | `(arr) => taggedArr` | 标记数组字段"整组替换预设值"（见第四节）；由 `resolvePackConfig` 注入 ctx，不来自 M1 |
 
 ### 配置定位
 
@@ -180,33 +181,38 @@ function customMerge(preset, user) {
 ### 流程
 
 ```
-① resolvePackConfig({ env, mode:'production', command:'pack', cliOptions })
+① resolvePackConfig(ctx)   // ctx 来自 M1：{ cliOptions, env, mode:MODES.PROD, command:'pack', isDev:false, isProd:true }
    ├─ 加载用户 electron-builder.config.js（必需，找不到抛错）
-   ├─ userConfig = userFn({ command, mode, env, cliOptions, replace })
+   ├─ userConfig = userFn({ ...ctx, replace })          // 把 ctx 整体透传，再注入 replace
    ├─ preset = getPackPreset({ rootDir, env, mode, cliOptions, pkgJson })
    └─ mergedConfig = customMerge(preset, userConfig)
-② runProductionBuild({ env, command:'pack', cliOptions })  // M6 共享步骤：清空 app/ + 三进程生产构建
-③ electronBuilder = require(resolveElectronBuilder(rootDir))
-④ targets = buildTargets(cliOptions)
-⑤ await electronBuilder.build({ ...targets, config: mergedConfig })
+② 清空 mergedConfig.directories.output（默认 dist/），避免上次 pack 残留干扰
+③ runProductionBuild(ctx)   // M6 共享步骤：清空 app/ + 三进程生产构建（编译反馈走 logger）
+④ electronBuilder = require(resolveElectronBuilder(rootDir))
+⑤ targets = buildTargets(cliOptions)
+⑥ await electronBuilder.build({ ...targets, config: mergedConfig })
 ```
 
-① 放在 ② 之前，使 user config 问题（未找到、函数体抛错、平台 / 架构非法）能**快速失败**，不浪费一次完整构建的时间。
+① 放在 ③ 之前，使 user config 问题（未找到、函数体抛错、平台 / 架构非法）能**快速失败**，不浪费一次完整构建的时间。
+② 紧随 ① 之后清空 `directories.output`：与 M6 build 整体清空 `app/` 配对，使 pack 输出（默认 `dist/`）的生命周期由 pack 命令自身负责清理；electron-builder 不会主动清空整个 output 目录，未清理会导致旧产物与新产物混杂（如不同架构 / 版本的安装包并存难以分辨）。
 
 ### resolvePackConfig
 
 ```js
-function resolvePackConfig({ env, mode, command, cliOptions }) {
+function resolvePackConfig(ctx) {
+  const { env, mode, cliOptions } = ctx;
   const rootDir = process.cwd();
   const pkgJson = require(path.resolve(rootDir, 'package.json'));
   const raw = loadPackUserConfig(rootDir, cliOptions.packConfig);   // 接入 --pack-config；找不到抛错
-  const userConfig = raw({ command, mode, env, cliOptions, replace });
+  const userConfig = raw({ ...ctx, replace });                       // ctx 整体透传 + replace 注入
   const preset = getPackPreset({ rootDir, env, mode, cliOptions, pkgJson });
   return customMerge(preset, userConfig);
 }
 ```
 
-`rootDir` 取 `process.cwd()`、`pkgJson` 由 `rootDir/package.json` 读取，与 M2 `resolveBuildConfig` 同源。`loadPackUserConfig` 优先用 `cliOptions.packConfig`（`--pack-config` 解析后的值），否则走 cwd 探测，找不到抛错。
+- **函数签名收 ctx 整体**：与 M2 `resolveBuildConfig(ctx)` 风格统一；ctx 新增字段（isDev/isProd 等）自动透传给用户的 `electron-builder.config.js` 函数。
+- `rootDir` 取 `process.cwd()`、`pkgJson` 由 `rootDir/package.json` 读取，与 M2 `resolveBuildConfig` 同源。
+- `loadPackUserConfig` 优先用 `cliOptions.packConfig`（`--pack-config` 解析后的值），否则走 cwd 探测，找不到抛错。
 
 ### targets 推导（buildTargets）
 
@@ -268,16 +274,16 @@ electron-builder **不**列入 frame 的 `dependencies` / `peerDependencies`；�
 
 | 方向 | 接口 | 说明 |
 |------|------|------|
-| M1 → M7 | `action(ctx)`，`ctx = { cliOptions, env, mode, command }` | 命令派发入口 |
-| M7 → M6 | `runProductionBuild({ env, command:'pack', cliOptions })` | M6 共享步骤，pack 内部前置调用 |
-| M7 → M2 | 间接（经 `runProductionBuild` 内调 `resolveBuildConfig`） | 三进程构建配置 |
+| M1 → M7 | `action(ctx)`，`ctx = { cliOptions, env, mode, command, isDev, isProd }` | 命令派发入口 |
+| M7 → M6 | `runProductionBuild(ctx)` | M6 共享步骤，pack 内部前置调用，收 ctx 整体（command 已在 ctx 中为 `'pack'`） |
+| M7 → M2 | 间接（经 `runProductionBuild` 内调 `resolveBuildConfig(ctx)`） | 三进程构建配置 |
 | M7 → M3 | 间接（经 `ctx.env`） | 解析后的 env 对象 |
 
 ### M7 自有接口
 
 | 函数 | 角色 |
 |------|------|
-| `resolvePackConfig({ env, mode, command, cliOptions })` | M7 对 pack 命令暴露的主接口，返回合并后的 electron-builder 配置 |
+| `resolvePackConfig(ctx)` | M7 对 pack 命令暴露的主接口，返回合并后的 electron-builder 配置；ctx 整体透传至用户函数 |
 | `getPackPreset({ rootDir, env, mode, cliOptions, pkgJson })` | 内部，被 `resolvePackConfig` 调用 |
 | `customMerge(preset, userConfig)` | 内部深合并 + 数组追加 + `REPLACE` Symbol 识别 |
 | `buildTargets(cliOptions)` | 内部，cliOptions → electron-builder `CliOptions` 子集 |

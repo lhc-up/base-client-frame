@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 实现 frame 的 CLI 入口与命令派发框架：`runCommand` 派发器（initEnv → 组装 ctx → 调用 action → 统一错误处理）、`createCli` 注册器（cac 全局选项 + 命令清单注入）、命令清单文件、`bin/base-client.js` 发布入口。不实现任何具体命令（dev/build/preview/pack 由 M5/M6/M7 接入）。
+**Goal:** 实现 frame 的 CLI 入口与命令派发框架：`runCommand` 派发器（initEnv → mode 派生 → 组装 ctx → process.title + banner → 调用 action → 统一错误处理）、`createCli` 注册器（cac 全局选项 + 命令清单注入）、命令清单文件、`bin/base-client.js` 发布入口。同步落地 frame 全局共享基础设施：`src/mode.js`（MODES + deriveMode）与 `src/logger.js`（CLI 输出层）。不实现任何具体命令（dev/build/preview/pack 由 M5/M6/M7 接入）。
 
-**Architecture:** 三个文件协作：`src/cli/index.js` 暴露 `createCli(commands)` 工厂与 `runCommand(cmd, cliOptions)` 派发器；`src/cli/commands/index.js` 是命令清单（M1 创建为空数组，M5/M6/M7 各自往里 require 自己的命令模块）；`bin/base-client.js` 加载产物并 `cli.parse()`。CLI 注册采用**依赖注入**风格（命令清单作为参数传入 `createCli`），方便测试。
+**Architecture:** 五个文件协作：`src/mode.js` 提供 mode 字面量唯一来源与 `deriveMode` 派生工厂；`src/logger.js` 是 CLI 输出层（基于 picocolors，统一 `[base-client]` 前缀，9 个 API + 2 个 format helper）；`src/cli/index.js` 暴露 `createCli(commands)` 工厂与 `runCommand(cmd, cliOptions)` 派发器（派发器内调 `deriveMode` + `logger.banner` + `process.title`）；`src/cli/commands/index.js` 是命令清单（M1 创建为空数组，M5/M6/M7 各自往里 require 自己的命令模块）；`bin/base-client.js` 加载产物并 `cli.parse()`。CLI 注册采用**依赖注入**风格（命令清单作为参数传入 `createCli`），方便测试。
 
 **Tech Stack:** Node 20+ / Jest 30 / cac 6 / CommonJS
 
@@ -19,31 +19,166 @@
 ## File Structure
 
 **Create:**
+- `src/mode.js` — `MODES` + `deriveMode`（横切基础设施）
+- `src/logger.js` — CLI 输出层（横切基础设施）
 - `src/cli/index.js` — `createCli` + `runCommand`
 - `src/cli/commands/index.js` — 命令清单（M1 阶段为空数组）
 - `bin/base-client.js` — 发布入口
+- `tests/unit/mode.test.js` — `MODES` / `deriveMode` 单测
+- `tests/unit/logger.test.js` — logger 9 个 API + format helpers 单测
 - `tests/unit/cli-runCommand.test.js` — `runCommand` 单测
 - `tests/unit/cli-createCli.test.js` — `createCli` 单测
 
 **Modify:**
-- 无（`cac` 与 `lodash` 已在 dependencies；jest 已在 devDependencies）
+- `package.json` — 加 `picocolors ^1.1.1` 到 dependencies（`cac` / `lodash` 已存在；jest 已在 devDependencies）
 
 ---
 
 ## Task 0：依赖核对
 
-**Files:**（仅查看）
+**Files:**（查看 + 装一个依赖）
 
 - [ ] **Step 0.1：确认 cac 已存在**
 
 打开 `package.json` 确认 `dependencies.cac` 为 `^6.7.x`。若不存在则 `npm i cac@^6.7.14`。
 
-- [ ] **Step 0.2：跑既有测试基线**
+- [ ] **Step 0.2：安装 picocolors**
+
+Run: `npm i picocolors@^1.1.1`
+
+logger.js 唯一第三方依赖。极小（< 6 KB），无传递依赖。
+
+- [ ] **Step 0.3：跑既有测试基线**
 
 Run: `npm test`
 Expected：M3 + M4 + M2 共 ≥ 52 个 case 全绿。
 
-无需 commit（本 Task 不动文件）。
+无需 commit（本 Task 不动业务文件）。
+
+---
+
+## Task 0.5：横切基础设施 — src/mode.js
+
+**Files:**
+- Create: `src/mode.js`
+- Test: `tests/unit/mode.test.js`
+
+### 接口契约
+
+```js
+MODES: { DEV: 'development', PROD: 'production' }    // Object.freeze 锁定
+deriveMode(mode): { isDev: boolean, isProd: boolean }
+  - 非法 mode → 抛 Error，消息含 mode 字面量与收到值（fail-fast）
+```
+
+### TDD
+
+- [ ] **Step 0.5.1：写 mode 测试**
+
+```js
+// tests/unit/mode.test.js
+const { MODES, deriveMode } = require('../../src/mode');
+
+describe('MODES', () => {
+    test('锁定字面量为 development / production', () => {
+        expect(MODES.DEV).toBe('development');
+        expect(MODES.PROD).toBe('production');
+    });
+    test('对象被冻结，不可改', () => {
+        expect(() => { MODES.DEV = 'x'; }).toThrow();
+    });
+});
+
+describe('deriveMode', () => {
+    test('development → isDev:true, isProd:false', () => {
+        expect(deriveMode(MODES.DEV)).toEqual({ isDev: true, isProd: false });
+    });
+    test('production → isDev:false, isProd:true', () => {
+        expect(deriveMode(MODES.PROD)).toEqual({ isDev: false, isProd: true });
+    });
+    test.each([undefined, null, '', 'dev', 'prod', 'staging', 0, true])(
+        '非法 mode (%p) → 抛错且消息含字面量', (bad) => {
+            expect(() => deriveMode(bad)).toThrow(/development|production/);
+        });
+});
+```
+
+- [ ] **Step 0.5.2：实现**
+
+```js
+// src/mode.js
+const MODES = Object.freeze({
+    DEV: 'development',
+    PROD: 'production',
+});
+
+const VALID_MODES = new Set(Object.values(MODES));
+
+function deriveMode(mode) {
+    if (!VALID_MODES.has(mode)) {
+        throw new Error(
+            `[base-client] mode 必须是 ${MODES.DEV} 或 ${MODES.PROD}，收到: ${JSON.stringify(mode)}`
+        );
+    }
+    return {
+        isDev: mode === MODES.DEV,
+        isProd: mode === MODES.PROD,
+    };
+}
+
+module.exports = { MODES, deriveMode };
+```
+
+- [ ] **Step 0.5.3：跑测试**
+
+Run: `npx jest tests/unit/mode.test.js`
+Expected：≥ 12 passed（2 MODES + 2 合法 + 8 非法 each）。
+
+- [ ] **Step 0.5.4：commit**
+
+```bash
+git add src/mode.js tests/unit/mode.test.js
+git commit -m "feat: src/mode.js — MODES 常量 + deriveMode 工厂（fail-fast）"
+```
+
+---
+
+## Task 0.6：横切基础设施 — src/logger.js
+
+**Files:**
+- Create: `src/logger.js`
+- Test: `tests/unit/logger.test.js`
+
+### 接口契约（详见 M1 spec §十）
+
+| API | 输出格式（去 ANSI 后） |
+|------|------------------------|
+| `info(msg)` | `[base-client] <msg>` |
+| `success(msg)` | `✓ <msg>` |
+| `warn(msg)` | `⚠ <msg>` |
+| `error(scope, msg)` | `[base-client] <scope> <msg>`（到 stderr） |
+| `banner({command, mode, env})` | `[base-client] v<ver>  <command> | env=<BC_ENV> | mode=<mode>` |
+| `footer({env, url, watch})` | `[base-client] env=<BC_ENV> | <url>[ | watch:on]` |
+| `compileSuccess(name, ms, sizeBytes)` | `[base-client] ✓ <name> 编译完成 (<ms> | <size>)` |
+| `compileFailure(name)` | `[base-client] ✗ <name> 编译失败`（到 stderr） |
+| `compileWarning(name, count)` | `[base-client] ⚠ <name> <count> warnings`（count>0 才输出） |
+| `formatBytes(n)` / `formatMs(n)` | helper，可单独测 |
+
+### TDD 要点
+
+- mock `console.log` / `console.error`，断言被调与参数包含关键字符串
+- ANSI 上色断言用 `.toMatch(/regex/)` + 关键文本，不锁定具体颜色码
+- compileWarning(name, 0) 不输出（断言 console.log 不被调用）
+
+- [ ] **Step 0.6.1：写测试（≥ 13 case 覆盖 9 API + 2 helper）**
+- [ ] **Step 0.6.2：实现 src/logger.js**
+- [ ] **Step 0.6.3：跑测试**
+- [ ] **Step 0.6.4：commit**
+
+```bash
+git add src/logger.js tests/unit/logger.test.js
+git commit -m "feat: src/logger.js — picocolors CLI 输出层（9 API + 2 helper）"
+```
 
 ---
 
@@ -60,15 +195,18 @@ runCommand(cmd, cliOptions): Promise<void>
 ```
 
 输入：
-- `cmd`：命令模板 `{ name, description, mode?, skipEnv?, options?, action }`
+- `cmd`：命令模板 `{ name, description, mode?, skipEnv?, options?, action }`（mode 字面量应来自 `MODES`）
 - `cliOptions`：cac 解析得到的对象（含 `env` / `config` / `debug` / 命令专属字段）
 
 行为：
 1. `cmd.skipEnv === true` → `env = undefined`；否则 `env = initEnv(cliOptions.env)`
-2. `mode = cmd.mode || 'production'`
-3. 组装 `ctx = { cliOptions, env, mode, command: cmd.name }`
-4. `await cmd.action(ctx)`
-5. 任一步抛错 → `console.error('[base-client] <cmd> 失败：<message>')`；`cliOptions.debug` 为真时附打 stack；`process.exit(1)`
+2. BC_ENV fallback 与 BC_ 前缀键注入 `process.env`（M3 §六）
+3. `mode = cmd.mode || MODES.PROD`
+4. 组装 `ctx = { cliOptions, env, mode, command: cmd.name, ...deriveMode(mode) }`（含 `isDev` / `isProd`）
+5. 设置 `process.title = bc-<name>|env=<BC_ENV>`
+6. 调 `logger.banner({ command: cmd.name, mode, env })` 打启动横幅
+7. `await cmd.action(ctx)`
+8. 任一步抛错 → `logger.error(<cmd> 失败：, message)`；`cliOptions.debug` 为真时附 `console.error(stack)`；`process.exit(1)`
 
 ### TDD
 
@@ -115,6 +253,8 @@ describe('runCommand', () => {
         env: { BC_API: 'http://x', BC_ENV: 'prod' },   // ← BC_ENV fallback：用户未声明，frame 用 cliOptions.env 兜底
         mode: 'production',
         command: 'mycmd',
+        isDev: false,    // ← 来自 deriveMode(MODES.PROD)
+        isProd: true,
       });
     } finally {
       tmp.cleanup();
@@ -133,6 +273,8 @@ Expected：FAIL，模块不存在。
 ```js
 // src/cli/index.js
 const { initEnv } = require('../env');
+const { MODES, deriveMode } = require('../mode');
+const logger = require('../logger');
 
 async function runCommand(cmd, cliOptions) {
   try {
@@ -143,11 +285,18 @@ async function runCommand(cmd, cliOptions) {
         if (k.startsWith('BC_')) process.env[k] = env[k];
       }
     }
-    const mode = cmd.mode || 'production';
-    const ctx = { cliOptions, env, mode, command: cmd.name };
+    const mode = cmd.mode || MODES.PROD;
+    const ctx = {
+      cliOptions, env, mode, command: cmd.name,
+      ...deriveMode(mode),                            // 派生 isDev/isProd 注入 ctx
+    };
+
+    process.title = `bc-${cmd.name}|env=${env?.BC_ENV ?? '?'}`;
+    logger.banner({ command: cmd.name, mode, env });
+
     await cmd.action(ctx);
   } catch (err) {
-    console.error(`[base-client] ${cmd.name} 失败：${err.message}`);
+    logger.error(`${cmd.name} 失败：`, err.message);
     if (cliOptions && cliOptions.debug) console.error(err.stack);
     process.exit(1);
   }
@@ -200,30 +349,38 @@ test('skipEnv 缺省（false）且 .env.<name> 缺失 → 抛错走错误分支'
 });
 ```
 
-- [ ] **Step 1.6：补"mode 缺省为 production"测试**
+- [ ] **Step 1.6：补"mode 缺省为 MODES.PROD"测试**
 
 ```js
-test('cmd.mode 未声明时，ctx.mode = production', async () => {
+const { MODES } = require('../../src/mode');
+
+test('cmd.mode 未声明时，ctx.mode = MODES.PROD，isDev:false / isProd:true', async () => {
   const tmp = withTempCwd();
   try {
     fs.writeFileSync(path.join(tmp.dir, '.env.prod'), 'X=1\n');
     const action = jest.fn().mockResolvedValue();
     const cmd = { name: 'foo', action };   // 无 mode
     await runCommand(cmd, { env: 'prod', debug: false });
-    expect(action.mock.calls[0][0].mode).toBe('production');
+    const ctx = action.mock.calls[0][0];
+    expect(ctx.mode).toBe(MODES.PROD);
+    expect(ctx.isDev).toBe(false);
+    expect(ctx.isProd).toBe(true);
   } finally {
     tmp.cleanup();
   }
 });
 
-test('cmd.mode = "development" 时透传', async () => {
+test('cmd.mode = MODES.DEV 时透传，派生 isDev:true', async () => {
   const tmp = withTempCwd();
   try {
     fs.writeFileSync(path.join(tmp.dir, '.env.prod'), 'X=1\n');
     const action = jest.fn().mockResolvedValue();
-    const cmd = { name: 'dev', mode: 'development', action };
+    const cmd = { name: 'dev', mode: MODES.DEV, action };
     await runCommand(cmd, { env: 'prod', debug: false });
-    expect(action.mock.calls[0][0].mode).toBe('development');
+    const ctx = action.mock.calls[0][0];
+    expect(ctx.mode).toBe(MODES.DEV);
+    expect(ctx.isDev).toBe(true);
+    expect(ctx.isProd).toBe(false);
   } finally {
     tmp.cleanup();
   }
@@ -233,17 +390,21 @@ test('cmd.mode = "development" 时透传', async () => {
 - [ ] **Step 1.7：补"action 抛错 → 错误处理 + exit 1"测试**
 
 ```js
-test('action 抛错 → console.error 输出 message，exit 1', async () => {
+test('action 抛错 → logger.error 输出（[base-client] 前缀 + scope + message），exit 1', async () => {
   const tmp = withTempCwd();
   try {
     fs.writeFileSync(path.join(tmp.dir, '.env.prod'), 'X=1\n');
     const cmd = {
       name: 'pack',
-      mode: 'production',
+      mode: MODES.PROD,
       action: () => { throw new Error('something broke'); },
     };
     await expect(runCommand(cmd, { env: 'prod', debug: false })).rejects.toThrow('__EXIT__:1');
-    expect(errorSpy).toHaveBeenCalledWith('[base-client] pack 失败：something broke');
+    // logger.error 走 console.error，组合后文本去 ANSI 后包含 [base-client] / pack 失败： / something broke
+    const joinedCalls = errorSpy.mock.calls.map((c) => c.join(' ')).join('\n');
+    expect(joinedCalls).toMatch(/\[base-client\]/);
+    expect(joinedCalls).toMatch(/pack 失败：/);
+    expect(joinedCalls).toMatch(/something broke/);
   } finally {
     tmp.cleanup();
   }
@@ -326,16 +487,59 @@ test('skipEnv: true 时不动 process.env', async () => {
 });
 ```
 
-- [ ] **Step 1.9：跑全部 runCommand 测试**
+- [ ] **Step 1.9：补"banner + process.title"测试**
+
+```js
+const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+test('runCommand 进入时打 banner（含 v<ver> / command / env / mode）', async () => {
+  const tmp = withTempCwd();
+  try {
+    fs.writeFileSync(path.join(tmp.dir, '.env.prod'), 'BC_ENV=staging\n');
+    const cmd = { name: 'dev', mode: MODES.DEV, action: jest.fn() };
+    await runCommand(cmd, { env: 'prod', debug: false });
+
+    const joined = logSpy.mock.calls.map((c) => c.join(' ')).join('\n');
+    expect(joined).toMatch(/\[base-client\]/);
+    expect(joined).toMatch(/dev/);
+    expect(joined).toMatch(/env=staging/);
+    expect(joined).toMatch(/mode=development/);
+  } finally {
+    tmp.cleanup();
+  }
+});
+
+test('runCommand 设置 process.title = bc-<name>|env=<BC_ENV>', async () => {
+  const tmp = withTempCwd();
+  const originalTitle = process.title;
+  try {
+    fs.writeFileSync(path.join(tmp.dir, '.env.prod'), 'BC_ENV=qa\n');
+    const cmd = { name: 'build', mode: MODES.PROD, action: jest.fn() };
+    await runCommand(cmd, { env: 'prod', debug: false });
+    expect(process.title).toBe('bc-build|env=qa');
+  } finally {
+    process.title = originalTitle;
+    tmp.cleanup();
+  }
+});
+
+test('skipEnv 命令 process.title 中 env=?（无 BC_ENV 兜底）', async () => {
+  const cmd = { name: 'preview', mode: MODES.PROD, skipEnv: true, action: jest.fn() };
+  await runCommand(cmd, { env: 'prod', debug: false });
+  expect(process.title).toBe('bc-preview|env=?');
+});
+```
+
+- [ ] **Step 1.10：跑全部 runCommand 测试**
 
 Run: `npx jest tests/unit/cli-runCommand.test.js`
-Expected：13 passed（1 ctx + 2 skipEnv + 2 mode + 3 error + 5 BC_ 注入/fallback）。
+Expected：16 passed（1 ctx + 2 skipEnv + 2 mode + 3 error + 5 BC_ 注入/fallback + 3 banner/title）。
 
-- [ ] **Step 1.10：提交 Task 1**
+- [ ] **Step 1.11：提交 Task 1**
 
 ```bash
 git add src/cli/index.js tests/unit/cli-runCommand.test.js
-git commit -m "feat(M1): runCommand — initEnv 派发 + BC_ 注入 process.env + BC_ENV fallback + --debug 错误处理"
+git commit -m "feat(M1): runCommand — initEnv 派发 + BC_ 注入 + mode 派生 + banner + process.title"
 ```
 
 ---
@@ -419,6 +623,8 @@ Expected：FAIL，`createCli is not a function`。
 // src/cli/index.js
 const { cac } = require('cac');
 const { initEnv } = require('../env');
+const { MODES, deriveMode } = require('../mode');
+const logger = require('../logger');
 const { version } = require('../../package.json');
 
 function createCli(commandList) {
@@ -450,11 +656,24 @@ function createCli(commandList) {
 async function runCommand(cmd, cliOptions) {
   try {
     const env = cmd.skipEnv ? undefined : initEnv(cliOptions.env);
-    const mode = cmd.mode || 'production';
-    const ctx = { cliOptions, env, mode, command: cmd.name };
+    if (env) {
+      if (!env.BC_ENV) env.BC_ENV = cliOptions.env;
+      for (const k of Object.keys(env)) {
+        if (k.startsWith('BC_')) process.env[k] = env[k];
+      }
+    }
+    const mode = cmd.mode || MODES.PROD;
+    const ctx = {
+      cliOptions, env, mode, command: cmd.name,
+      ...deriveMode(mode),
+    };
+
+    process.title = `bc-${cmd.name}|env=${env?.BC_ENV ?? '?'}`;
+    logger.banner({ command: cmd.name, mode, env });
+
     await cmd.action(ctx);
   } catch (err) {
-    console.error(`[base-client] ${cmd.name} 失败：${err.message}`);
+    logger.error(`${cmd.name} 失败：`, err.message);
     if (cliOptions && cliOptions.debug) console.error(err.stack);
     process.exit(1);
   }
@@ -646,18 +865,20 @@ git commit -m "feat(M1): 命令清单占位 + bin/base-client.js 发布入口"
 | §二 命令清单 | dev / build / preview / pack | `src/cli/commands/index.js` 占位，由 M5/M6/M7 接入 |
 | §三 全局选项 | `--env` 默认 `prod`、`--config`、`--debug` | Task 2 Step 2.1（4 个测试） |
 | §三 优先级 | CLI > 命令 > bc.config > 预设 | M1 只负责 CLI flag 收集为 `cliOptions`，进入 ctx；下游模块（M5/M6 命令实现）实施优先级 |
-| §三 mode | 命令隐含，不开 `--mode` | Task 1 Step 1.6（mode 来自 cmd.mode） |
-| §四 命令模板 | `{ name, description, mode, skipEnv, options, action }` | Task 2 Step 2.5 注册按模板字段；Step 1.5 / 1.6 验证 skipEnv / mode |
+| §三 mode | 命令隐含，不开 `--mode`；字面量来自 `MODES` | Task 0.5 + Task 1 Step 1.6（mode 来自 cmd.mode，MODES 常量） |
+| §四 命令模板 | `{ name, description, mode:MODES.*, skipEnv, options, action }` | Task 2 Step 2.5 注册按模板字段；Step 1.5 / 1.6 验证 skipEnv / mode |
 | §四 命令注册 | cac 循环注册全局选项 + 各命令 | Task 2 Step 2.3 / 2.5 / 2.6 |
 | §五 env 流转 | initEnv 纯函数；skipEnv 命令跳过 | Task 1 Step 1.5 |
-| §五 ctx | `{ cliOptions, env, mode, command }` | Task 1 Step 1.1 |
-| §五 派发器 | try/catch 统一处理 | Task 1 Step 1.7 |
-| §六 错误处理 | 统一前缀 `[base-client] <command> 失败：` | Task 1 Step 1.7 |
+| §五 ctx | `{ cliOptions, env, mode, command, isDev, isProd }` | Task 1 Step 1.1（含 isDev/isProd） + Step 1.6 |
+| §五 派发器 | try/catch 统一处理 + 派生 isDev/isProd + banner + process.title | Task 1 Step 1.3（实现） + Step 1.7 + Step 1.9 |
+| §六 错误处理 | 经 logger.error 输出（红色 `[base-client]` + bold scope + message） | Task 1 Step 1.7 |
 | §六 退出码 | 失败 1，不细分 | Task 1 Step 1.7（`process.exit(1)`） |
-| §六 stack | 默认不打印；`--debug` 附加 | Task 1 Step 1.7（"默认不打印" + "--debug 附加"两个测试） |
+| §六 stack | 默认不打印；`--debug` 附加（直接 console.error，不走 logger） | Task 1 Step 1.7（"默认不打印" + "--debug 附加"两个测试） |
 | §六 编译错误 | webpack `stats.toString()` 独立打印，与 stack 无关 | M5/M6 命令实现侧职责，M1 不涉及 |
-| §七 模块边界 | M1 调 M3 `initEnv`、M2 `resolveBuildConfig`；不实现具体命令 | M1 实现仅 `require('../env')`；`resolveBuildConfig` 由命令实现去 require，不在 M1 内 |
+| §七 模块边界 | M1 调 M3 `initEnv`、M2 `resolveBuildConfig`；不实现具体命令 | M1 实现仅 `require('../env')` + `../mode` + `../logger`；`resolveBuildConfig` 由命令实现去 require，不在 M1 内 |
 | §八 bin | `bin/base-client.js` require `dist/cli` 并 `parse()` | Task 3 Step 3.4，与 spec 代码示例一致 |
+| §九 mode 抽象 | `MODES = Object.freeze({DEV,PROD})` + `deriveMode` fail-fast | Task 0.5（独立测试） |
+| §十 logger 契约 | 9 个 API + 2 个 helper，统一 `[base-client]` 前缀 | Task 0.6（独立测试） |
 
 **Placeholder 扫描**：无 TBD / TODO。
 

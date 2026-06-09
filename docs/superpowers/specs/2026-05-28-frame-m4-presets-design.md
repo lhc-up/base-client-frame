@@ -22,9 +22,11 @@ getRendererPreset({ rootDir, env, mode })  // → renderer 进程预设
 |------|------|
 | `rootDir` | 项目根目录（`process.cwd()`），用于解析 entry / output 绝对路径 |
 | `env` | M3 返回的完整环境变量对象，供 `DefinePlugin` 过滤 `BC_` 子集注入 |
-| `mode` | `development` / `production`（命令隐含），决定 `webpack.mode` 与 `devtool` |
+| `mode` | `MODES.DEV` / `MODES.PROD`（命令隐含），决定 `webpack.mode` 与 `devtool` |
 
-三个 getter **各自独立产出完整预设，不共享中间层**：`mode`、`devtool`、`resolve.extensions` 基线、Asset Modules、`DefinePlugin` 在每个 getter 内分别构造。其中 `BC_` 注入逻辑复用同一个纯函数 `defineEnvPlugin`（见第六节），以免注入契约在三处漂移。
+三个 getter **各自独立产出完整预设，不共享中间层**：`mode`、`devtool`、`resolve.extensions` 基线、Asset Modules、`DefinePlugin` 在每个 getter 内分别构造。其中：
+- **`BC_` 注入逻辑**复用同一个纯函数 `defineEnvPlugin`（见第六节），以免注入契约在三处漂移。
+- **dev/prod 派生**：每个 getter 内自包含 `const { isDev, isProd } = deriveMode(mode)`，用 `isDev` / `isProd` 替代 `mode === 'development'` 字面量判断（mode 抽象详见 M1 §九）。preset 自己派生而非依赖外部 ctx，保持 getter 签名最简、与 M2 调用方解耦。
 
 ## 三、三进程骨架
 
@@ -72,8 +74,10 @@ renderer 预设**不包含 `html-webpack-plugin`**——`renderer.plugins` 只�
 
 | mode | devtool | 说明 |
 |------|---------|------|
-| `development` | `source-map` | Electron DevTools 可定位源码 |
-| `production` | `false` | 客户端 bundle 不输出 source map（呼应 M3 对客户端可反编译的安全考量）；如需保留堆栈，用户在 `bc.config.js` 自行打开 |
+| `MODES.DEV` | `source-map` | Electron DevTools 可定位源码 |
+| `MODES.PROD` | `false` | 客户端 bundle 不输出 source map（呼应 M3 对客户端可反编译的安全考量）；如需保留堆栈，用户在 `bc.config.js` 自行打开 |
+
+实现上，每个 preset 内 `devtool: isDev ? 'source-map' : false`（`isDev` 来自 preset 内的 `deriveMode(mode)`）。
 
 ## 五、静态资源（Asset Modules）
 
@@ -105,7 +109,7 @@ const webpack = require('webpack');
 
 function defineEnvPlugin(env) {
   const defs = {};
-  for (const k of Object.keys(env)) {
+  for (const k of Object.keys(env || {})) {
     if (k.startsWith('BC_')) defs[`process.env.${k}`] = JSON.stringify(env[k]);
   }
   return new webpack.DefinePlugin(defs);
@@ -114,23 +118,46 @@ function defineEnvPlugin(env) {
 
 - **逐键定义 `process.env.BC_XXX`，不整体替换 `process.env`**：整体替换会清空运行时其余 `process.env.*` 读取（main / preload 跑在 Node，运行时仍可能读真实环境变量）；逐键定义只替换 `BC_` 引用，其余保持不变。
 - 三进程注入同一份 `BC_` 子集（M3 规则：三者都可能被反编译，不分进程）。
-- `defineEnvPlugin` 是供三者复用的纯函数；各进程在自己的 `plugins` 中调用它放入该插件。
+- `defineEnvPlugin` 是供三者复用的纯函数，单独抽出到 `src/config/presets/define-env.js`；各进程 preset 在自己的 `plugins` 中调用它放入该插件。
 
-## 七、模块边界
+## 七、webpack 输出静默约定
+
+renderer 预设静默 webpack 与 webpack-dev-server 的原生输出，把编译反馈完全让位给 frame 自有 logger（详见 M1 §十、M5 §六）：
+
+```js
+// getRendererPreset
+return {
+  // ...
+  stats: 'none',                                    // 静默 stats 行输出
+  infrastructureLogging: { level: 'warn' },         // 静默 dev-server 启动 / HMR 等基础设施日志（仅留 warn+）
+  // ...
+};
+```
+
+配套的 dev-server 选项约定（M5 实现）：`devMiddleware.stats: false`，使热更新阶段的 stats 也不打印。
+
+设计意图：
+- frame 用 logger 接管编译反馈（一行摘要 `compileSuccess(name, ms, size)` 或 `compileFailure(name)` + 完整 `stats.toString({colors:true})`），与 webpack 原生输出**择一**而非并存，避免 dev 时控制台同时滚两份。
+- 仅 renderer 加这一对配置：main / preload 一律走 frame 自有 `webpack(config, cb)` 回调路径，回调里手动调 logger，不依赖 stats 自动打印。
+- 用户在 `bc.config.js` 仍可覆盖 `stats` / `infrastructureLogging`（webpack-merge 对象深合并），如需排查可临时打开。
+
+## 八、模块边界
 
 | 方向 | 接口 | 说明 |
 |------|------|------|
 | M2 → M4 | `getMainPreset / getPreloadPreset / getRendererPreset({ rootDir, env, mode })` | 取各进程预设骨架 |
 | M3 → M4 | 完整 env 对象 + 注入契约（`BC_` 子集 → `process.env.<key>`） | M4 据此过滤并用 `DefinePlugin` 注入 |
+| M1 mode 抽象 → M4 | `deriveMode(mode)` | 每个 preset 内自包含调用，派生 `isDev` / `isProd` |
 
 M4 **不负责**：读取 `.env`（M3）、合并用户配置（M2）、`devServer`（M5）、产物清理与命令执行（M5 / M6 / M7）。
 
-## 八、文件结构
+## 九、文件结构
 
 ```
 src/config/presets/
 ├── main.js       # getMainPreset：electron-main / commonjs2 / externals / 入口出口 + mode / devtool / resolve / Asset Modules / DefinePlugin
 ├── preload.js    # getPreloadPreset：同 main，target = electron-preload
-├── renderer.js   # getRendererPreset：web / publicPath './' / 入口出口 + mode / devtool / resolve / Asset Modules / DefinePlugin（html-webpack-plugin 由用户自注册）
-└── index.js      # 汇出三个 getter 给 M2；并提供共享纯函数 defineEnvPlugin
+├── renderer.js   # getRendererPreset：web / publicPath './' / 入口出口 + mode / devtool / resolve / Asset Modules / DefinePlugin + stats:'none' + infrastructureLogging（html-webpack-plugin 由用户自注册）
+├── define-env.js # 共享纯函数 defineEnvPlugin（实现 §六 注入契约）
+└── index.js      # 汇出三个 getter 给 M2；并 re-export defineEnvPlugin
 ```

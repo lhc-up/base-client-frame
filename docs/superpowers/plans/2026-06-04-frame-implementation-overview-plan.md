@@ -10,7 +10,7 @@
 - **语言**：Node.js 20+ / CommonJS（与 `package.json` `type: commonjs` 一致）
 - **构建**：Rollup（既有 `rollup.config.mjs`，frame 源码出 `dist/cli.js`）
 - **测试**：Jest 30（新增到 devDependencies）
-- **关键运行时依赖（frame 直接 require）**：cac（CLI 解析）、dotenv（env 解析）、lodash
+- **关键运行时依赖（frame 直接 require）**：cac（CLI 解析）、dotenv（env 解析）、fs-extra（目录清理）、picocolors（CLI 上色）、ora（编译 spinner）、lodash
 - **构建/合并依赖（peerDependencies，用户项目自带）**：webpack 5、webpack-dev-server 5、webpack-merge 6
 - **按需依赖（用户项目自带，frame 解析时从用户 `node_modules` 找）**：electron、electron-builder
 - **不纳入预设、由用户在 `bc.config.js` 注册的运行时插件**：`html-webpack-plugin` 等单例插件（详见 overview §四 / M4 §三入口页面）
@@ -49,31 +49,42 @@ base-client-frame/
 ├── bin/
 │   └── base-client.js                # 发布入口（require dist/cli.js）
 ├── src/
+│   ├── index.js                      # frame 包入口（导出公共 API）
+│   ├── mode.js                       # 横切：MODES + deriveMode（mode 字面量唯一来源）
+│   ├── logger.js                     # 横切：CLI 输出层（picocolors，info/success/warn/error/banner/footer/compileXxx）
 │   ├── cli/
 │   │   ├── index.js                  # M1：cli 注册 + runCommand
 │   │   ├── commands/
+│   │   │   ├── index.js              # 命令清单
 │   │   │   ├── dev.js                # M5
+│   │   │   ├── dev-options.js        # M5：resolveDevServerOptions（三级优先级 + frame 强制项）
 │   │   │   ├── build.js              # M6
 │   │   │   ├── preview.js            # M6
 │   │   │   └── pack.js               # M7
 │   │   └── utils/
 │   │       ├── electron.js           # M5/M6 共享：resolveElectron / resolveMainEntry / killElectron
 │   │       ├── electron-builder.js   # M7：resolveElectronBuilder + buildTargets
-│   │       └── production-build.js   # M6/M7 共享：runProductionBuild
+│   │       ├── production-build.js   # M6/M7 共享：runProductionBuild
+│   │       ├── format.js             # M5/M6 共享：extractStatsSummary
+│   │       └── compile-spinner.js    # M5/M6 共享：createCompileSpinner（ora）
 │   ├── config/
 │   │   ├── index.js                  # M2：resolveBuildConfig + loadUserConfig
 │   │   ├── pack.js                   # M7：resolvePackConfig + customMerge + replace
 │   │   └── presets/
-│   │       ├── index.js              # M4：三 getter + defineEnvPlugin
+│   │       ├── index.js              # M4：三 getter + re-export defineEnvPlugin
 │   │       ├── main.js               # M4
 │   │       ├── preload.js            # M4
-│   │       ├── renderer.js           # M4
+│   │       ├── renderer.js           # M4（stats:'none' + infrastructureLogging）
+│   │       ├── define-env.js         # M4：defineEnvPlugin（单拆）
 │   │       └── pack.js               # M7：getPackPreset
 │   └── env/
 │       └── index.js                  # M3：initEnv + readEnvFile
 ├── tests/
 │   ├── unit/
 │   │   ├── env.test.js               # M3
+│   │   ├── mode.test.js              # 横切：MODES 锁定 + deriveMode 合法/非法
+│   │   ├── logger.test.js            # 横切：9 个 API + format helpers
+│   │   ├── format.test.js            # 横切：extractStatsSummary
 │   │   ├── presets-main.test.js      # M4
 │   │   ├── presets-preload.test.js
 │   │   ├── presets-renderer.test.js
@@ -82,6 +93,10 @@ base-client-frame/
 │   │   ├── config-pack-merge.test.js # M7
 │   │   ├── config-pack-resolve.test.js
 │   │   ├── cli-runCommand.test.js    # M1
+│   │   ├── cli-commands-dev-action.test.js   # M5
+│   │   ├── cli-commands-dev-options.test.js  # M5
+│   │   ├── cli-commands-build.test.js        # M6
+│   │   ├── cli-commands-pack.test.js         # M7
 │   │   ├── utils-electron.test.js    # M5
 │   │   ├── utils-buildTargets.test.js # M7
 │   │   └── runProductionBuild.test.js # M6
@@ -94,6 +109,19 @@ base-client-frame/
 ├── rollup.config.mjs                 # nodeExternals 外置全部 deps/peerDeps（CLI 工具常规做法）
 └── package.json                      # 按各 plan 增添依赖
 ```
+
+### 横切基础设施模块
+
+下列文件不属于任何单一 M，是 frame 全局共享的基础设施（overview spec §五 同步）：
+
+| 文件 | 角色 | 引入时机 |
+|------|------|----------|
+| `src/mode.js` | `MODES` + `deriveMode`（mode 字面量唯一来源） | M1 plan Task 1（runCommand 派生 ctx） |
+| `src/logger.js` | CLI 输出层 9 个 API + format helpers | M1 plan（错误输出 + banner） |
+| `src/cli/utils/format.js` | `extractStatsSummary` | M5 plan（hooks.done 摘要） |
+| `src/cli/utils/compile-spinner.js` | `createCompileSpinner` | M5 plan（编译反馈） |
+
+实施约定：横切文件随首次使用方的 plan 落地（如 mode.js 在 M1 plan、format.js 在 M5 plan），不另起单独的"横切 plan"。后续模块通过 require 复用，不重复实现。
 
 ## 三、技术约定（所有 plan 共用）
 
@@ -138,12 +166,12 @@ frame 源码全部 CJS（`require` / `module.exports`）。配置文件（`bc.co
 | Plan 文件 | 模块 | 关键产出 | 测试焦点 |
 |-----------|------|----------|----------|
 | `2026-06-04-frame-m3-env-plan.md` | M3 env | `src/env/index.js` 的 `initEnv` / `readEnvFile` | `.env` 合并；`.env.<name>` 缺失抛错；不写 `process.env` |
-| `2026-06-04-frame-m4-presets-plan.md` | M4 presets | `src/config/presets/{main,preload,renderer,index}.js` + `defineEnvPlugin` | 三进程 target/output 正确；只注入 `BC_` 前缀；逐键定义 |
-| `2026-06-04-frame-m2-user-config-plan.md` | M2 user-config | `src/config/index.js` 的 `loadUserConfig` / `resolveBuildConfig` | 定位探测；ctx 透传；webpack-merge 追加语义；按需必需 |
-| `2026-06-04-frame-m1-cli-plan.md` | M1 cli | `src/cli/index.js`、`bin/base-client.js`、命令模板规范 | cac 解析；runCommand 派发；skipEnv 跳过；--debug 行为 |
-| `2026-06-04-frame-m5-dev-plan.md` | M5 dev | `src/cli/commands/dev.js`、`src/cli/utils/electron.js` | spawn Electron；dev-server hot；watch 重启；killElectron 进程树 |
-| `2026-06-04-frame-m6-build-preview-plan.md` | M6 build/preview | `src/cli/commands/{build,preview}.js`、`src/cli/utils/production-build.js` | runProductionBuild 清空 + 三进程并行；preview 不读 bc.config |
-| `2026-06-04-frame-m7-pack-plan.md` | M7 pack | `src/cli/commands/pack.js`、`src/config/{pack.js,presets/pack.js}`、`src/cli/utils/electron-builder.js` | customMerge 深合并 + replace；buildTargets；preset 跨架构分支 |
+| `2026-06-04-frame-m4-presets-plan.md` | M4 presets | `src/config/presets/{main,preload,renderer,define-env,index}.js` | 三进程 target/output；`BC_` 前缀注入；renderer `stats:'none'` + infrastructureLogging |
+| `2026-06-04-frame-m2-user-config-plan.md` | M2 user-config | `src/config/index.js` 的 `loadUserConfig` / `resolveBuildConfig(ctx)` | 定位探测；ctx 整体透传（含 isDev/isProd）；webpack-merge 追加语义 |
+| `2026-06-04-frame-m1-cli-plan.md` | M1 cli | `src/cli/index.js`、`bin/base-client.js`、`src/mode.js`、`src/logger.js`、命令模板规范 | cac 解析；runCommand 派发；ctx 派生 isDev/isProd；banner + process.title；logger.error 上色 |
+| `2026-06-04-frame-m5-dev-plan.md` | M5 dev | `src/cli/commands/{dev,dev-options}.js`、`src/cli/utils/{electron,format,compile-spinner}.js` | spawn Electron；dev-server hot；watch 重启；killElectron；logger 编译反馈接管；spinner |
+| `2026-06-04-frame-m6-build-preview-plan.md` | M6 build/preview | `src/cli/commands/{build,preview}.js`、`src/cli/utils/production-build.js` | `runProductionBuild(ctx)` 清空（fse.emptyDirSync）+ 三进程并行 + spinner + logger 反馈；preview 不读 bc.config |
+| `2026-06-04-frame-m7-pack-plan.md` | M7 pack | `src/cli/commands/pack.js`、`src/config/{pack.js,presets/pack.js}`、`src/cli/utils/electron-builder.js` | `resolvePackConfig(ctx)` 透传 isDev/isProd；customMerge + replace；buildTargets；清空 directories.output |
 
 ## 五、跨模块验收里程碑
 

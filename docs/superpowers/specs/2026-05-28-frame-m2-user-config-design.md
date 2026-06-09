@@ -11,8 +11,7 @@ M2 定义 frame 与用户项目之间的**构建配置契约**：用户通过 `b
 `bc.config.js` 统一导出一个**函数** `(ctx) => config`：
 
 ```js
-module.exports = ({ command, mode, env, cliOptions }) => {
-  const devMode = mode === 'development';
+module.exports = ({ command, mode, env, cliOptions, isDev, isProd }) => {
   return {
     main:     { /* webpack 配置覆盖 */ },
     preload:  { /* webpack 配置覆盖 */ },
@@ -26,11 +25,12 @@ module.exports = ({ command, mode, env, cliOptions }) => {
 | 字段 | 取值 | 含义 |
 |------|------|------|
 | `command` | `dev` / `build` / `preview` / `pack` | 当前执行的命令 |
-| `mode` | `development` / `production` | 构建模式（命令隐含） |
+| `mode` | `MODES.DEV` / `MODES.PROD` | 构建模式（命令隐含，字面量为 `'development'` / `'production'`） |
 | `env` | 对象 | 解析后的环境变量（来自 `.env.<name>`，M3 提供） |
 | `cliOptions` | 对象 | 本次命令的 CLI 参数（与 M7 ctx 对齐） |
+| `isDev` / `isProd` | `boolean` | 由 M1 在 `runCommand` 经 `deriveMode(mode)` 一次性派生注入（见 M1 §五 / §九），供用户函数直接读取，免去 `mode === 'development'` 字面量判断 |
 
-用户用 `command` / `mode` / `cliOptions` 在函数体内分支，得到该次构建所需的配置，无需依赖全局 `process.env`。
+用户用 `command` / `isDev` / `isProd` / `cliOptions` 在函数体内分支，得到该次构建所需的配置，无需依赖全局 `process.env`。
 
 ## 三、协议结构
 
@@ -63,13 +63,14 @@ renderer 下除 webpack 字段外，可放一个 `devServer` 字段，承载 web
 
 ## 五、加载与合并
 
-`resolveBuildConfig` 是 M2 对命令层暴露的主接口：
+`resolveBuildConfig` 是 M2 对命令层暴露的主接口。收 `ctx` 整体，不再解构成 `{env, mode, command, cliOptions}`，与 M1 §五"上下文容器"约定一致：
 
 ```js
-function resolveBuildConfig({ env, mode, command, cliOptions }) {
+function resolveBuildConfig(ctx) {
+  const { env, mode, cliOptions } = ctx;
   const rootDir = process.cwd();
-  const raw = loadUserConfig(cliOptions.config);                   // 接入 --config；找不到则抛错
-  const userConfig = raw({ command, mode, env, cliOptions });      // 统一函数形态，传入 ctx
+  const raw = loadUserConfig(cliOptions.config);  // 接入 --config；找不到则抛错
+  const userConfig = raw(ctx);                    // 统一函数形态，把整个 ctx 透传（含 isDev/isProd）
 
   return {
     main:     merge(getMainPreset({ rootDir, env, mode }),     userConfig?.main || {}),
@@ -79,7 +80,8 @@ function resolveBuildConfig({ env, mode, command, cliOptions }) {
 }
 ```
 
-- `getXxxPreset`（M4 提供）接收 `{ rootDir, env, mode }`，返回该进程的预设 webpack 配置（含 env 注入的 `DefinePlugin` 等）。
+- **函数签名收 ctx 整体**：调用方（M5/M6/M7 命令实现）直接 `resolveBuildConfig(ctx)`，避免"解构-重组"样板；ctx 新增字段（如 isDev/isProd）自动透传给用户的 `bc.config.js` 函数。
+- `getXxxPreset`（M4 提供）接收 `{ rootDir, env, mode }`，返回该进程的预设 webpack 配置（含 env 注入的 `DefinePlugin` 等）。preset 内部自包含 `deriveMode(mode)` 派生 isDev/isProd，不依赖 ctx 上的派生字段（见 M4 §二）。
 - 用 `webpack-merge` 合并预设与用户覆盖：**数组（`plugins` / `module.rules`）追加、对象深合并**。因此用户在 `bc.config.js` 里加的 loader / plugin 是**追加**到预设之上，而非替换。
 
 ## 六、配置优先级
@@ -96,7 +98,7 @@ CLI flag (cliOptions)  >  命令/env 默认  >  bc.config.js  >  预设默认
 
 | 方向 | 接口 | 说明 |
 |------|------|------|
-| M1 → M2 | `resolveBuildConfig({ env, mode, command, cliOptions })` | 命令 action 内调用，拿到三进程构建配置 |
+| M1 → M2 | `resolveBuildConfig(ctx)` | 命令 action 内调用，拿到三进程构建配置；ctx 含 `cliOptions/env/mode/command/isDev/isProd` |
 | M2 → M4 | `getMainPreset / getPreloadPreset / getRendererPreset({ rootDir, env, mode })` | 取各进程预设 |
 
 M2 **不负责**：预设内容（M4）、环境变量读取（M3）、命令执行（M5/M6/M7）。

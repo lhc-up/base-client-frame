@@ -2,15 +2,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 实现 `base-client pack --platform <p> --arch <a> [--unpack] [--sign] [--pack-config <path>]`：先调 M6 `runProductionBuild` 生产构建，再合并 frame `getPackPreset` 与用户 `electron-builder.config.js`，调用 electron-builder programmatic API 产出安装包（或免安装目录）。
+**Goal:** 实现 `base-client pack --platform <p> --arch <a> [--unpack] [--sign] [--pack-config <path>]`：(1) 解析 `electron-builder.config.js` 并与 `getPackPreset` 合并（用户 ctx 透传 isDev/isProd + replace 工具）；(2) **清空 `mergedConfig.directories.output`**（默认 `dist/`，与 M6 build 整体清空 `app/` 配对）；(3) 调 M6 `runProductionBuild(ctx)` 完成三进程生产构建；(4) 调用 electron-builder programmatic API 按 `buildTargets` 产出安装包（或免安装目录）。
 
-**Architecture:** 拆 4 类纯/半纯组件 + 1 个编排 action：(1) `customMerge` + `replace` Symbol（实现"数组追加默认 + 显式整组替换"两栖语义）；(2) `getPackPreset`（A 产物布局 + B pkgJson 派生 + C 架构参数化）；(3) `resolvePackConfig`（loadPackUserConfig + 调用 ctx + customMerge 串联）；(4) `buildTargets` + `resolveElectronBuilder`（cliOptions → electron-builder CliOptions / 从用户项目解析）；(5) pack action 编排五步流水线，**user config 解析在 build 之前**以保证快速失败。
+**Architecture:** 拆 4 类纯/半纯组件 + 1 个编排 action：(1) `customMerge` + `replace` Symbol（实现"数组追加默认 + 显式整组替换"两栖语义）；(2) `getPackPreset`（A 产物布局 + B pkgJson 派生 + C 架构参数化）；(3) `resolvePackConfig(ctx)`（loadPackUserConfig + 调用 ctx 透传 + customMerge 串联；**收 ctx 整体**）；(4) `buildTargets` + `resolveElectronBuilder`（cliOptions → electron-builder CliOptions / 从用户项目解析）；(5) pack action 编排五步流水线（解析 config → 清空 output → runProductionBuild → electron-builder），**user config 解析在 build 之前**以保证快速失败。
 
-**Tech Stack:** Node 20+ / Jest 30 / webpack-merge 6（mergeWithCustomize）/ CommonJS
+**Tech Stack:** Node 20+ / Jest 30 / webpack-merge 6（mergeWithCustomize）/ fs-extra / CommonJS
 
 > **Spec 参考**：`docs/superpowers/specs/2026-06-03-frame-m7-pack-design.md`
 
-> **依赖前置**：M1 / M2 / M3 / M4 全部 plan 完成；M5 plan 完成（pack 不直接 require M5 工具）；**M6 plan 完成**（pack action 调用 `runProductionBuild`）。
+> **依赖前置**：M1 / M2 / M3 / M4 全部 plan 完成；M5 plan 完成（pack 不直接 require M5 工具）；**M6 plan 完成**（pack action 调用 `runProductionBuild(ctx)`，并复用了 M6 的 `fse.emptyDirSync`）。
 
 > **electron-builder 由用户项目自带**：frame **不**在 dependencies / devDependencies 里声明 `electron-builder`。pack 命令运行时从用户项目 `node_modules` 解析；单测用"假包"工厂 `writeFakePackage`（M5 plan Task 1 已建立的 helper）模拟。
 
@@ -383,13 +383,16 @@ git commit -m "feat(M7): getPackPreset — A 产物布局 / B pkgJson 派生 / C
 ### 接口契约
 
 ```js
-resolvePackConfig({ env, mode, command, cliOptions }): electronBuilderConfig
+resolvePackConfig(ctx): electronBuilderConfig
 ```
-1. 读 `<cwd>/package.json`
-2. `loadPackUserConfig(rootDir, cliOptions.packConfig)` 拿到用户配置函数
-3. 调用 `userFn({ command, mode, env, cliOptions, replace })` 拿到用户对象
-4. `getPackPreset({ rootDir, env, mode, cliOptions, pkgJson })` 拿到预设
-5. `customMerge(preset, userConfig)` 返回最终配置
+- 入参 `ctx` 来自 M1 派发器：`{ cliOptions, env, mode, command, isDev, isProd }`（**收 ctx 整体**，与 M1 §五 / M2 §五 一致）
+- 内部从 ctx 解构出 `{ env, mode, cliOptions }`，用 `ctx.command` 透传给用户函数（保持 `'pack'`）
+- 步骤：
+  1. 读 `<cwd>/package.json`
+  2. `loadPackUserConfig(rootDir, cliOptions.packConfig)` 拿到用户配置函数
+  3. 调用 `userFn({ ...ctx, replace })`（**整体透传 ctx + 注入 replace 工具**；ctx 上原有的 `isDev/isProd` 等字段自动可见）
+  4. `getPackPreset({ rootDir, env, mode, cliOptions, pkgJson })` 拿到预设
+  5. `customMerge(preset, userConfig)` 返回最终配置
 
 `loadPackUserConfig(rootDir, packConfigPath?)`：
 - 若传 `packConfigPath` → 以 `rootDir` 为根 resolve
@@ -424,17 +427,20 @@ describe('resolvePackConfig', () => {
     writePkg(tmp.dir, { name: 'demo', author: 'Alice' });
     writePack(
       tmp.dir,
-      `module.exports = ({ command, mode, env, cliOptions, replace }) => ({
+      `module.exports = ({ command, mode, env, cliOptions, isDev, isProd, replace }) => ({
          appId: 'com.foo.bar',
          win: { icon: 'a.ico' },
        });`
     );
-    const merged = resolvePackConfig({
+    const ctx = {
+      cliOptions: { platform: 'win', arch: 'x64' },
       env: { BC_ENV: 'prod' },
       mode: 'production',
       command: 'pack',
-      cliOptions: { platform: 'win', arch: 'x64' },
-    });
+      isDev: false,
+      isProd: true,
+    };
+    const merged = resolvePackConfig(ctx);
     // user 字段
     expect(merged.appId).toBe('com.foo.bar');
     expect(merged.win).toEqual({ icon: 'a.ico' });
@@ -518,14 +524,16 @@ function loadPackUserConfig(rootDir, packConfigPath) {
   return fn;
 }
 
-function resolvePackConfig({ env, mode, command, cliOptions }) {
+function resolvePackConfig(ctx) {
+  const { env, mode, cliOptions } = ctx;
   const rootDir = process.cwd();
   const pkgJsonPath = path.resolve(rootDir, 'package.json');
   delete require.cache[pkgJsonPath];
   const pkgJson = require(pkgJsonPath);
 
   const userFn = loadPackUserConfig(rootDir, cliOptions && cliOptions.packConfig);
-  const userConfig = userFn({ command, mode, env, cliOptions, replace }) || {};
+  // ctx 整体透传 + 注入 replace 工具（ctx 上原有 isDev/isProd 等字段自动可见）
+  const userConfig = userFn({ ...ctx, replace }) || {};
 
   const preset = getPackPreset({ rootDir, env, mode, cliOptions, pkgJson });
   return customMerge(preset, userConfig);
@@ -547,7 +555,7 @@ Expected：PASS。
 - [ ] **Step 3.5：补"ctx 完整透传（含 replace）"测试**
 
 ```js
-test('ctx 完整透传给用户函数（含 replace）', () => {
+test('ctx 完整透传给用户函数（含 isDev/isProd + replace）', () => {
   writePkg(tmp.dir, { name: 'demo' });
   writePack(
     tmp.dir,
@@ -555,13 +563,19 @@ test('ctx 完整透传给用户函数（含 replace）', () => {
        win: { __ctxKeys: Object.keys(ctx).sort().join(','), __replaceIsFn: typeof ctx.replace === 'function' }
      });`
   );
-  const merged = resolvePackConfig({
+  const ctx = {
+    cliOptions: { platform: 'mac', arch: 'arm64', sign: true },
     env: { BC_ENV: 'dev' },
     mode: 'production',
     command: 'pack',
-    cliOptions: { platform: 'mac', arch: 'arm64', sign: true },
-  });
-  expect(merged.win.__ctxKeys).toBe('cliOptions,command,env,mode,replace');
+    isDev: false,
+    isProd: true,
+  };
+  const merged = resolvePackConfig(ctx);
+  // keys 含 cliOptions/command/env/isDev/isProd/mode/replace（顺序按 spread 后插入）
+  expect(merged.win.__ctxKeys.split(',')).toEqual(
+    expect.arrayContaining(['cliOptions', 'command', 'env', 'isDev', 'isProd', 'mode', 'replace'])
+  );
   expect(merged.win.__replaceIsFn).toBe(true);
 });
 ```
@@ -836,10 +850,12 @@ git commit -m "feat(M7): buildTargets + resolveElectronBuilder — CliOptions �
 ### 命令模板契约
 
 ```js
-{
+const { MODES } = require('../../mode');
+
+module.exports = {
   name: 'pack',
   description: '产出指定平台/架构的安装包',
-  mode: 'production',
+  mode: MODES.PROD,
   options: [
     ['--pack-config <path>', '指定 electron-builder.config.js 路径'],
     ['--platform <p>', '目标平台：win | mac | linux'],
@@ -853,11 +869,12 @@ git commit -m "feat(M7): buildTargets + resolveElectronBuilder — CliOptions �
 
 ### action 流水线
 
-1. `mergedConfig = resolvePackConfig({ env, mode, command, cliOptions })` —— **在 build 之前**，让 user config 问题快速失败
-2. `await runProductionBuild({ env, command, cliOptions })` —— 复用 M6 共享步骤
-3. `const electronBuilder = require(resolveElectronBuilder(rootDir))`
-4. `const targets = buildTargets(cliOptions)`
-5. `await electronBuilder.build({ ...targets, config: mergedConfig })`
+1. `mergedConfig = resolvePackConfig(ctx)` —— **在 build 之前**，让 user config 问题快速失败
+2. `fse.emptyDirSync(mergedConfig.directories.output)` —— 清空 pack 产物目录（默认 `dist/`），与 M6 build 整体清空 `app/` 配对
+3. `await runProductionBuild(ctx)` —— 复用 M6 共享步骤（收 ctx 整体；M6 内部清空 `app/`）
+4. `const electronBuilder = require(resolveElectronBuilder(rootDir))`
+5. `const targets = buildTargets(cliOptions)`
+6. `await electronBuilder.build({ ...targets, config: mergedConfig })`
 
 ### TDD（用 jest mock 隔离副作用）
 
@@ -865,10 +882,12 @@ git commit -m "feat(M7): buildTargets + resolveElectronBuilder — CliOptions �
 
 ```js
 // tests/unit/cli-commands-pack.test.js
+jest.mock('fs-extra');
 jest.mock('../../src/config/pack');
 jest.mock('../../src/cli/utils/production-build');
 jest.mock('../../src/cli/utils/electron-builder');
 
+const fse = require('fs-extra');
 const { resolvePackConfig } = require('../../src/config/pack');
 const { runProductionBuild } = require('../../src/cli/utils/production-build');
 const {
@@ -885,6 +904,7 @@ jest.mock(
   { virtual: true }
 );
 
+const { MODES } = require('../../src/mode');
 const pack = require('../../src/cli/commands/pack');
 
 beforeEach(() => {
@@ -894,13 +914,14 @@ beforeEach(() => {
   runProductionBuild.mockResolvedValue();
   resolveElectronBuilder.mockReturnValue(fakeBuilderPath);
   buildTargets.mockReturnValue({ win: ['nsis'], x64: true });
+  fse.emptyDirSync.mockReturnValue();
   builderBuild.mockClear();
 });
 
 describe('pack 命令', () => {
-  test('命令模板字段（含 --pack-config 与 5 个选项）', () => {
+  test('命令模板字段（mode = MODES.PROD；含 --pack-config 与 5 个选项）', () => {
     expect(pack.name).toBe('pack');
-    expect(pack.mode).toBe('production');
+    expect(pack.mode).toBe(MODES.PROD);
     expect(pack.skipEnv).toBeFalsy();
     const flags = (pack.options || []).map(([flag]) => flag);
     expect(flags).toEqual(expect.arrayContaining([
@@ -912,16 +933,18 @@ describe('pack 命令', () => {
     ]));
   });
 
-  test('action 流水线：① resolvePackConfig → ② runProductionBuild → ③ require(resolveElectronBuilder) → ④ buildTargets → ⑤ electronBuilder.build', async () => {
+  test('action 流水线：① resolvePackConfig(ctx) → ② fse.emptyDirSync(output) → ③ runProductionBuild(ctx) → ④ require(builderPath) → ⑤ buildTargets(cliOptions) → ⑥ electronBuilder.build', async () => {
     const ctx = {
+      cliOptions: { platform: 'win', arch: 'x64', sign: true },
       env: { BC_ENV: 'prod' },
       mode: 'production',
       command: 'pack',
-      cliOptions: { platform: 'win', arch: 'x64', sign: true },
+      isDev: false,
+      isProd: true,
     };
     await pack.action(ctx);
 
-    // 顺序：① 在 ② 之前；② 在 ⑤ 之前
+    // 顺序：① 在 ③ 之前；③ 在 ⑥ 之前
     const callOrder = [
       resolvePackConfig.mock.invocationCallOrder[0],
       runProductionBuild.mock.invocationCallOrder[0],
@@ -929,12 +952,9 @@ describe('pack 命令', () => {
     ];
     expect(callOrder).toEqual([...callOrder].sort((a, b) => a - b));
 
-    expect(resolvePackConfig).toHaveBeenCalledWith({
-      env: ctx.env, mode: 'production', command: 'pack', cliOptions: ctx.cliOptions,
-    });
-    expect(runProductionBuild).toHaveBeenCalledWith({
-      env: ctx.env, command: 'pack', cliOptions: ctx.cliOptions,
-    });
+    expect(resolvePackConfig).toHaveBeenCalledWith(ctx);   // 收 ctx 整体
+    expect(fse.emptyDirSync).toHaveBeenCalledWith('dist'); // 清空 mergedConfig.directories.output
+    expect(runProductionBuild).toHaveBeenCalledWith(ctx);  // 收 ctx 整体
     expect(buildTargets).toHaveBeenCalledWith(ctx.cliOptions);
     expect(builderBuild).toHaveBeenCalledWith({
       win: ['nsis'], x64: true,
@@ -953,6 +973,8 @@ Expected：FAIL，模块不存在。
 
 ```js
 // src/cli/commands/pack.js
+const fse = require('fs-extra');
+const { MODES } = require('../../mode');
 const { resolvePackConfig } = require('../../config/pack');
 const { runProductionBuild } = require('../utils/production-build');
 const {
@@ -961,30 +983,33 @@ const {
 } = require('../utils/electron-builder');
 
 async function action(ctx) {
-  const { env, mode, command, cliOptions } = ctx;
+  const { cliOptions } = ctx;
   const rootDir = process.cwd();
 
   // ① 先解析 pack 配置，让 user config 问题快速失败
-  const mergedConfig = resolvePackConfig({ env, mode, command, cliOptions });
+  const mergedConfig = resolvePackConfig(ctx);
 
-  // ② 跑生产构建
-  await runProductionBuild({ env, command, cliOptions });
+  // ② 清空 pack 产物目录（默认 dist/），与 M6 build 整体清空 app/ 配对
+  fse.emptyDirSync(mergedConfig.directories.output);
 
-  // ③ 解析 electron-builder（从用户项目）
+  // ③ 跑生产构建（收 ctx 整体）
+  await runProductionBuild(ctx);
+
+  // ④ 解析 electron-builder（从用户项目）
   const builderPath = resolveElectronBuilder(rootDir);
   const electronBuilder = require(builderPath);
 
-  // ④ 派生 targets
+  // ⑤ 派生 targets
   const targets = buildTargets(cliOptions);
 
-  // ⑤ 调 electron-builder
+  // ⑥ 调 electron-builder
   await electronBuilder.build({ ...targets, config: mergedConfig });
 }
 
 module.exports = {
   name: 'pack',
   description: '产出指定平台/架构的安装包',
-  mode: 'production',
+  mode: MODES.PROD,
   options: [
     ['--pack-config <path>', '指定 electron-builder.config.js 路径'],
     ['--platform <p>', '目标平台：win | mac | linux'],
@@ -1009,8 +1034,8 @@ test('resolvePackConfig 抛错 → 不执行 runProductionBuild / electron-build
     throw new Error('未找到 electron-builder.config.js');
   });
   const ctx = {
-    env: {}, mode: 'production', command: 'pack',
     cliOptions: { platform: 'win', arch: 'x64' },
+    env: {}, mode: 'production', command: 'pack', isDev: false, isProd: true,
   };
   await expect(pack.action(ctx)).rejects.toThrow(/未找到 electron-builder/);
   expect(runProductionBuild).not.toHaveBeenCalled();
@@ -1020,8 +1045,8 @@ test('resolvePackConfig 抛错 → 不执行 runProductionBuild / electron-build
 test('buildTargets 抛错（platform 不支持）→ 不调 electron-builder.build', async () => {
   buildTargets.mockImplementation(() => { throw new Error('不支持的平台：foo'); });
   await expect(pack.action({
-    env: {}, mode: 'production', command: 'pack',
     cliOptions: { platform: 'foo', arch: 'x64' },
+    env: {}, mode: 'production', command: 'pack', isDev: false, isProd: true,
   })).rejects.toThrow(/不支持的平台：foo/);
   expect(builderBuild).not.toHaveBeenCalled();
 });
@@ -1029,8 +1054,8 @@ test('buildTargets 抛错（platform 不支持）→ 不调 electron-builder.bui
 test('electron-builder.build 抛错 → 透传抛出', async () => {
   builderBuild.mockRejectedValue(new Error('builder error'));
   await expect(pack.action({
-    env: {}, mode: 'production', command: 'pack',
     cliOptions: { platform: 'win', arch: 'x64' },
+    env: {}, mode: 'production', command: 'pack', isDev: false, isProd: true,
   })).rejects.toThrow(/builder error/);
 });
 ```
@@ -1038,7 +1063,7 @@ test('electron-builder.build 抛错 → 透传抛出', async () => {
 - [ ] **Step 5.6：跑全部 pack action 测试**
 
 Run: `npx jest tests/unit/cli-commands-pack.test.js`
-Expected：5 passed。
+Expected：5 passed（命令模板 + 主流程顺序 + 快速失败 + 平台校验 + builder 抛错透传）。
 
 - [ ] **Step 5.7：提交 Task 5**
 
@@ -1123,7 +1148,7 @@ git commit -m "feat(M7): 注册 pack 命令到清单"
 | Spec 章节 | 要求 | 覆盖在哪 |
 |-----------|------|----------|
 | §一 定位 | pack 内部 ① 解析 user config ② 跑 build ③ 调 builder | Task 5 |
-| §二 用户配置形态 | 函数 `(ctx) => config`，ctx={command,mode,env,cliOptions,replace} | Task 3 Step 3.5 |
+| §二 用户配置形态 | 函数 `(ctx) => config`，ctx={cliOptions,command,env,isDev,isProd,mode,replace}（整体透传 + 注入 replace） | Task 3 Step 3.5 |
 | §二 配置定位 | cwd 探测 `{js,cjs}`、`.mjs` 抛"暂不支持"、`--pack-config` 优先 | Task 3 Step 3.7 |
 | §二 必需 | 缺失抛错 | Task 3 Step 3.7 |
 | §二 不复用 --config | 独立 --pack-config | Task 5 命令模板 + Task 3 实现 |
@@ -1134,25 +1159,29 @@ git commit -m "feat(M7): 注册 pack 命令到清单"
 | §四 默认合并 | 标量覆盖、对象深合并、数组追加 | Task 1 Step 1.5 |
 | §四 replace 整组替换 | REPLACE Symbol 标记 + 不泄漏 | Task 1 Step 1.6 |
 | §四 customMerge 实现 | webpack-merge mergeWithCustomize | Task 1 Step 1.3 |
-| §五 流程 ①-⑤ | resolvePackConfig → build → resolveElectronBuilder → buildTargets → builder.build | Task 5 Step 5.1 |
-| §五 ① 在 ② 之前 | 快速失败 | Task 5 Step 5.5（resolvePackConfig 失败时不跑 build） |
-| §五 resolvePackConfig 实现 | rootDir / pkgJson / load / call / preset / merge | Task 3 Step 3.3 |
+| §五 流程 ①-⑥ | resolvePackConfig(ctx) → 清空 output → runProductionBuild(ctx) → resolveElectronBuilder → buildTargets → builder.build | Task 5 Step 5.1（流水线含 fse.emptyDirSync） |
+| §五 清空 directories.output | fse.emptyDirSync(mergedConfig.directories.output) | Task 5 Step 5.1 + Step 5.3 实现 |
+| §五 ① 在 ③ 之前 | 快速失败 | Task 5 Step 5.5（resolvePackConfig 失败时不跑 build） |
+| §五 resolvePackConfig 签名 | `resolvePackConfig(ctx)` 收 ctx 整体，userFn 接 `{...ctx, replace}` | Task 3 Step 3.3 / 3.5 |
 | §五 buildTargets 推导 | 必填校验 + 平台/架构白名单 + unpack | Task 4 Step 4.5 / 4.6 |
 | §五 resolveElectronBuilder | 从用户项目 node_modules 解析 | Task 4 Step 4.8 |
 | §五 失败处理 | 各阶段抛错由 M1 收尾 | Task 5 Step 5.5 |
 | §五 命令选项 | --env (M1) / --config (M1) / --pack-config / --platform / --arch / --unpack / --sign | Task 5 命令模板 |
-| §六 命令接口 | action(ctx) | Task 5 |
-| §六 M7 自有接口 | resolvePackConfig / getPackPreset / customMerge / buildTargets / resolveElectronBuilder | Task 1-5 |
-| §六 不负责 | webpack 构建（经 M6） / bc.config（M2） / env（M3）/ CLI（M1）/ Electron 启动（M5/M6） | 实现 require 仅 config/pack / utils/production-build / utils/electron-builder（不 require webpack / dotenv / electron / cac） |
+| §六 命令接口 | action(ctx)（收 ctx 整体） | Task 5 |
+| §六 M7 自有接口 | resolvePackConfig(ctx) / getPackPreset({rootDir,env,mode,cliOptions,pkgJson}) / customMerge / buildTargets / resolveElectronBuilder | Task 1-5 |
+| §六 不负责 | webpack 构建（经 M6） / bc.config（M2） / env（M3）/ CLI（M1）/ Electron 启动（M5/M6） | 实现 require 仅 config/pack / utils/production-build / utils/electron-builder / fs-extra（不 require webpack / dotenv / electron / cac） |
 | §七 文件结构 | commands/pack.js / utils/electron-builder.js / config/pack.js / config/presets/pack.js | Task 1-5 |
+| M1 §九 mode 抽象 | pack 命令模板 `mode: MODES.PROD` | Task 5 命令模板 |
+| M1 §十 + M5 §十 编译反馈 | pack 内部通过 `runProductionBuild(ctx)` 复用 M6 的 spinner + logger 反馈 | Task 5 Step 5.3 调 runProductionBuild |
 
 **Placeholder 扫描**：无 TBD / TODO。
 
 **类型一致性**：
-- `customMerge(preset, user) → object`、`replace(arr) → array`、`resolvePackConfig({env,mode,command,cliOptions}) → object`、`getPackPreset({rootDir,env,mode,cliOptions,pkgJson}) → object`、`buildTargets({platform,arch,unpack}) → object`、`resolveElectronBuilder(rootDir) → string` —— 跨 task 一致
+- `customMerge(preset, user) → object`、`replace(arr) → array`、`resolvePackConfig(ctx) → object`、`getPackPreset({rootDir,env,mode,cliOptions,pkgJson}) → object`、`buildTargets({platform,arch,unpack}) → object`、`resolveElectronBuilder(rootDir) → string` —— 跨 task 一致
+- `resolvePackConfig(ctx)` 与 M2 `resolveBuildConfig(ctx)` / M6 `runProductionBuild(ctx)` 风格统一：收 ctx 整体、内部按需解构
 
 **模块边界**：
-- M7 `require` 的外部模块：`fs`、`path`、`webpack-merge`（customMerge）、`./presets/pack`（自己的）、`../config/pack`（自己的）、`../utils/production-build`（M6）、`../utils/electron-builder`（自己的）、用户项目的 electron-builder（运行时 require）
+- M7 `require` 的外部模块：`fs-extra`（清空 directories.output）、`path`、`webpack-merge`（customMerge）、`../../mode`（横切：MODES 常量）、`./presets/pack`（自己的）、`../../config/pack`（自己的）、`../utils/production-build`（M6）、`../utils/electron-builder`（自己的）、用户项目的 electron-builder（运行时 require）
 - **没有** `require` `webpack`、`webpack-dev-server`、`electron`、M5 的 `utils/electron`、M3 的 `env`、M4 的 `presets`（除非经 M2/M6 间接走）、M1 的 cli
 - 与 spec §六 列出的"M7 不负责"完全对齐
 

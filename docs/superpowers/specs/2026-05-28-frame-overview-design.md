@@ -20,6 +20,7 @@
 - **用户配置协议 `bc.config.js`**：加载、校验，并与预设合并
 - **环境变量加载**：多环境 `.env.*` 约定；读取后由 webpack 在构建时注入到 main / preload / renderer 三个进程，各进程代码中使用的是注入后的变量
 - **完整 pack 能力**：跨平台安装包构建（Win / macOS / Linux，含龙芯 loong64）、代码签名、安装/卸载钩子等打包相关能力
+- **友好的 CLI 输出层**：统一 `[base-client]` 前缀、彩色启动横幅 / 编译摘要 / dev 服务 footer、ora 编译 spinner；接管 webpack 默认 stats 输出，仅在失败时打印完整 `stats.toString()`
 
 ## 四、用户项目约定
 
@@ -48,15 +49,26 @@ frame 拆分为 7 个模块，分三层。每个模块有独立的详细设计�
 
 | # | 模块 | 职责 | 主要文件 | 用户接触面 |
 |---|------|------|----------|------------|
-| **M1** | CLI 入口与命令派发 | bin 入口、用 `cac` 注册命令、参数解析、派发到各命令实现 | `bin/` + `src/cli/index.js` | 命令名 / 参数 |
+| **M1** | CLI 入口与命令派发 | bin 入口、用 `cac` 注册命令、参数解析、派发到各命令实现；ctx 派生 `isDev`/`isProd`；启动横幅与进程标题 | `bin/` + `src/cli/index.js` + `src/mode.js` + `src/logger.js` | 命令名 / 参数 |
 | **M2** | 用户配置协议（bc.config.js） | 定位 / 加载 / 校验用户 `bc.config.js`；定义字段结构；与预设合并 | `src/config/index.js` | 配置字段 |
 | **M3** | 环境变量（Env） | 按 `--env` 指定的名称加载 `.env.<name>`（名称由项目自行约定）；读取解析后由 webpack 在构建时注入到三个进程，运行时代码使用注入后的变量 | `src/env/` | 变量约定 |
-| **M4** | 三进程 webpack 预设 | `getMainPreset / getPreloadPreset / getRendererPreset`：target / externals / output / resolve / devtool、静态资源（Asset Modules）、env 注入（DefinePlugin） | `src/config/presets/` | 间接（经 merge） |
-| **M5** | dev 命令 | 构建 main+preload、启动 webpack-dev-server（renderer，HMR）、启动 Electron；main/preload 可选自动重启（`--watch-main`） | `src/cli/commands/dev.js` | 命令行为 |
-| **M6** | build & preview 命令 | build：三进程并行生产构建；preview：直接启动产物 Electron | `src/cli/commands/build.js`、`preview.js` | 命令行为 |
-| **M7** | pack（安装包构建与签名） | 跨平台安装包构建、代码签名、用户自定义打包配置 | `src/cli/commands/pack.js`、`src/cli/utils/electron-builder.js`、`src/config/pack.js`、`src/config/presets/pack.js` | CLI 选项 + 打包配置 |
+| **M4** | 三进程 webpack 预设 | `getMainPreset / getPreloadPreset / getRendererPreset`：target / externals / output / resolve / devtool、静态资源（Asset Modules）、env 注入（DefinePlugin）、webpack 输出静默 | `src/config/presets/` | 间接（经 merge） |
+| **M5** | dev 命令 | 构建 main+preload、启动 webpack-dev-server（renderer，HMR）、启动 Electron；main/preload 可选自动重启（`--watch-main`）；编译反馈走 logger | `src/cli/commands/dev.js` + `src/cli/utils/{compile-spinner,format,electron}.js` | 命令行为 |
+| **M6** | build & preview 命令 | build：三进程并行生产构建；preview：直接启动产物 Electron；编译反馈走 logger | `src/cli/commands/build.js`、`preview.js` + `src/cli/utils/production-build.js` | 命令行为 |
+| **M7** | pack（安装包构建与签名） | 跨平台安装包构建、代码签名、用户自定义打包配置；复用 M6 `runProductionBuild` | `src/cli/commands/pack.js`、`src/cli/utils/electron-builder.js`、`src/config/pack.js`、`src/config/presets/pack.js` | CLI 选项 + 打包配置 |
 
-> 命令之间共享的工具（`resolveElectron` / `resolveMainEntry` / `killElectron` 见 M5、`runProductionBuild` 见 M6）未在上表"主要文件"列展开，详见各模块详设。
+> 命令之间共享的工具（`resolveElectron` / `resolveMainEntry` / `killElectron` 见 M5、`runProductionBuild` 见 M6）已在上表"主要文件"列点出，详见各模块详设。
+
+### 跨模块基础设施
+
+下列文件不归属于某个单一 M，是 frame 全局共享的基础设施：
+
+| 文件 | 职责 | 主要消费方 |
+|------|------|------------|
+| `src/mode.js` | `MODES = { DEV:'development', PROD:'production' }` 常量 + `deriveMode(mode)` 工厂（返回 `{ isDev, isProd }`，非法 mode fail-fast 抛错） | M1 派发器（ctx 派生）、M4 三 preset（preset 自包含派生）、命令模板（声明 `mode` 字段） |
+| `src/logger.js` | 基于 `picocolors` 的极简 logger：`info` / `success` / `warn` / `error` / `banner` / `footer` / `compileSuccess` / `compileFailure` / `compileWarning` + `formatBytes` / `formatMs`；统一 `[base-client]` 前缀 | M1（错误处理、启动横幅）、M5 / M6（编译反馈、dev footer） |
+| `src/cli/utils/format.js` | `extractStatsSummary(stats, fallbackName)`：从 `stats.toJson` 提取 `{ name, ms, totalSize, errorCount, warningCount }` 摘要 | M5 / M6 编译反馈 |
+| `src/cli/utils/compile-spinner.js` | `createCompileSpinner(text)`：基于 `ora` 的编译 spinner，显示累计耗时（timer 加 `unref` 避免阻塞退出） | M5 / M6 编译反馈 |
 
 ### 分层
 
@@ -74,11 +86,17 @@ M4 Presets ────┤
                ├─→ M6 build / preview
                └─→ M7 pack
 M1 CLI ──→ 派发到 M5 / M6 / M7
+
+横切：
+  mode.js  ←─ M1 / M2 / M4 / 命令模板（MODES + deriveMode）
+  logger.js ←─ M1 / M5 / M6（输出统一前缀 + 编译反馈）
+  cli/utils/{format,compile-spinner}.js ←─ M5 / M6（webpack stats 摘要 + spinner）
 ```
 
 - M1 是命令入口，依赖各命令实现（M5 / M6 / M7）。
 - M5 / M6 / M7 在执行时依赖配置约定层（M2 / M3 / M4）。
 - M2 负责把 M4 的预设与用户配置合并，是预设与命令之间的桥梁。
+- 横切基础设施（mode / logger / cli utils）不参与模块层级，所有模块按需引用。
 
 ## 七、实施顺序
 

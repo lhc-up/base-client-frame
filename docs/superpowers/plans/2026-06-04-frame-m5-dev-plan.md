@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 实现 `base-client dev` 命令：并行构建 main+preload + 启动 renderer dev-server (HMR) + spawn Electron 加载页面；可选 `--watch-main` 监听 main/preload 改动自动重启 Electron。同时建立 M5/M6/M7 共享工具 `src/cli/utils/electron.js`（`resolveElectron` / `resolveMainEntry` / `killElectron`）。
+**Goal:** 实现 `base-client dev` 命令：并行构建 main+preload + 启动 renderer dev-server (HMR) + spawn Electron 加载页面；可选 `--watch-main` 监听 main/preload 改动自动重启 Electron。同时建立 M5/M6/M7 共享工具：`src/cli/utils/electron.js`（`resolveElectron` / `resolveMainEntry` / `killElectron`）、`src/cli/utils/format.js`（`extractStatsSummary`）、`src/cli/utils/compile-spinner.js`（`createCompileSpinner`，基于 ora）。编译反馈走 M1 §十 的 logger 契约（`compileSuccess` / `compileFailure` / `compileWarning` / `footer`）接管 webpack 默认输出。
 
-**Architecture:** dev 命令拆成可单测的纯函数子单元（端口/host 三级优先级解析、devServer 选项构造、Electron 解析、入口解析、跨平台 kill）加一个编排主流程 `action`。spawn / dev-server / webpack 等副作用密集组件用 jest mock 单测；端到端"真启动 Electron"列为 manual 集成验证。
+**Architecture:** dev 命令拆成可单测的纯函数子单元（端口/host 三级优先级解析、devServer 选项构造、Electron 解析、入口解析、跨平台 kill、stats 摘要提取、编译 spinner）加一个编排主流程 `action`。spawn / dev-server / webpack 等副作用密集组件用 jest mock 单测；端到端"真启动 Electron"列为 manual 集成验证。renderer 由 `compiler.hooks.done` 接管编译反馈（M4 §七 已配套 `stats:'none'` + `infrastructureLogging` 静默 webpack 默认输出），main/preload 在 `webpack(…).run/watch` 回调内调 logger。
 
 **Tech Stack:** Node 20+ / Jest 30 / webpack 5 / webpack-dev-server 5 / child_process / CommonJS
 
@@ -20,15 +20,18 @@
 
 **Create:**
 - `src/cli/utils/electron.js` — `resolveElectron` / `resolveMainEntry` / `killElectron`（M5/M6/M7 共享）
+- `src/cli/utils/format.js` — `extractStatsSummary`（M5/M6 共享：webpack stats 摘要提取）
+- `src/cli/utils/compile-spinner.js` — `createCompileSpinner`（M5/M6 共享：ora 编译 spinner）
 - `src/cli/commands/dev.js` — dev 命令模板与 action
 - `src/cli/commands/dev-options.js` — `resolveDevServerOptions` 纯函数（独立文件便于单测）
 - `tests/unit/utils-electron-resolve.test.js`
 - `tests/unit/utils-electron-kill.test.js`
+- `tests/unit/format.test.js`
 - `tests/unit/cli-commands-dev-options.test.js`
 - `tests/unit/cli-commands-dev-action.test.js`
 
 **Modify:**
-- `package.json`：`webpack-dev-server` 加到 devDependencies（peer 已存在，本地测试需要）
+- `package.json`：`webpack-dev-server` 加到 devDependencies（peer 已存在，本地测试需要）；`ora ^5.4.1` 加到 dependencies
 - `src/cli/commands/index.js`：取消 `require('./dev')` 的注释
 
 ---
@@ -482,6 +485,10 @@ function resolveDevServerOptions({ cliOptions = {}, userDevServer = {} }) {
     host,
     port,
     hot: true,
+    devMiddleware: {
+      stats: false,                              // 与 M4 renderer stats:'none' 配套，静默 dev-middleware 自动 stats 输出
+      ...(userDevServer.devMiddleware || {}),
+    },
   };
   return { options, host, port };
 }
@@ -542,12 +549,25 @@ test('用户可以覆盖 historyApiFallback（它在 spread 之前）', () => {
   });
   expect(r.options.historyApiFallback).toBe(false);
 });
+
+test('devMiddleware.stats 默认 false（与 M4 renderer stats:"none" 配套）', () => {
+  const r = resolveDevServerOptions({ cliOptions: {}, userDevServer: {} });
+  expect(r.options.devMiddleware).toEqual({ stats: false });
+});
+
+test('用户可在 renderer.devServer.devMiddleware.stats 覆盖回 normal/verbose', () => {
+  const r = resolveDevServerOptions({
+    cliOptions: {},
+    userDevServer: { devMiddleware: { stats: 'normal' } },
+  });
+  expect(r.options.devMiddleware.stats).toBe('normal');
+});
 ```
 
 - [ ] **Step 4.6：跑全部 dev-options 测试**
 
 Run: `npx jest tests/unit/cli-commands-dev-options.test.js`
-Expected：5 passed。
+Expected：7 passed（原 5 + 新增 2 个 devMiddleware）。
 
 - [ ] **Step 4.7：提交 Task 4**
 
@@ -567,10 +587,12 @@ git commit -m "feat(M5): resolveDevServerOptions — 三级优先级 + 强制 ho
 ### 命令模板
 
 ```js
+const { MODES } = require('../../mode');
+
 module.exports = {
   name: 'dev',
   description: '启动开发服务器 + Electron',
-  mode: 'development',
+  mode: MODES.DEV,
   options: [
     ['--port <n>', 'dev server 端口', { type: [Number] }],
     ['--host <host>', 'dev server host'],
@@ -582,15 +604,23 @@ module.exports = {
 
 ### action 流程
 
-1. `resolveBuildConfig` 拿 `{ main, preload, renderer }`
+1. `resolveBuildConfig(ctx)` 拿 `{ main, preload, renderer }`（收 ctx 整体，与 M1 §五 / M2 §五 一致）
 2. 从 `renderer` 摘出 `devServer` 字段（`const { devServer, ...rendererWebpack } = renderer`）
 3. `resolveDevServerOptions({ cliOptions, userDevServer: devServer })` 得到最终选项与 host/port
-4. **并行启动**：
-   - a. 启动 `WebpackDevServer(devServerOptions, webpack(rendererWebpack))`
-   - b. 一次性 `webpack([main, preload], cb)`（multi-compiler）—— 默认模式；或 `compiler.watch(...)` —— `--watch-main`
-5. 都 ready 后 spawn Electron，注入 `NODE_ENV=development` + `RENDERER_DEV_URL=http://<host>:<port>`
-6. `--watch-main` 模式下，每次成功编译 → killElectron + 重启；失败仅打印不重启
-7. 生命周期：Electron `close` → 关闭 dev-server + watcher，按 Electron 退出码退出；SIGINT 同样收尾；frame 主动 kill 通过 `intentionalKill` 标志跳过收尾
+4. 启动 ora 编译 spinner（`createCompileSpinner('编译中...')`），三路 compiler（main / preload / renderer）首次完成累计 3 次后停 spinner
+5. **并行启动**：
+   - a. `webpack(rendererWebpack)` 创建 renderer compiler；挂 `hooks.done.tap('base-client', stats => { extractStatsSummary → logger.compileSuccess/Failure → logger.footer })`；交给 `new WebpackDevServer(devServerOptions, rendererCompiler).start()`
+   - b. 一次性 `webpack([main, preload]).run((err, multiStats) => { reportMainPreloadStats（逐进程调 logger.compileSuccess/Failure/Warning）})` —— 默认模式；或 `compiler.watch(...)` —— `--watch-main`
+6. 都 ready 后 spawn Electron，注入 `NODE_ENV='development'` + `RENDERER_DEV_URL=http://<host>:<port>`
+7. `--watch-main` 模式下，每次成功编译 → debounce 100ms → killElectron + 重启；失败 `logger.compileFailure` + `stats.toString({colors:true})` 后**不动 Electron**
+8. 生命周期：Electron `close` → 关闭 dev-server + watcher，按 Electron 退出码退出；SIGINT 同样收尾；frame 主动 kill 通过 `intentionalKill` 标志跳过收尾
+
+### 编译反馈接管（M1 §十 / M4 §七 / M5 §十 配套）
+
+- **renderer**：`hooks.done` 监听是唯一反馈通道。每次完成（dev 启动 / HMR 重编）先 `spinner.clear()` 再调 logger.compileSuccess + footer；失败时 logger.compileFailure + `stats.toString({colors:true})` 全量。
+- **main + preload**：默认模式在 `mainPreloadCompiler.run(cb)` 回调里对 `multiStats.stats` 数组逐个调 logger；watch 模式在 `mainPreloadCompiler.watch(opts, cb)` 回调内同样处理 + debounce 重启。
+- **spinner**：`createCompileSpinner` 返回 `{ start, stop, clear, isActive }`；`start()` 后 setInterval 每秒更新文案，timer 加 `unref()` 避免阻塞退出；每次 logger 输出前 `spinner.clear()` 防止 spinner 行被卡断；累计 3 次 tickInitial 后 `stop()`。watch 期间不再挂 spinner。
+- **stats 摘要**：`extractStatsSummary(stats, fallbackName)` 从 `stats.toJson({ assets, errors, warnings, modules:false, chunks:false, children:false, chunkGroups:false, chunkModules:false })` 提取 `{ name, ms, totalSize, errorCount, warningCount }`。三处共用一份摘要逻辑。
 
 ### TDD（mock 重副作用模块）
 
@@ -608,6 +638,9 @@ jest.mock('child_process', () => ({
 }));
 jest.mock('../../src/config');           // 整个 M2 模块 mock
 jest.mock('../../src/cli/utils/electron'); // M5 共享工具 mock
+jest.mock('../../src/logger');             // logger 整体 mock（断言被调）
+jest.mock('../../src/cli/utils/format');   // extractStatsSummary mock
+jest.mock('../../src/cli/utils/compile-spinner'); // spinner mock
 
 const webpack = require('webpack');
 const WebpackDevServer = require('webpack-dev-server');
@@ -618,13 +651,18 @@ const {
   resolveMainEntry,
   killElectron,
 } = require('../../src/cli/utils/electron');
+const logger = require('../../src/logger');
+const { extractStatsSummary } = require('../../src/cli/utils/format');
+const { createCompileSpinner } = require('../../src/cli/utils/compile-spinner');
 
 const dev = require('../../src/cli/commands/dev');
 
 beforeEach(() => {
-  // webpack 工厂：返回 multi-compiler-like 对象
+  // webpack 工厂：返回带 hooks.done 的 compiler
+  const hooks = { done: { tap: jest.fn() } };
   const compiler = {
-    run: jest.fn((cb) => cb(null, { hasErrors: () => false, toString: () => 'ok' })),
+    hooks,
+    run: jest.fn((cb) => cb(null, { hasErrors: () => false, toString: () => 'ok', stats: [{ hasErrors: () => false, toJson: () => ({ name: 'main', time: 100, errors: [], warnings: [], assets: [{ size: 1024 }] }) }, { hasErrors: () => false, toJson: () => ({ name: 'preload', time: 80, errors: [], warnings: [], assets: [{ size: 512 }] }) }] })),
     watch: jest.fn(() => ({ close: jest.fn((cb) => cb && cb()) })),
     close: jest.fn((cb) => cb && cb()),
   };
@@ -658,6 +696,19 @@ beforeEach(() => {
     preload: { name: 'preload' },
     renderer: { name: 'renderer' },
   });
+
+  // extractStatsSummary 默认返回 OK 摘要
+  extractStatsSummary.mockReturnValue({
+    name: 'renderer',
+    ms: 200,
+    totalSize: 4096,
+    errorCount: 0,
+    warningCount: 0,
+  });
+
+  // spinner：start/stop/clear 是 noop
+  const spinnerStub = { start: jest.fn(), stop: jest.fn(), clear: jest.fn(), isActive: () => true };
+  createCompileSpinner.mockReturnValue(spinnerStub);
 });
 ```
 
@@ -671,6 +722,8 @@ test('默认模式（无 --watch-main）：webpack 一次性构建 + 起 dev-ser
     env: { BC_API: 'http://x' },
     mode: 'development',
     command: 'dev',
+    isDev: true,
+    isProd: false,
   };
 
   // 让 action 不要阻塞在等待 Electron close 上：spawn 立即触发 close
@@ -692,9 +745,7 @@ test('默认模式（无 --watch-main）：webpack 一次性构建 + 起 dev-ser
   await expect(dev.action(ctx)).rejects.toThrow(/__EXIT__:0/);
 
   // 关键调用都发生
-  expect(resolveBuildConfig).toHaveBeenCalledWith({
-    env: ctx.env, mode: 'development', command: 'dev', cliOptions: ctx.cliOptions,
-  });
+  expect(resolveBuildConfig).toHaveBeenCalledWith(ctx);  // 收 ctx 整体，不再解构
   expect(WebpackDevServer).toHaveBeenCalled();
   expect(spawn).toHaveBeenCalledWith(
     '/fake/electron',
@@ -724,8 +775,12 @@ Create `src/cli/commands/dev.js`：
 // src/cli/commands/dev.js
 const webpack = require('webpack');
 const WebpackDevServer = require('webpack-dev-server');
-const { spawn } = require('child_process');
+const childProcess = require('child_process');
+const { MODES } = require('../../mode');
 const { resolveBuildConfig } = require('../../config');
+const logger = require('../../logger');
+const { extractStatsSummary } = require('../utils/format');
+const { createCompileSpinner } = require('../utils/compile-spinner');
 const {
   resolveElectron,
   resolveMainEntry,
@@ -733,14 +788,30 @@ const {
 } = require('../utils/electron');
 const { resolveDevServerOptions } = require('./dev-options');
 
+const MAIN_PRELOAD_NAMES = ['main', 'preload'];
+
+function reportMainPreloadStats(multiStats) {
+  let anyError = false;
+  multiStats.stats.forEach((stats, i) => {
+    const summary = extractStatsSummary(stats, MAIN_PRELOAD_NAMES[i]);
+    if (summary.errorCount > 0) {
+      logger.compileFailure(summary.name);
+      console.error(stats.toString({ colors: true }));
+      anyError = true;
+    } else {
+      logger.compileSuccess(summary.name, summary.ms, summary.totalSize);
+      logger.compileWarning(summary.name, summary.warningCount);
+    }
+  });
+  return anyError;
+}
+
 async function action(ctx) {
-  const { cliOptions, env, mode, command } = ctx;
+  const { cliOptions, env } = ctx;
   const rootDir = process.cwd();
 
-  // ① 拿三进程配置
-  const { main, preload, renderer } = resolveBuildConfig({
-    env, mode, command, cliOptions,
-  });
+  // ① 拿三进程配置（收 ctx 整体）
+  const { main, preload, renderer } = resolveBuildConfig(ctx);
 
   // ② 摘出 renderer.devServer
   const { devServer: userDevServer, ...rendererWebpack } = renderer;
@@ -749,14 +820,44 @@ async function action(ctx) {
   const { options: devServerOptions, host, port } = resolveDevServerOptions({
     cliOptions, userDevServer,
   });
+  const url = `http://${host}:${port}`;
 
-  // ④ 启动 dev-server（renderer）
+  // ④ 编译 spinner：3 路 compiler 首次完成累计后停
+  const spinner = createCompileSpinner('编译中...');
+  const initial = { needed: 3, completed: 0, done: false };
+  function tickInitial() {
+    if (initial.done) return;
+    initial.completed += 1;
+    if (initial.completed >= initial.needed) {
+      initial.done = true;
+      spinner.stop();
+    }
+  }
+
+  // ⑤ renderer compiler 挂 hooks.done（dev 启动 / HMR 重编 都走这里）
   const rendererCompiler = webpack(rendererWebpack);
+  rendererCompiler.hooks.done.tap('base-client', (stats) => {
+    const summary = extractStatsSummary(stats, 'renderer');
+    spinner.clear();
+    if (summary.errorCount > 0) {
+      logger.compileFailure(summary.name);
+      console.error(stats.toString({ colors: true }));
+      tickInitial();
+      return;
+    }
+    logger.compileSuccess(summary.name, summary.ms, summary.totalSize);
+    logger.compileWarning(summary.name, summary.warningCount);
+    logger.footer({ env, url, watch: !!cliOptions.watchMain });
+    tickInitial();
+  });
+
+  // ⑥ 启动 dev-server
   const server = new WebpackDevServer(devServerOptions, rendererCompiler);
   await server.start();
+  logger.info(`dev server: ${url}`);
+  spinner.start();
 
-  // ⑤ 构建 main + preload（默认一次性；--watch-main 走 watch）
-  let mainPreloadCompiler;
+  // ⑦ 构建 main + preload
   let mainPreloadWatcher;
   let electronChild = null;
   let intentionalKill = false;
@@ -764,7 +865,7 @@ async function action(ctx) {
   const spawnElectron = () => {
     const electronBin = resolveElectron(rootDir);
     const mainEntry = resolveMainEntry(rootDir);
-    const child = spawn(electronBin, [mainEntry], {
+    const child = childProcess.spawn(electronBin, [mainEntry], {
       stdio: 'inherit',
       env: {
         ...process.env,
@@ -787,19 +888,23 @@ async function action(ctx) {
 
   if (cliOptions.watchMain) {
     // watch 模式
-    mainPreloadCompiler = webpack([main, preload]);
+    const mainPreloadCompiler = webpack([main, preload]);
     let debounceTimer = null;
-    mainPreloadWatcher = mainPreloadCompiler.watch({}, (err, stats) => {
-      if (err || (stats && stats.hasErrors())) {
-        console.error(stats ? stats.toString({ colors: true }) : err);
-        return;   // 失败不重启 Electron
+    mainPreloadWatcher = mainPreloadCompiler.watch({}, (err, multiStats) => {
+      if (err) {
+        spinner.clear();
+        logger.error('main+preload watch', err.message);
+        tickInitial(); tickInitial();
+        return;
       }
-      // 成功：debounce 后重启
+      spinner.clear();
+      const anyError = reportMainPreloadStats(multiStats);
+      tickInitial(); tickInitial();
+      if (anyError) return;   // 失败不重启
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
         if (electronChild) {
           intentionalKill = true;
-          // 等旧进程退出后再起新进程，避免单例锁冲突
           const oldChild = electronChild;
           oldChild.on && oldChild.on('close', () => {
             electronChild = spawnElectron();
@@ -812,13 +917,18 @@ async function action(ctx) {
     });
   } else {
     // 默认模式：一次性构建
-    mainPreloadCompiler = webpack([main, preload]);
+    const mainPreloadCompiler = webpack([main, preload]);
     await new Promise((resolve, reject) => {
-      mainPreloadCompiler.run((err, stats) => {
-        if (err) return reject(err);
-        if (stats.hasErrors()) {
-          return reject(new Error(stats.toString({ colors: true })));
+      mainPreloadCompiler.run((err, multiStats) => {
+        if (err) {
+          spinner.clear();
+          tickInitial(); tickInitial();
+          return reject(err);
         }
+        spinner.clear();
+        const anyError = reportMainPreloadStats(multiStats);
+        tickInitial(); tickInitial();
+        if (anyError) return reject(new Error('main+preload 编译失败'));
         resolve();
       });
     });
@@ -838,7 +948,7 @@ async function action(ctx) {
 module.exports = {
   name: 'dev',
   description: '启动开发服务器 + Electron',
-  mode: 'development',
+  mode: MODES.DEV,
   options: [
     ['--port <n>', 'dev server 端口', { type: [Number] }],
     ['--host <host>', 'dev server host'],
@@ -857,38 +967,35 @@ Expected：PASS。
 
 ```js
 test('--watch-main：编译失败不 spawn Electron / 不 kill', async () => {
-  // webpack watch 返回 watcher，watch 回调用 失败 stats
+  // main+preload 编译失败 → extractStatsSummary 返回 errorCount>0
+  extractStatsSummary.mockReturnValueOnce({
+    name: 'main', ms: 100, totalSize: 0, errorCount: 1, warningCount: 0,
+  });
   webpack.mockReturnValue({
+    hooks: { done: { tap: jest.fn() } },
     watch: jest.fn((opts, cb) => {
-      setImmediate(() => cb(null, {
-        hasErrors: () => true,
-        toString: () => 'compile error',
-      }));
+      setImmediate(() => cb(null, { stats: [{}] }));
       return { close: jest.fn((cb2) => cb2 && cb2()) };
     }),
     close: jest.fn(),
   });
 
-  // 阻止 setTimeout 长挂；用 fake timers
   jest.useFakeTimers();
-
   const ctx = {
     cliOptions: { watchMain: true, port: 8023, host: 'localhost' },
     env: {},
-    mode: 'development',
-    command: 'dev',
+    mode: 'development', command: 'dev', isDev: true, isProd: false,
   };
   const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-  // 不等待 promise 完成（action 内部因为 SIGINT/Electron 不会自然结束）
   dev.action(ctx);
-  await new Promise((r) => setImmediate(r));  // 让 watch 回调跑
+  await new Promise((r) => setImmediate(r));
 
   // 没 spawn Electron、没调 killElectron
   expect(spawn).not.toHaveBeenCalled();
   expect(killElectron).not.toHaveBeenCalled();
-  // 输出了 compile error
-  expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('compile error'));
+  // 输出了 compile failure 摘要
+  expect(logger.compileFailure).toHaveBeenCalledWith('main');
 
   jest.useRealTimers();
   errorSpy.mockRestore();
@@ -898,23 +1005,25 @@ test('--watch-main：编译失败不 spawn Electron / 不 kill', async () => {
 - [ ] **Step 5.7：补"默认模式：构建失败抛错（不 spawn）"测试**
 
 ```js
-test('默认模式：webpack 编译失败 → action 抛错，不 spawn Electron', async () => {
+test('默认模式：main+preload 编译失败 → action 抛错，不 spawn Electron', async () => {
+  // extractStatsSummary 返回 errorCount>0
+  extractStatsSummary.mockReturnValueOnce({
+    name: 'main', ms: 100, totalSize: 0, errorCount: 1, warningCount: 0,
+  });
   webpack.mockReturnValue({
-    run: jest.fn((cb) => cb(null, {
-      hasErrors: () => true,
-      toString: () => 'init build error',
-    })),
+    hooks: { done: { tap: jest.fn() } },
+    run: jest.fn((cb) => cb(null, { stats: [{}] })),
     close: jest.fn(),
   });
 
   const ctx = {
     cliOptions: { port: 8023, host: 'localhost' },
     env: {},
-    mode: 'development',
-    command: 'dev',
+    mode: 'development', command: 'dev', isDev: true, isProd: false,
   };
-  await expect(dev.action(ctx)).rejects.toThrow(/init build error/);
+  await expect(dev.action(ctx)).rejects.toThrow(/main\+preload 编译失败/);
   expect(spawn).not.toHaveBeenCalled();
+  expect(logger.compileFailure).toHaveBeenCalledWith('main');
 });
 ```
 
@@ -925,13 +1034,11 @@ test('spawn Electron 时注入 NODE_ENV=development + RENDERER_DEV_URL', async (
   const ctx = {
     cliOptions: { port: 4321, host: '0.0.0.0' },
     env: {},
-    mode: 'development',
-    command: 'dev',
+    mode: 'development', command: 'dev', isDev: true, isProd: false,
   };
   spawn.mockImplementationOnce(() => ({
     pid: 1, on: jest.fn(), kill: jest.fn(),
   }));
-  // 让一次性构建走通
   await dev.action(ctx).catch(() => {});
   expect(spawn).toHaveBeenCalledWith(
     '/fake/electron',
@@ -946,17 +1053,98 @@ test('spawn Electron 时注入 NODE_ENV=development + RENDERER_DEV_URL', async (
 });
 ```
 
-- [ ] **Step 5.9：跑全部 dev action 测试**
+- [ ] **Step 5.9：补"renderer hooks.done 接管"测试（M5 §十）**
+
+```js
+test('renderer hooks.done 触发后调 extractStatsSummary + logger.compileSuccess + logger.footer', () => {
+  // 直接调 dev 命令暴露的 hooks.done tap 注册的回调
+  // 我们在 beforeEach 里 webpack.mockReturnValue 后捕获 hooks.done.tap 的 callback
+  const taps = [];
+  webpack.mockImplementation(() => {
+    return {
+      hooks: { done: { tap: (name, cb) => taps.push(cb) } },
+      run: jest.fn(),
+      watch: jest.fn(),
+      close: jest.fn(),
+    };
+  });
+  const ctx = {
+    cliOptions: { port: 8023, host: 'localhost' },
+    env: { BC_API: 'http://x' },
+    mode: 'development', command: 'dev', isDev: true, isProd: false,
+  };
+  // 让 action 跑完 throw 之前 hooks 已经注册
+  dev.action(ctx).catch(() => {});
+
+  // 取出 hooks.done 的回调并调用
+  expect(taps.length).toBeGreaterThan(0);
+  const tapCb = taps[0];
+  const fakeStats = { toString: () => 'ok' };   // extractStatsSummary 已 mock
+  tapCb(fakeStats);
+
+  expect(extractStatsSummary).toHaveBeenCalledWith(fakeStats, 'renderer');
+  expect(logger.compileSuccess).toHaveBeenCalledWith('renderer', 200, 4096);
+  expect(logger.footer).toHaveBeenCalledWith({
+    env: { BC_API: 'http://x' },
+    url: 'http://localhost:8023',
+    watch: false,
+  });
+});
+
+test('renderer hooks.done 遇 errorCount>0 → logger.compileFailure + console.error(stats)', () => {
+  extractStatsSummary.mockReturnValueOnce({
+    name: 'renderer', ms: 50, totalSize: 0, errorCount: 1, warningCount: 0,
+  });
+  const taps = [];
+  webpack.mockImplementation(() => ({
+    hooks: { done: { tap: (name, cb) => taps.push(cb) } },
+    run: jest.fn(), watch: jest.fn(), close: jest.fn(),
+  }));
+  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+  const ctx = { cliOptions: {}, env: {}, mode: 'development', command: 'dev', isDev: true, isProd: false };
+  dev.action(ctx).catch(() => {});
+
+  const fakeStats = { toString: jest.fn(() => 'full error trace') };
+  taps[0](fakeStats);
+
+  expect(logger.compileFailure).toHaveBeenCalledWith('renderer');
+  expect(console.error).toHaveBeenCalledWith('full error trace');
+  expect(logger.footer).not.toHaveBeenCalled();   // 失败不打印 footer
+  errorSpy.mockRestore();
+});
+
+test('spinner 在 3 路 compiler 首次完成后 stop', () => {
+  const spinnerMock = { start: jest.fn(), stop: jest.fn(), clear: jest.fn(), isActive: () => true };
+  createCompileSpinner.mockReturnValueOnce(spinnerMock);
+  const taps = [];
+  webpack.mockImplementation(() => ({
+    hooks: { done: { tap: (name, cb) => taps.push(cb) } },
+    run: jest.fn((cb) => cb(null, { stats: [{}] })),
+    watch: jest.fn(), close: jest.fn(),
+  }));
+  const ctx = { cliOptions: {}, env: {}, mode: 'development', command: 'dev', isDev: true, isProd: false };
+  dev.action(ctx).catch(() => {});
+
+  // 第一次回调：renderer 完成
+  taps[0]({ toString: () => '' });
+  // 第二/三次：main 完成 + preload 完成（main+preload.run 走两轮 tickInitial）
+  // 实际 main+preload.run 回调只调一次 tickInitial(); tickInitial();
+  expect(spinnerMock.start).toHaveBeenCalled();
+  expect(spinnerMock.stop).toHaveBeenCalled();
+});
+```
+
+- [ ] **Step 5.10：跑全部 dev action 测试**
 
 Run: `npx jest tests/unit/cli-commands-dev-action.test.js`
-Expected：4 passed（默认模式 spawn / watch 失败 / 默认编译失败 / URL 注入）。
+Expected：7 passed（默认模式 spawn / watch 失败 / 默认编译失败 / URL 注入 / hooks.done 成功 / hooks.done 失败 / spinner 累计完成）。
 
 > 注意：测试在 jest 的事件循环里运行，dev action 内的事件监听（SIGINT、`child.on('close')`）会注册到全局 `process` 上，可能影响后续测试。每个测试用例后都应 `process.removeAllListeners('SIGINT')` 收尾。可在 `afterEach` 加一条：
 > ```js
 > afterEach(() => process.removeAllListeners('SIGINT'));
 > ```
 
-- [ ] **Step 5.10：补 afterEach 收尾**
+- [ ] **Step 5.11：补 afterEach 收尾**
 
 在 `tests/unit/cli-commands-dev-action.test.js` 文件顶部添加：
 ```js
@@ -967,9 +1155,9 @@ afterEach(() => {
 
 再跑一次：
 Run: `npx jest tests/unit/cli-commands-dev-action.test.js`
-Expected：4 passed。
+Expected：7 passed。
 
-- [ ] **Step 5.11：提交 Task 5**
+- [ ] **Step 5.12：提交 Task 5**
 
 ```bash
 git add src/cli/commands/dev.js tests/unit/cli-commands-dev-action.test.js
@@ -1047,9 +1235,9 @@ git commit -m "feat(M5): 注册 dev 命令到清单"
 | §二 命令选项 | `--port` / `--host` / `--watch-main` 三选项 | Task 5 命令模板 |
 | §二 默认 host/port | 8023 / localhost 兜底（CLI 不预置） | Task 4 测试覆盖 |
 | §三 默认模式 | main+preload 一次性 / dev-server / spawn Electron 顺序 | Task 5 Step 5.2 |
-| §三 任一编译失败 → throw | webpack `stats.hasErrors()` 后抛错 | Task 5 Step 5.7 |
+| §三 任一编译失败 → throw | main+preload 任一 errorCount>0 即 reject | Task 5 Step 5.7 |
 | §四 --watch-main 成功 | killElectron + 重新 spawn | Task 5 实现内 watch 回调；mock 验证 spawn / kill 被调 |
-| §四 --watch-main 失败 | 不动 Electron，控制台打印 stats.toString | Task 5 Step 5.6 |
+| §四 --watch-main 失败 | 不动 Electron，`logger.compileFailure` + `stats.toString({colors:true})` | Task 5 Step 5.6 |
 | §四 进程管理 | 同一时刻一个 Electron 句柄；旧进程 close 后再 spawn | Task 5 实现 `oldChild.on('close', () => respawn)`（M5 §四要求） |
 | §四 debounce 合并重启 | setTimeout 防抖 | Task 5 实现 `debounceTimer` |
 | §四 killElectron 跨平台 | win32 taskkill / 其他 SIGTERM | Task 3 |
@@ -1058,13 +1246,17 @@ git commit -m "feat(M5): 注册 dev 命令到清单"
 | §五 NODE_ENV | spawn 时注入 development | Task 5 Step 5.8 |
 | §六 devServer 选项 | CLI > user > 默认；frame 强制 hot | Task 4 |
 | §六 dev-server 仅消费 devServer 字段 | 摘出后 webpack 配置不含 devServer | Task 5 实现 `{ devServer, ...rendererWebpack }` 解构 |
+| §六 devMiddleware.stats 默认 false | 与 M4 renderer `stats:'none'` 配套 | Task 4 Step 4.5 新增 2 个测试 |
 | §七 resolveElectron / resolveMainEntry | 实现 | Task 1 / 2 |
 | §七 共享工具 | 放 `src/cli/utils/electron.js` | Task 1-3 |
 | §八 生命周期 close | dev-server stop + watcher close + exit | Task 5 实现内 `electronChild.on('close')` |
 | §八 SIGINT 收尾 | killElectron + stop + exit | Task 5 实现内 `process.on('SIGINT')` |
 | §八 致命错误 throw | 抛错 → M1 runCommand 统一处理 | Task 5 Step 5.7 |
 | §九 模块边界 | M5 不实现 merge / 预设 / env 读取 | 实现仅 `require` config / presets 的工厂接口，未碰底层 fs / dotenv |
-| §十 文件结构 | `src/cli/commands/dev.js` + `src/cli/utils/electron.js` | Task 5 / Task 1-3 |
+| §十 编译反馈与输出接管 | renderer hooks.done 接管；main/preload 走 reportMainPreloadStats；spinner 3 路累计 stop | Task 5 Step 5.9（3 个新测试） |
+| §十一 文件结构 | dev.js + dev-options.js + electron.js + format.js + compile-spinner.js | Task 1-5 + 引入 format / compile-spinner |
+| M1 §九 mode 抽象 | 命令模板 `mode: MODES.DEV`；ctx 含 isDev/isProd | Task 5 命令模板 + 全部 ctx 透传 |
+| M1 §十 logger 契约 | dev 内部用 `logger.info / compileSuccess/Failure/Warning / footer`；失败时 `console.error(stats.toString({colors:true}))` | Task 5 实现 + Step 5.9 断言 logger 被调 |
 
 **Placeholder 扫描**：无 TBD / TODO。
 
@@ -1073,7 +1265,7 @@ git commit -m "feat(M5): 注册 dev 命令到清单"
 - `resolveDevServerOptions({ cliOptions, userDevServer }) → { options, host, port }` 一致
 
 **模块边界**：
-- M5 `require` 的外部模块：`webpack`、`webpack-dev-server`、`child_process` 的 `spawn`、`../../config`（M2 `resolveBuildConfig`）、`../utils/electron`（M5 自己的）、`./dev-options`（M5 自己的）
+- M5 `require` 的外部模块：`webpack`、`webpack-dev-server`、`child_process` 的 `spawn`、`../../config`（M2 `resolveBuildConfig`）、`../../mode`（横切：`MODES` 常量）、`../../logger`（横切：CLI 输出层）、`../utils/electron`（M5 自己的）、`../utils/format`（横切：`extractStatsSummary`）、`../utils/compile-spinner`（横切：`createCompileSpinner`）、`./dev-options`（M5 自己的）
 - **没有** `require` M3 `../../env`（env 来自 ctx）、M4 `../../config/presets`（presets 来自 M2 内部）、`electron`（不直接 require，从用户项目解析）、`electron-builder`
 
 **与 spec §六 的微调声明**：spec 写 `host = cliOptions.host ?? userDevServer.host ?? 'localhost'` 的优先级在 §六 文字里也明示。本 plan 把 host/port 解析 + devServer 选项构造抽到独立纯函数 `resolveDevServerOptions`，逻辑等价、可单测，行为完全符合 spec。

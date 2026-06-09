@@ -243,9 +243,11 @@ Expected：FAIL，模块不存在。
 ```js
 // src/config/presets/main.js
 const path = require('path');
+const { deriveMode } = require('../../mode');
 const { defineEnvPlugin } = require('./define-env');
 
 function getMainPreset({ rootDir, env, mode }) {
+  const { isDev } = deriveMode(mode);   // preset 自包含派生，不依赖外部 ctx
   return {
     target: 'electron-main',
     mode,
@@ -258,7 +260,7 @@ function getMainPreset({ rootDir, env, mode }) {
     },
     externals: { electron: 'commonjs electron' },
     resolve: { extensions: ['.js', '.mjs', '.cjs', '.json'] },
-    devtool: mode === 'development' ? 'source-map' : false,
+    devtool: isDev ? 'source-map' : false,
     module: {
       rules: [
         { test: /\.(png|jpe?g|gif|svg|webp|avif)$/i, type: 'asset/resource' },
@@ -406,9 +408,11 @@ Expected：FAIL，模块不存在。
 ```js
 // src/config/presets/preload.js
 const path = require('path');
+const { deriveMode } = require('../../mode');
 const { defineEnvPlugin } = require('./define-env');
 
 function getPreloadPreset({ rootDir, env, mode }) {
+  const { isDev } = deriveMode(mode);
   return {
     target: 'electron-preload',
     mode,
@@ -421,7 +425,7 @@ function getPreloadPreset({ rootDir, env, mode }) {
     },
     externals: { electron: 'commonjs electron' },
     resolve: { extensions: ['.js', '.mjs', '.cjs', '.json'] },
-    devtool: mode === 'development' ? 'source-map' : false,
+    devtool: isDev ? 'source-map' : false,
     module: {
       rules: [
         { test: /\.(png|jpe?g|gif|svg|webp|avif)$/i, type: 'asset/resource' },
@@ -547,9 +551,11 @@ Expected：FAIL，模块不存在。
 ```js
 // src/config/presets/renderer.js
 const path = require('path');
+const { deriveMode } = require('../../mode');
 const { defineEnvPlugin } = require('./define-env');
 
 function getRendererPreset({ rootDir, env, mode }) {
+  const { isDev, isProd } = deriveMode(mode);
   return {
     target: 'web',
     mode,
@@ -557,11 +563,13 @@ function getRendererPreset({ rootDir, env, mode }) {
     output: {
       path: path.resolve(rootDir, 'app/renderer'),
       filename: 'index.js',
-      publicPath: mode === 'production' ? './' : '/',
+      publicPath: isProd ? './' : '/',
       assetModuleFilename: 'assets/[name].[hash:8][ext][query]',
     },
     resolve: { extensions: ['.js', '.mjs', '.cjs', '.json'] },
-    devtool: mode === 'development' ? 'source-map' : false,
+    devtool: isDev ? 'source-map' : false,
+    stats: 'none',                                    // 静默 webpack 默认 stats（让位 logger 接管）
+    infrastructureLogging: { level: 'warn' },         // 静默 dev-server 启动 / HMR 等基础设施日志
     module: {
       rules: [
         { test: /\.(png|jpe?g|gif|svg|webp|avif)$/i, type: 'asset/resource' },
@@ -639,12 +647,33 @@ test('resolve.extensions 与 main / preload 一致', () => {
 });
 ```
 
-- [ ] **Step 4.8：跑全部 renderer 测试**
+- [ ] **Step 4.8：补"webpack 输出静默约定"测试（spec §七）**
+
+```js
+test('stats:"none"（静默 webpack 默认 stats 输出）', () => {
+  const cfg = getRendererPreset({ rootDir: ROOT, env: ENV, mode: 'production' });
+  expect(cfg.stats).toBe('none');
+});
+
+test('infrastructureLogging.level:"warn"（静默 dev-server 基础设施日志）', () => {
+  const cfg = getRendererPreset({ rootDir: ROOT, env: ENV, mode: 'development' });
+  expect(cfg.infrastructureLogging).toEqual({ level: 'warn' });
+});
+
+test('main / preload 不加静默约定（仅 renderer，main+preload 走 webpack(config, cb) 回调路径）', () => {
+  const { getMainPreset } = require('../../src/config/presets/main');
+  const { getPreloadPreset } = require('../../src/config/presets/preload');
+  expect(getMainPreset({ rootDir: ROOT, env: ENV, mode: 'production' }).stats).toBeUndefined();
+  expect(getPreloadPreset({ rootDir: ROOT, env: ENV, mode: 'production' }).stats).toBeUndefined();
+});
+```
+
+- [ ] **Step 4.9：跑全部 renderer 测试**
 
 Run: `npx jest tests/unit/presets-renderer.test.js`
-Expected：8 passed。
+Expected：11 passed（原 8 + 新 3 静默）。
 
-- [ ] **Step 4.9：提交 Task 4**
+- [ ] **Step 4.10：提交 Task 4**
 
 ```bash
 git add src/config/presets/renderer.js tests/unit/presets-renderer.test.js
@@ -744,16 +773,18 @@ git commit -m "feat(M4): presets/index 汇出三 getter + defineEnvPlugin"
 | §二 接口 | 三 getter 入参 `{ rootDir, env, mode }` | Task 2/3/4/5 |
 | §二 接口 | 三 getter 各自独立产出完整预设，不共享中间层 | 三文件各自完整列出 mode/devtool/resolve/AssetModules/DefinePlugin（实现里没有共享 helper） |
 | §二 接口 | `defineEnvPlugin` 是复用的纯函数 | Task 1 |
+| §二 接口 | preset 内 `deriveMode(mode)` 自包含派生 isDev/isProd | Task 2/3/4 实现首行（`const { isDev, isProd } = deriveMode(mode)`） |
 | §三 三进程骨架 | target / entry / output / externals / resolve | Task 2/3/4 |
 | §三 入口页面 | renderer 预设不内置 html-webpack-plugin，由用户在 `bc.config.js` 自注册 | Task 4 Step 4.6（反向断言：plugins 中无 HtmlWebpackPlugin） |
-| §四 devtool | dev → source-map；其他 → false | Task 2/3/4 |
+| §四 devtool | dev → source-map；其他 → false（用 isDev 表达） | Task 2/3/4 |
 | §五 Asset Modules | 三 rules（图片/字体/媒体）+ `output.assetModuleFilename` | Task 2/3/4 |
 | §五 Asset Modules | 一律 `asset/resource`，不做 base64 | Task 2/3/4 实现里全为 `asset/resource` |
 | §六 DefinePlugin | 只注入 `BC_` 前缀 | Task 1 Step 1.5 |
 | §六 DefinePlugin | 逐键定义 `process.env.<key>`，不整体替换 `process.env` | Task 1 Step 1.5 |
 | §六 DefinePlugin | 三进程注入同一份 BC_ 子集 | Task 2/3/4 plugins 测试均覆盖 BC_ 过滤 |
-| §七 模块边界 | M4 不读 `.env`、不合并用户配置、不起 devServer | 实现仅依赖 `path/webpack/defineEnvPlugin`，不碰 fs / merge / devServer |
-| §八 文件结构 | `main.js` / `preload.js` / `renderer.js` / `index.js` | Task 2/3/4/5；`define-env.js` 拆出为微调（已在卷首声明） |
+| §七 webpack 输出静默约定 | renderer `stats:'none'` + `infrastructureLogging.level:'warn'`；main/preload 不加 | Task 4 Step 4.8（3 个新测试） |
+| §八 模块边界 | M4 不读 `.env`、不合并用户配置、不起 devServer | 实现仅依赖 `path/webpack/deriveMode/defineEnvPlugin`，不碰 fs / merge / devServer |
+| §九 文件结构 | `main.js` / `preload.js` / `renderer.js` / `define-env.js` / `index.js` | Task 2/3/4/5；`define-env.js` 拆出为微调（已在卷首声明） |
 
 **Placeholder 扫描**：无 TBD / TODO。代码块全部完整。
 
@@ -761,7 +792,7 @@ git commit -m "feat(M4): presets/index 汇出三 getter + defineEnvPlugin"
 - `getMainPreset / getPreloadPreset / getRendererPreset({ rootDir, env, mode })` 三处签名一致；
 - `defineEnvPlugin(env) → webpack.DefinePlugin` 在 Task 1 定义、Task 2/3/4 内部 require 使用、Task 5 汇出 —— 一致。
 
-**模块边界**：M4 仅 `require` `path` / `webpack` / 同目录 `./define-env`；不 `require` M3 的 env 模块（env 对象通过参数传入）、不 `require` `webpack-merge`、不 `require` `fs`、不 `require` `html-webpack-plugin`（renderer 预设不内置该插件，由用户自注册）。
+**模块边界**：M4 仅 `require` `path` / `webpack` / 同目录 `./define-env` / `../../mode`（横切基础设施）；不 `require` M3 的 env 模块（env 对象通过参数传入）、不 `require` `webpack-merge`、不 `require` `fs`、不 `require` `html-webpack-plugin`（renderer 预设不内置该插件，由用户自注册）。
 
 ---
 
