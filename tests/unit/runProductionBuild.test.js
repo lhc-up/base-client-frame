@@ -1,5 +1,10 @@
 jest.mock('webpack');
 jest.mock('../../src/config');
+jest.mock('../../src/cli/utils/compile-spinner', () => ({
+    createCompileSpinner: () => ({
+        start: jest.fn(), stop: jest.fn(), clear: jest.fn(), isActive: () => false,
+    }),
+}));
 
 const fs = require('fs');
 const path = require('path');
@@ -20,6 +25,15 @@ beforeEach(() => {
         setImmediate(() => cb(null, {
             hasErrors: () => false,
             toString: () => `[${config.name}] compiled`,
+            toJson: () => ({
+                name: config.name,
+                time: 100,
+                errors: [],
+                warnings: [],
+                assets: [{ size: 1024 }],
+            }),
+            startTime: 0,
+            endTime: 100,
         }));
     });
 });
@@ -63,6 +77,15 @@ describe('runProductionBuild', () => {
                 cb(null, {
                     hasErrors: () => hasErr,
                     toString: () => hasErr ? '[renderer] ERROR detail' : '[ok]',
+                    toJson: () => ({
+                        name: config.name,
+                        time: 100,
+                        errors: hasErr ? [{ message: 'boom' }] : [],
+                        warnings: [],
+                        assets: [{ size: 1024 }],
+                    }),
+                    startTime: 0,
+                    endTime: 100,
                 });
             });
         });

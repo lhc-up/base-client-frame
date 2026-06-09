@@ -3,6 +3,9 @@ const WebpackDevServer = require('webpack-dev-server');
 const childProcess = require('child_process');
 const { MODES } = require('../../mode');
 const { resolveBuildConfig } = require('../../config');
+const logger = require('../../logger');
+const { extractStatsSummary } = require('../utils/format');
+const { createCompileSpinner } = require('../utils/compile-spinner');
 const {
     resolveElectron,
     resolveMainEntry,
@@ -10,8 +13,26 @@ const {
 } = require('../utils/electron');
 const { resolveDevServerOptions } = require('./dev-options');
 
+const MAIN_PRELOAD_NAMES = ['main', 'preload'];
+
+function reportMainPreloadStats(multiStats) {
+    let anyError = false;
+    multiStats.stats.forEach((stats, i) => {
+        const summary = extractStatsSummary(stats, MAIN_PRELOAD_NAMES[i]);
+        if (summary.errorCount > 0) {
+            logger.compileFailure(summary.name);
+            console.error(stats.toString({ colors: true }));
+            anyError = true;
+        } else {
+            logger.compileSuccess(summary.name, summary.ms, summary.totalSize);
+            logger.compileWarning(summary.name, summary.warningCount);
+        }
+    });
+    return anyError;
+}
+
 async function action(ctx) {
-    const { cliOptions } = ctx;
+    const { cliOptions, env } = ctx;
     const rootDir = process.cwd();
 
     const { main, preload, renderer } = resolveBuildConfig(ctx);
@@ -21,10 +42,39 @@ async function action(ctx) {
     const { options: devServerOptions, host, port } = resolveDevServerOptions({
         cliOptions, userDevServer,
     });
+    const url = `http://${host}:${port}`;
+
+    const spinner = createCompileSpinner('编译中...');
+    const initial = { needed: 3, completed: 0, done: false };
+    function tickInitial() {
+        if (initial.done) return;
+        initial.completed += 1;
+        if (initial.completed >= initial.needed) {
+            initial.done = true;
+            spinner.stop();
+        }
+    }
 
     const rendererCompiler = webpack(rendererWebpack);
+    rendererCompiler.hooks.done.tap('base-client', (stats) => {
+        const summary = extractStatsSummary(stats, 'renderer');
+        spinner.clear();
+        if (summary.errorCount > 0) {
+            logger.compileFailure(summary.name);
+            console.error(stats.toString({ colors: true }));
+            tickInitial();
+            return;
+        }
+        logger.compileSuccess(summary.name, summary.ms, summary.totalSize);
+        logger.compileWarning(summary.name, summary.warningCount);
+        logger.footer({ env, url, watch: !!cliOptions.watchMain });
+        tickInitial();
+    });
+
     const server = new WebpackDevServer(devServerOptions, rendererCompiler);
     await server.start();
+    logger.info(`dev server: ${url}`);
+    spinner.start();
 
     let mainPreloadWatcher;
     let electronChild = null;
@@ -56,11 +106,17 @@ async function action(ctx) {
     if (cliOptions.watchMain) {
         const mainPreloadCompiler = webpack([main, preload]);
         let debounceTimer = null;
-        mainPreloadWatcher = mainPreloadCompiler.watch({}, (err, stats) => {
-            if (err || (stats && stats.hasErrors())) {
-                console.error(stats ? stats.toString({ colors: true }) : err);
+        mainPreloadWatcher = mainPreloadCompiler.watch({}, (err, multiStats) => {
+            if (err) {
+                spinner.clear();
+                logger.error('main+preload watch', err.message);
+                tickInitial(); tickInitial();
                 return;
             }
+            spinner.clear();
+            const anyError = reportMainPreloadStats(multiStats);
+            tickInitial(); tickInitial();
+            if (anyError) return;
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(() => {
                 if (electronChild) {
@@ -78,11 +134,16 @@ async function action(ctx) {
     } else {
         const mainPreloadCompiler = webpack([main, preload]);
         await new Promise((resolve, reject) => {
-            mainPreloadCompiler.run((err, stats) => {
-                if (err) return reject(err);
-                if (stats.hasErrors()) {
-                    return reject(new Error(stats.toString({ colors: true })));
+            mainPreloadCompiler.run((err, multiStats) => {
+                if (err) {
+                    spinner.clear();
+                    tickInitial(); tickInitial();
+                    return reject(err);
                 }
+                spinner.clear();
+                const anyError = reportMainPreloadStats(multiStats);
+                tickInitial(); tickInitial();
+                if (anyError) return reject(new Error('main+preload 编译失败'));
                 resolve();
             });
         });

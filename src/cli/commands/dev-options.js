@@ -7,6 +7,10 @@ function resolveDevServerOptions({ cliOptions = {}, userDevServer = {} }) {
         host,
         port,
         hot: true,
+        devMiddleware: {
+            stats: false,
+            ...(userDevServer.devMiddleware || {}),
+        },
     };
     return { options, host, port };
 }

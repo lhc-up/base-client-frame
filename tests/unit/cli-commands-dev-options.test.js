@@ -54,4 +54,17 @@ describe('resolveDevServerOptions', () => {
         });
         expect(r.options.historyApiFallback).toBe(false);
     });
+
+    test('默认 devMiddleware.stats=false（消除 webpack-dev-middleware 默认 stats 输出）', () => {
+        const r = resolveDevServerOptions({ cliOptions: {}, userDevServer: {} });
+        expect(r.options.devMiddleware).toEqual({ stats: false });
+    });
+
+    test('用户 devMiddleware 字段优先于 frame 默认', () => {
+        const r = resolveDevServerOptions({
+            cliOptions: {},
+            userDevServer: { devMiddleware: { stats: 'normal', writeToDisk: true } },
+        });
+        expect(r.options.devMiddleware).toEqual({ stats: 'normal', writeToDisk: true });
+    });
 });

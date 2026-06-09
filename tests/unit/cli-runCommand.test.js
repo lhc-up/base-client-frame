@@ -78,7 +78,7 @@ describe('runCommand', () => {
 
             expect(action).not.toHaveBeenCalled();
             expect(errorSpy).toHaveBeenCalledWith(
-                expect.stringMatching(/\[base-client\] build 失败：/)
+                expect.stringMatching(/base-client.*build 失败/)
             );
         } finally {
             tmp.cleanup();
@@ -121,7 +121,9 @@ describe('runCommand', () => {
                 action: () => { throw new Error('something broke'); },
             };
             await expect(runCommand(cmd, { env: 'prod', debug: false })).rejects.toThrow('__EXIT__:1');
-            expect(errorSpy).toHaveBeenCalledWith('[base-client] pack 失败：something broke');
+            expect(errorSpy).toHaveBeenCalledWith(
+                expect.stringMatching(/base-client.*pack 失败.*something broke/)
+            );
         } finally {
             tmp.cleanup();
         }

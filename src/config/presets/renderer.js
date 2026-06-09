@@ -16,6 +16,8 @@ function getRendererPreset({ rootDir, env, mode }) {
         },
         resolve: { extensions: ['.js', '.mjs', '.cjs', '.json'] },
         devtool: isDev ? 'source-map' : false,
+        stats: 'none',
+        infrastructureLogging: { level: 'warn' },
         module: {
             rules: [
                 { test: /\.(png|jpe?g|gif|svg|webp|avif)$/i, type: 'asset/resource' },

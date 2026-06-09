@@ -26,7 +26,8 @@
       "Read(//d/Desktop/npm/client-playground/node_modules/@base-client/frame/dist/cli/**)",
       "Read(//d/Desktop/npm/client-playground/**)",
       "Read(//d/Desktop/npm/client-playground/node_modules/@base-client/frame/**)",
-      "Bash(yalc push *)"
+      "Bash(yalc push *)",
+      "Bash(npm ls *)"
     ]
   }
 }

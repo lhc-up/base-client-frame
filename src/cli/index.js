@@ -1,6 +1,7 @@
 const { cac } = require('cac');
 const { initEnv } = require('../env');
 const { MODES, deriveMode } = require('../mode');
+const logger = require('../logger');
 const { version } = require('../../package.json');
 
 function createCli(commandList) {
@@ -42,9 +43,13 @@ async function runCommand(cmd, cliOptions) {
             cliOptions, env, mode, command: cmd.name,
             ...deriveMode(mode),
         };
+
+        process.title = `bc-${cmd.name}|env=${env?.BC_ENV ?? '?'}`;
+        logger.banner({ command: cmd.name, mode, env });
+
         await cmd.action(ctx);
     } catch (err) {
-        console.error(`[base-client] ${cmd.name} 失败：${err.message}`);
+        logger.error(`${cmd.name} 失败：`, err.message);
         if (cliOptions && cliOptions.debug) console.error(err.stack);
         process.exit(1);
     }
