@@ -12,6 +12,8 @@ electronPackage/
 pack/
 app/
 dist/*
+tests/fixtures/**/dist/
+tests/tmp/
 .project
 yarn.lock
 npm-debug.log
