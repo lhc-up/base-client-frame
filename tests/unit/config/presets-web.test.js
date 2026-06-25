@@ -21,7 +21,7 @@ describe('config/presets/web', () => {
         const preset = getWebPreset(baseCtx(), pkgJson, buildInfo);
         expect(preset.target).toBe('web');
         expect(preset.mode).toBe('development');
-        expect(preset.entry).toContain('src/renderer/index.js');
+        expect(preset.entry).toContain(path.join('src', 'renderer', 'index.js'));
         expect(preset.output.path).toContain('dist');
         expect(preset.output.filename).toBe('index.js');
     });
