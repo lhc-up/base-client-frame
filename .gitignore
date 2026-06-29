@@ -9,10 +9,11 @@ Desktop.ini
 .iflycode/*
 node_modules/
 electronPackage/
-pack/
-app/
+/pack/
+/app/
 dist/*
 tests/fixtures/**/dist/
+tests/fixtures/**/app/
 tests/tmp/
 .project
 yarn.lock

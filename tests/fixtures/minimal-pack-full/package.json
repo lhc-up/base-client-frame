@@ -1,0 +1,7 @@
+{
+    "name": "minimal-pack-full",
+    "version": "1.0.0",
+    "main": "app/main/index.js",
+    "productName": "MinimalPackFull",
+    "author": "test"
+}

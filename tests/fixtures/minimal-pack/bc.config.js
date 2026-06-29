@@ -5,4 +5,7 @@ module.exports = (ctx) => ({
     renderer: {
         plugins: [new HtmlWebpackPlugin({ template: 'src/renderer/index.html', filename: 'renderer/index.html', chunks: ['renderer'] })],
     },
+    encrypt: false,
+    bytenode: false,
+    incremental: false,
 });

@@ -3,11 +3,12 @@ const fse = require('fs-extra');
 const { MODES } = require('../../core/mode');
 const { TARGETS } = require('../../core/target');
 const { deriveBuildInfo } = require('../../core/build-info');
-const { resolveBuildConfig } = require('../../config/bc-config');
+const { resolveBuildConfig, locateBcConfig, loadUserConfig } = require('../../config/bc-config');
 const { resolveBuilderConfig } = require('../../config/builder-config');
 const { runProductionBuild } = require('../../webpack-runner/run-build');
 const { adaptIcon } = require('../../pack/icon');
 const { generateShellScripts } = require('../../pack/shell');
+const { computeCryptoState } = require('../../pack/encrypt');
 const { resolveElectronBuilder } = require('../../electron/resolve-electron-builder');
 const { buildTargets } = require('../../electron/build-targets');
 const logger = require('../../core/logger');
@@ -34,11 +35,14 @@ module.exports = {
 
         // 阶段 A · 资源准备
         fse.emptyDirSync(distDir);
-        const buildInfo = deriveBuildInfo(ctx, pkgJson);
+
+        const bcConfigPath = locateBcConfig(rootDir, ctx.cliOptions.config);
+        const userConfig = loadUserConfig(bcConfigPath, ctx);
+        const cryptoState = computeCryptoState({ rootDir, userConfig });
+        const buildInfo = deriveBuildInfo(ctx, pkgJson, cryptoState);
+
         const mergedBuilderConfig = resolveBuilderConfig(ctx, pkgJson);
-
         await adaptIcon({ rootDir, distDir, mergedBuilderConfig });
-
         generateShellScripts({
             rootDir,
             distDir,
@@ -53,6 +57,27 @@ module.exports = {
         const { main, preload, renderer } = resolveBuildConfig(ctx, pkgJson, buildInfo);
         const { devServer: _r, ...rendererWebpack } = renderer;
         await runProductionBuild([main, preload, rendererWebpack], ctx);
+
+        // ⑩ AES 加密渲染层
+        if (cryptoState.encrypted) {
+            const { encryptRenderer } = require('../../pack/encrypt');
+            await encryptRenderer({ appDir, encryptKey: cryptoState.encryptKey });
+            logger.info('AES 加密完成');
+        }
+
+        // ⑪ 增量 .asax 包（非 --unpack）
+        if (userConfig.incremental !== false && !ctx.cliOptions.unpack) {
+            const { buildIncrementalAsax } = require('../../pack/incremental');
+            await buildIncrementalAsax({ appDir, distDir, buildInfo });
+            logger.info(`增量包 dist/${buildInfo.env}-v${buildInfo.version}.asax 已产出`);
+        }
+
+        // ⑫ bytenode 主进程字节码
+        if (userConfig.bytenode !== false) {
+            const { bytenodeMain } = require('../../pack/bytenode');
+            await bytenodeMain({ rootDir, appDir, mergedBuilderConfig });
+            logger.info('bytenode 字节码完成');
+        }
 
         // 阶段 C · 安装包打包
         const targets = buildTargets(ctx.cliOptions);
