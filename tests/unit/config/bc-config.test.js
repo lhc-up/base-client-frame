@@ -70,3 +70,60 @@ describe('config/bc-config', () => {
         }
     });
 });
+
+describe('config/bc-config (app target)', () => {
+    const fs = require('fs');
+    const fixtureDir = path.join(__dirname, '../../fixtures/bc-config-app');
+
+    beforeAll(() => {
+        fs.mkdirSync(fixtureDir, { recursive: true });
+        fs.writeFileSync(path.join(fixtureDir, '.env.prod'), 'BC_ENV=prod\n');
+        fs.writeFileSync(path.join(fixtureDir, 'bc.config.js'), `
+            module.exports = (ctx) => ({
+                main: { plugins: [{ apply: () => {} }] },
+                preload: {},
+                renderer: { devServer: { port: 8023 } },
+            });
+        `);
+    });
+    afterAll(() => { fs.rmSync(fixtureDir, { recursive: true, force: true }); });
+
+    const appCtx = () => ({
+        command: 'dev:app',
+        target: 'app',
+        mode: 'development',
+        isDev: true, isProd: false, isApp: true, isWeb: false,
+        cliOptions: { config: path.join(fixtureDir, 'bc.config.js') },
+        env: { BC_ENV: 'prod' },
+    });
+
+    test('target=app 时返回 { main, preload, renderer }', () => {
+        const cfgs = resolveBuildConfig(
+            appCtx(),
+            { name: 'demo', version: '1.0.0' },
+            { target: 'app', name: 'demo', version: '1.0.0', env: 'prod', encrypted: false },
+        );
+        expect(cfgs.main).toBeDefined();
+        expect(cfgs.preload).toBeDefined();
+        expect(cfgs.renderer).toBeDefined();
+        expect(cfgs.web).toBeUndefined();
+    });
+
+    test('renderer.devServer 透传至 renderer 配置', () => {
+        const { renderer } = resolveBuildConfig(
+            appCtx(),
+            { name: 'demo', version: '1.0.0' },
+            { target: 'app' },
+        );
+        expect(renderer.devServer).toEqual({ port: 8023 });
+    });
+
+    test('main.plugins 用户值 + 预设值合并（追加）', () => {
+        const { main } = resolveBuildConfig(
+            appCtx(),
+            { name: 'demo', version: '1.0.0' },
+            { target: 'app' },
+        );
+        expect(main.plugins.length).toBe(3);
+    });
+});

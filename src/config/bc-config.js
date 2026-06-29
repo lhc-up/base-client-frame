@@ -2,6 +2,9 @@ const path = require('path');
 const fs = require('fs');
 const { merge: webpackMerge } = require('webpack-merge');
 const { getWebPreset } = require('./presets/web');
+const { getMainPreset } = require('./presets/main');
+const { getPreloadPreset } = require('./presets/preload');
+const { getRendererPreset } = require('./presets/renderer');
 
 const CONFIG_NAMES = ['bc.config.js', 'bc.config.cjs', 'bc.config.mjs'];
 
@@ -39,7 +42,18 @@ function resolveBuildConfig(ctx, pkgJson, buildInfo) {
         return { web: webpackMerge(preset, userWeb) };
     }
 
-    throw new Error(`[base-client] target=${ctx.target} 暂未实现（Phase 1 仅支持 web）`);
+    if (ctx.target === 'app') {
+        const mainPreset = getMainPreset(ctx, pkgJson, buildInfo);
+        const preloadPreset = getPreloadPreset(ctx, pkgJson, buildInfo);
+        const rendererPreset = getRendererPreset(ctx, pkgJson, buildInfo);
+        return {
+            main: webpackMerge(mainPreset, userConfig.main || {}),
+            preload: webpackMerge(preloadPreset, userConfig.preload || {}),
+            renderer: webpackMerge(rendererPreset, userConfig.renderer || {}),
+        };
+    }
+
+    throw new Error(`[base-client] 未知 target：${ctx.target}`);
 }
 
 module.exports = { resolveBuildConfig, locateBcConfig, loadUserConfig };
