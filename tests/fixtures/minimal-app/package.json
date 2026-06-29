@@ -1,0 +1,5 @@
+{
+    "name": "minimal-app",
+    "version": "0.0.1",
+    "main": "app/main/index.js"
+}
