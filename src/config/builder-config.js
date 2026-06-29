@@ -28,12 +28,15 @@ function loadUserBuilderConfig(configPath, ctx) {
     return fn({ ...ctx, replace }) || {};
 }
 
+function preloadBuilderConfig(ctx) {
+    const configPath = locateBuilderConfig(process.cwd(), ctx.cliOptions.packConfig);
+    ctx.userBuilderConfig = loadUserBuilderConfig(configPath, ctx);
+}
+
 function resolveBuilderConfig(ctx, pkgJson) {
-    const cwd = process.cwd();
-    const configPath = locateBuilderConfig(cwd, ctx.cliOptions.packConfig);
-    const userConfig = loadUserBuilderConfig(configPath, ctx);
+    const userConfig = ctx.userBuilderConfig ?? loadUserBuilderConfig(locateBuilderConfig(process.cwd(), ctx.cliOptions.packConfig), ctx);
     const preset = getPackPreset(ctx, pkgJson);
     return customMerge(preset, userConfig);
 }
 
-module.exports = { resolveBuilderConfig, locateBuilderConfig };
+module.exports = { resolveBuilderConfig, locateBuilderConfig, preloadBuilderConfig };

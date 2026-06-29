@@ -25,10 +25,13 @@ module.exports = {
         const { devServer: userDev = {}, ...webpackConfig } = web;
         const devServerOptions = resolveDevServerOptions(ctx, userDev, { defaultPort: 9000 });
 
-        await runDevServer(webpackConfig, devServerOptions, 'web', ctx);
+        const devServer = await runDevServer(webpackConfig, devServerOptions, 'web', ctx);
 
-        process.on('SIGINT', () => {
-            process.exit(0);
-        });
+        const shutdown = async (exitCode = 0) => {
+            try { await devServer.stop(); } catch {}
+            process.exit(exitCode);
+        };
+        process.on('SIGINT', () => shutdown(130));
+        process.on('SIGTERM', () => shutdown(143));
     },
 };

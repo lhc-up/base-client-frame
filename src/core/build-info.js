@@ -1,8 +1,10 @@
+const { TARGETS } = require('./target');
+
 function deriveBuildInfo(ctx, pkgJson, cryptoState = {}) {
     const { target, command, cliOptions = {}, env = {} } = ctx;
     const { encrypted = false, encryptKey } = cryptoState;
 
-    const isApp = target === 'app';
+    const isApp = target === TARGETS.APP;
     const isPack = command === 'pack';
     const isChild = command === 'child';
 

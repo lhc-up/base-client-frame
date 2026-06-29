@@ -11,13 +11,13 @@ describe('cli/commands/pack', () => {
         expect(cmd.needsBuilderConfig).toBe(true);
     });
 
-    test('options 含 --platform / --arch / --unpack / --sign / --pack-config', () => {
+    test('options 含 --platform / --arch / --unpack / --sign（--pack-config 已下沉至 cli 全局 option，避免重复注册）', () => {
         const flags = cmd.options.map(o => o[0]).join(' ');
         expect(flags).toContain('--platform');
         expect(flags).toContain('--arch');
         expect(flags).toContain('--unpack');
         expect(flags).toContain('--sign');
-        expect(flags).toContain('--pack-config');
+        expect(flags).not.toContain('--pack-config');
     });
 
     test('action 是 async function', () => {

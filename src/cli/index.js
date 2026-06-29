@@ -2,8 +2,8 @@ const { cac } = require('cac');
 const { version } = require('../../package.json');
 const { loadEnv } = require('../core/env');
 const { buildCtx } = require('../core/ctx');
-const { locateBcConfig } = require('../config/bc-config');
-const { locateBuilderConfig } = require('../config/builder-config');
+const { preloadBcConfig } = require('../config/bc-config');
+const { preloadBuilderConfig } = require('../config/builder-config');
 const logger = require('../core/logger');
 
 const COMMANDS = [
@@ -33,15 +33,15 @@ async function runCommand(cmd, cliOptions) {
 
         const ctx = buildCtx(cmd, cliOptions, env);
 
-        process.title = `bc-${cmd.name}|env=${env.BC_ENV}`;
+        process.title = `bc-${cmd.name}|env=${env.BC_ENV ?? '?'}`;
         logger.banner({ command: cmd.name, target: ctx.target, mode: ctx.mode, env });
 
-        if (cmd.needsBcConfig) locateBcConfig(process.cwd(), cliOptions.config);
-        if (cmd.needsBuilderConfig) locateBuilderConfig(process.cwd(), cliOptions.packConfig);
+        if (cmd.needsBcConfig) preloadBcConfig(ctx);
+        if (cmd.needsBuilderConfig) preloadBuilderConfig(ctx);
 
         await cmd.action(ctx);
     } catch (err) {
-        logger.error(cmd.name, err.message);
+        logger.error(`${cmd.name} 失败：`, err.message);
         if (cliOptions?.debug) console.error(err.stack);
         process.exit(1);
     }

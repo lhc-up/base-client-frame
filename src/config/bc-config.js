@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { merge: webpackMerge } = require('webpack-merge');
+const { TARGETS } = require('../core/target');
 const { getWebPreset } = require('./presets/web');
 const { getMainPreset } = require('./presets/main');
 const { getPreloadPreset } = require('./presets/preload');
@@ -31,18 +32,21 @@ function loadUserConfig(configPath, ctx) {
     return fn(ctx) || {};
 }
 
-function resolveBuildConfig(ctx, pkgJson, buildInfo) {
-    const cwd = process.cwd();
-    const configPath = locateBcConfig(cwd, ctx.cliOptions.config);
-    const userConfig = loadUserConfig(configPath, ctx);
+function preloadBcConfig(ctx) {
+    const configPath = locateBcConfig(process.cwd(), ctx.cliOptions.config);
+    ctx.userConfig = loadUserConfig(configPath, ctx);
+}
 
-    if (ctx.target === 'web') {
+function resolveBuildConfig(ctx, pkgJson, buildInfo) {
+    const userConfig = ctx.userConfig ?? loadUserConfig(locateBcConfig(process.cwd(), ctx.cliOptions.config), ctx);
+
+    if (ctx.target === TARGETS.WEB) {
         const preset = getWebPreset(ctx, pkgJson, buildInfo);
         const userWeb = userConfig.web || {};
         return { web: webpackMerge(preset, userWeb) };
     }
 
-    if (ctx.target === 'app') {
+    if (ctx.target === TARGETS.APP) {
         const mainPreset = getMainPreset(ctx, pkgJson, buildInfo);
         const preloadPreset = getPreloadPreset(ctx, pkgJson, buildInfo);
         const rendererPreset = getRendererPreset(ctx, pkgJson, buildInfo);
@@ -56,4 +60,4 @@ function resolveBuildConfig(ctx, pkgJson, buildInfo) {
     throw new Error(`[base-client] 未知 target：${ctx.target}`);
 }
 
-module.exports = { resolveBuildConfig, locateBcConfig, loadUserConfig };
+module.exports = { resolveBuildConfig, locateBcConfig, loadUserConfig, preloadBcConfig };

@@ -244,8 +244,10 @@ webpack DefinePlugin 注入的**单个聚合对象**，字面量替换。frame �
 | `unpack` | false | `--unpack` | false | false | — |
 | `sign` | false | `--sign` | false | false | — |
 | `child` | false | false | true | false | — |
-| `encrypted` | 按 encrypt 开关 | 按 encrypt 开关 | 按 encrypt 开关 | false | — |
-| `encryptKey` | 按 encrypt 开关（仅 main） | 按 encrypt 开关（仅 main） | 按 encrypt 开关（仅 main） | undefined | — |
+| `encrypted` | false | 按 encrypt 开关 | 按 encrypt 开关 | false | — |
+| `encryptKey` | undefined | 按 encrypt 开关（仅 main） | 按 encrypt 开关（仅 main） | undefined | — |
+
+**`dev:app` 加密字段恒为缺省**：dev 态渲染层走 dev-server 内存、不落盘加密，若 `encrypted: true` 但产物未加密，应用代码读到 `encrypted` 字段会尝试解密未加密内容并失败。dev:app 只在 pack / child 真正落盘加密时才派生 encrypted。
 
 **`installer` 命令不派生 `__BC_BUILD__`**——不跑 webpack、不产 bundle，没消费方。
 
@@ -974,7 +976,7 @@ function derivePackageDescriptor(buildInfo) {
 
 **后缀选择**：frame 统一使用 `.asar` 标准后缀，不沿用某些参考实现中"打包为 `.asar` 后改名 `.asax`"的做法。子应用是宿主动态加载的资源包，`.asar` 是 Electron 官方规格，业界工具链友好。
 
-`.asar` 根目录的 `package.json` 与 10.5.1 节「包描述约定」一致：基于 `__BC_BUILD__` 派生的子集（不含 `encryptKey`）。child 命令下 `platform` / `arch` / `unpack` 字段为 `undefined` / `false`（按 § 4.1 缺省值表），序列化时**保留这些键**以便宿主区分"child 包"与"主应用 .asax"。
+`.asar` 根目录的 `package.json` 与 10.5.1 节「包描述约定」一致：基于 `__BC_BUILD__` 派生的子集（不含 `encryptKey`）。child 命令下 `platform` / `arch` 在序列化时按标准 JSON 行为省略（`undefined` 字段不出现），布尔字段（`unpack` / `sign` / `child` / `encrypted`）按缺省值序列化。宿主区分"child 包"与"主应用 .asax"以 `child: true` 字段为准。
 
 ### 10.7 状态文件 `dist/.frame-state.json`（`src/pack/frame-state.js`）
 
@@ -1173,7 +1175,7 @@ spinner.start();
 
 - 基于 `ora`，文案显示 `编译中... <累计耗时>`，1s 间隔刷新
 - `setInterval` 加 `.unref()` 避免阻塞 Node 退出
-- 每次 logger 输出前调 `spinner.clear()`，避免 spinner 行被 stdout 卡断
+- **持有 spinner 引用的模块**（`run-dev-server.js` / `run-build.js` 等）在 logger 输出前调本地 `spinner.clear()`，避免 spinner 行被 stdout 卡断；logger 模块本身不耦合 spinner
 
 ### 12.4 stats 摘要（`src/webpack-runner/format-stats.js`）
 

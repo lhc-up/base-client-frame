@@ -32,9 +32,8 @@ describe('config/presets/preload', () => {
         const p = getPreloadPreset(baseCtx(), pkgJson, buildInfo);
         const defs = p.plugins.filter(pl => pl instanceof webpack.DefinePlugin);
         const allDefs = defs.reduce((acc, d) => ({ ...acc, ...d.definitions }), {});
-        const injected = JSON.parse(allDefs.__BC_BUILD__);
-        expect(injected.target).toBe('app');
-        expect(injected).not.toHaveProperty('encryptKey');
+        expect(allDefs['__BC_BUILD__.target']).toBe('"app"');
+        expect(allDefs).not.toHaveProperty('__BC_BUILD__.encryptKey');
         expect(allDefs['process.env.BC_ENV']).toBe('"prod"');
     });
 });

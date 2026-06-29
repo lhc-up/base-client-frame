@@ -54,7 +54,8 @@
       "Bash(rm -f D:/Desktop/npm/base-client-frame/tests/fixtures/minimal-pack-child/dist/*.asar)",
       "Bash(tasklist /FI \"IMAGENAME eq node.exe\")",
       "Bash(cmd //c \"tasklist /FI \\\\\"IMAGENAME eq node.exe\\\\\"\")",
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(npm uninstall *)"
     ]
   }
 }

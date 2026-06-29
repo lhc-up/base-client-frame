@@ -20,7 +20,6 @@ module.exports = {
         ['--platform <p>', '目标平台：win / mac / linux'],
         ['--arch <a>', '目标架构'],
         ['--sign', '签名标志（透传至 cliOptions.sign；__BC_BUILD__ 不派生）'],
-        ['--pack-config <path>', '指定 electron-builder.config.js 路径'],
     ],
     action: async (ctx) => {
         const rootDir = process.cwd();

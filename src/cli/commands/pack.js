@@ -4,7 +4,7 @@ const fse = require('fs-extra');
 const { MODES } = require('../../core/mode');
 const { TARGETS } = require('../../core/target');
 const { deriveBuildInfo } = require('../../core/build-info');
-const { resolveBuildConfig, locateBcConfig, loadUserConfig } = require('../../config/bc-config');
+const { resolveBuildConfig } = require('../../config/bc-config');
 const { resolveBuilderConfig } = require('../../config/builder-config');
 const { runProductionBuild } = require('../../webpack-runner/run-build');
 const { adaptIcon } = require('../../pack/icon');
@@ -26,7 +26,6 @@ module.exports = {
         ['--arch <a>', '目标架构：ia32 / x64 / armv7l / arm64 / universal / loong64'],
         ['--unpack', '仅产 unpacked 目录，跳过 installer 阶段'],
         ['--sign', '签名标志（透传至 cliOptions.sign 与 __BC_BUILD__.sign）'],
-        ['--pack-config <path>', '指定 electron-builder.config.js 路径'],
     ],
     action: async (ctx) => {
         const rootDir = process.cwd();
@@ -37,8 +36,7 @@ module.exports = {
         // 阶段 A · 资源准备
         fse.emptyDirSync(distDir);
 
-        const bcConfigPath = locateBcConfig(rootDir, ctx.cliOptions.config);
-        const userConfig = loadUserConfig(bcConfigPath, ctx);
+        const userConfig = ctx.userConfig;
         const cryptoState = computeCryptoState({ rootDir, userConfig });
         const buildInfo = deriveBuildInfo(ctx, pkgJson, cryptoState);
 
@@ -103,6 +101,8 @@ module.exports = {
                     },
                 });
                 logger.info(`已写 dist/.frame-state.json（unpackedPath=${path.relative(rootDir, unpackedPath)}）`);
+            } else {
+                logger.warn('--unpack 未产出可识别的 unpacked 目录，未写 dist/.frame-state.json；后续 installer 命令将无法复用本次产物');
             }
         }
 

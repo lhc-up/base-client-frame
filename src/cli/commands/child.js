@@ -3,7 +3,7 @@ const fse = require('fs-extra');
 const { MODES } = require('../../core/mode');
 const { TARGETS } = require('../../core/target');
 const { deriveBuildInfo } = require('../../core/build-info');
-const { resolveBuildConfig, locateBcConfig, loadUserConfig } = require('../../config/bc-config');
+const { resolveBuildConfig } = require('../../config/bc-config');
 const { runProductionBuild } = require('../../webpack-runner/run-build');
 const { computeCryptoState, encryptRenderer } = require('../../pack/encrypt');
 const { buildChildAsar } = require('../../pack/child-asar');
@@ -27,10 +27,7 @@ module.exports = {
         fse.emptyDirSync(distDir);
         fse.emptyDirSync(appDir);
 
-        const bcConfigPath = locateBcConfig(rootDir, ctx.cliOptions.config);
-        const userConfig = loadUserConfig(bcConfigPath, ctx);
-
-        const cryptoState = computeCryptoState({ rootDir, userConfig });
+        const cryptoState = computeCryptoState({ rootDir, userConfig: ctx.userConfig });
         const buildInfo = deriveBuildInfo(ctx, pkgJson, cryptoState);
 
         const { main, preload, renderer } = resolveBuildConfig(ctx, pkgJson, buildInfo);
