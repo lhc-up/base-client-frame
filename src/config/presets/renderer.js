@@ -1,0 +1,42 @@
+const path = require('path');
+const { buildInfoPlugin } = require('./build-info-plugin');
+const { userEnvPlugin } = require('./user-env-plugin');
+
+function getRendererPreset(ctx, pkgJson, buildInfo) {
+    const { mode, isDev, env } = ctx;
+    const rootDir = process.cwd();
+
+    return {
+        name: 'renderer',
+        target: 'web',
+        mode,
+        entry: {
+            renderer: path.resolve(rootDir, 'src/renderer/index.js'),
+        },
+        output: {
+            path: path.resolve(rootDir, 'app'),
+            filename: '[name]/index.js',
+            publicPath: isDev ? '/' : './',
+            assetModuleFilename: 'assets/[name].[hash:8][ext][query]',
+        },
+        devtool: isDev ? 'source-map' : false,
+        resolve: {
+            extensions: ['.js', '.mjs', '.cjs', '.json'],
+        },
+        module: {
+            rules: [
+                { test: /\.(png|jpe?g|gif|svg|webp|avif)$/i,   type: 'asset/resource' },
+                { test: /\.(woff2?|eot|ttf|otf)$/i,            type: 'asset/resource' },
+                { test: /\.(mp4|webm|ogg|mp3|wav|flac|aac)$/i, type: 'asset/resource' },
+            ],
+        },
+        plugins: [
+            buildInfoPlugin(buildInfo),
+            userEnvPlugin(env),
+        ],
+        stats: 'none',
+        infrastructureLogging: { level: 'warn' },
+    };
+}
+
+module.exports = { getRendererPreset };
