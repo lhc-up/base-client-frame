@@ -28,6 +28,7 @@ describe('cli/index', () => {
         expect(names).toContain('dev:web');
         expect(names).toContain('build');
         expect(names).toContain('dev:app');
+        expect(names).toContain('pack');
     });
 
     describe('runCommand', () => {

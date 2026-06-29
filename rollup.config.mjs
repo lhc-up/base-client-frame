@@ -2,6 +2,7 @@ import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import nodeResolve from '@rollup/plugin-node-resolve';
 import nodeExternals from 'rollup-plugin-node-externals';
+import copy from 'rollup-plugin-copy';
 
 /**
  * Rollup configuration for framework bundling
@@ -33,7 +34,13 @@ export default [
             commonjs({
                 ignoreDynamicRequires: true
             }),
-            json()
+            json(),
+            copy({
+                targets: [
+                    { src: 'src/templates/**/*', dest: 'dist/templates' },
+                ],
+                hook: 'writeBundle',
+            })
         ]
     },
     // Framework: Main bundle (except preload) + preload independent

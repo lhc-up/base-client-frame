@@ -8,7 +8,8 @@ const COMMANDS = [
     require('./commands/dev-web'),
     require('./commands/build'),
     require('./commands/dev-app'),
-    // 后续 phase：pack / installer / child
+    require('./commands/pack'),
+    // 后续 phase：installer / child
 ];
 
 function applyBcEnvFallback(env, cliOptions) {
@@ -44,6 +45,7 @@ function createCli() {
     const cli = cac('base-client');
     cli.option('--env <name>', '指定环境名，加载 .env.<name>', { default: 'prod' });
     cli.option('--config <path>', '指定 bc.config 路径');
+    cli.option('--pack-config <path>', '指定 electron-builder.config.js 路径');
     cli.option('--debug', '出错时附打印 stack');
 
     for (const cmd of COMMANDS) {

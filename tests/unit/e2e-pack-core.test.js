@@ -1,0 +1,65 @@
+const path = require('path');
+const fs = require('fs');
+const fse = require('fs-extra');
+
+const fixtureDir = path.join(__dirname, '../fixtures/minimal-pack');
+
+describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
+    let oldCwd;
+
+    beforeAll(() => {
+        oldCwd = process.cwd();
+        process.chdir(fixtureDir);
+    });
+
+    afterAll(() => {
+        process.chdir(oldCwd);
+        fse.removeSync(path.join(fixtureDir, 'app'));
+        fse.removeSync(path.join(fixtureDir, 'dist'));
+    });
+
+    beforeEach(() => {
+        const ebPath = path.join(fixtureDir, 'node_modules/electron-builder/out/index.js');
+        delete require.cache[ebPath];
+    });
+
+    test('pack 跑通：app/ 三进程产物 + dist/shell/* + 调 electron-builder.build', async () => {
+        const cmd = require('../../src/cli/commands/pack');
+        const { runCommand } = require('../../src/cli/index');
+
+        await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64' });
+
+        expect(fs.existsSync(path.join(fixtureDir, 'app/main/index.js'))).toBe(true);
+        expect(fs.existsSync(path.join(fixtureDir, 'app/preload/index.js'))).toBe(true);
+        expect(fs.existsSync(path.join(fixtureDir, 'app/renderer/index.js'))).toBe(true);
+
+        expect(fs.existsSync(path.join(fixtureDir, 'dist/shell/win-installer.nsh'))).toBe(true);
+        expect(fs.existsSync(path.join(fixtureDir, 'dist/shell/deb-preinstall.sh'))).toBe(true);
+
+        const builderPath = path.join(fixtureDir, 'node_modules/electron-builder/out/index.js');
+        const builder = require(builderPath);
+        const lastCall = builder._getLastCall();
+        expect(lastCall).toBeTruthy();
+        expect(lastCall.win).toEqual(['nsis']);
+        expect(lastCall.x64).toBe(true);
+        expect(lastCall.config.appId).toBe('com.test.minimal');
+        expect(lastCall.config.productName).toBe('MinimalPack');
+        expect(lastCall.config.nsis.include).toBe('dist/shell/win-installer.nsh');
+    }, 60000);
+
+    test('pack --unpack 时 targets 改为 dir', async () => {
+        fse.removeSync(path.join(fixtureDir, 'app'));
+        fse.removeSync(path.join(fixtureDir, 'dist'));
+
+        const cmd = require('../../src/cli/commands/pack');
+        const { runCommand } = require('../../src/cli/index');
+        const builderPath = path.join(fixtureDir, 'node_modules/electron-builder/out/index.js');
+        delete require.cache[builderPath];
+
+        await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64', unpack: true });
+
+        const builder = require(builderPath);
+        const lastCall = builder._getLastCall();
+        expect(lastCall.win).toEqual(['dir']);
+    }, 60000);
+});
