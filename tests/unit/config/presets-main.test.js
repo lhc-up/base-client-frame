@@ -38,8 +38,9 @@ describe('config/presets/main', () => {
         const p = getMainPreset(baseCtx(), pkgJson, buildInfo);
         const defs = p.plugins.filter(pl => pl instanceof webpack.DefinePlugin);
         const allDefs = defs.reduce((acc, d) => ({ ...acc, ...d.definitions }), {});
-        expect(allDefs['__BC_BUILD__.target']).toBe('"app"');
-        expect(allDefs['__BC_BUILD__.encryptKey']).toBe('"KEY"');
+        const injected = JSON.parse(allDefs.__BC_BUILD__);
+        expect(injected.target).toBe('app');
+        expect(injected.encryptKey).toBe('KEY');
         expect(allDefs['process.env.BC_ENV']).toBe('"prod"');
     });
 

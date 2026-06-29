@@ -7,13 +7,16 @@ function computeCryptoState({ rootDir, userConfig }) {
 
     const keyPath = path.join(rootDir, 'build/encrypt.key');
     if (!fs.existsSync(keyPath)) {
-        if (userConfig.encrypt === true) {
-            throw new Error(`[base-client] 启用了 encrypt 但未找到 build/encrypt.key，请提供密钥文件或在 bc.config.js 设 encrypt: false`);
-        }
-        return { encrypted: false };
+        throw new Error(`[base-client] 启用了 encrypt 但未找到 build/encrypt.key，请提供密钥文件或在 bc.config.js 设 encrypt: false`);
     }
 
     const encryptKey = fs.readFileSync(keyPath, 'utf8').replace(/\r?\n$/, '');
+    if (Buffer.byteLength(encryptKey, 'utf8') !== encryptKey.length) {
+        throw new Error('[base-client] build/encrypt.key 必须为 ASCII 字符（IV 取前 16 字符，多字节会破坏字节对齐）');
+    }
+    if (encryptKey.length < 32) {
+        throw new Error(`[base-client] build/encrypt.key 长度为 ${encryptKey.length}，AES-256 要求 ≥ 32 字符`);
+    }
     return { encrypted: true, encryptKey };
 }
 

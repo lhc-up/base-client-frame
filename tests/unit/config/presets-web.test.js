@@ -40,7 +40,7 @@ describe('config/presets/web', () => {
         const preset = getWebPreset(baseCtx(), pkgJson, buildInfo);
         const definePlugins = preset.plugins.filter(p => p instanceof webpack.DefinePlugin);
         expect(definePlugins.length).toBe(2);
-        const hasBuildInfo = definePlugins.some(p => '__BC_BUILD__.target' in p.definitions);
+        const hasBuildInfo = definePlugins.some(p => '__BC_BUILD__' in p.definitions);
         expect(hasBuildInfo).toBe(true);
         const hasUserEnv = definePlugins.some(p => 'process.env.BC_ENV' in p.definitions);
         expect(hasUserEnv).toBe(true);

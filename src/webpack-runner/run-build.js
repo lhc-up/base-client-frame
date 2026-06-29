@@ -19,14 +19,16 @@ async function runProductionBuild(configs, ctx) {
 function runOne(cfg, spinner) {
     return new Promise((resolve, reject) => {
         const fallbackName = cfg.name || 'webpack';
-        webpack(cfg, (err, stats) => {
+        const compiler = webpack(cfg, (err, stats) => {
             spinner.clear();
+
+            const finalize = (action) => compiler.close(() => action());
 
             if (err) {
                 logger.compileFailure(fallbackName);
                 console.error(err.stack || err.message);
                 spinner.tickInitial();
-                return reject(err);
+                return finalize(() => reject(err));
             }
 
             const sum = extractStatsSummary(stats, fallbackName);
@@ -34,13 +36,13 @@ function runOne(cfg, spinner) {
                 logger.compileFailure(sum.name);
                 console.error(stats.toString({ colors: true }));
                 spinner.tickInitial();
-                return reject(new Error(`${sum.name} 编译失败`));
+                return finalize(() => reject(new Error(`${sum.name} 编译失败`)));
             }
 
             logger.compileSuccess(sum.name, sum.ms, sum.totalSize);
             logger.compileWarning(sum.name, sum.warningCount);
             spinner.tickInitial();
-            resolve();
+            finalize(() => resolve());
         });
     });
 }

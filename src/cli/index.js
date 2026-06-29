@@ -2,6 +2,8 @@ const { cac } = require('cac');
 const { version } = require('../../package.json');
 const { loadEnv } = require('../core/env');
 const { buildCtx } = require('../core/ctx');
+const { locateBcConfig } = require('../config/bc-config');
+const { locateBuilderConfig } = require('../config/builder-config');
 const logger = require('../core/logger');
 
 const COMMANDS = [
@@ -33,6 +35,9 @@ async function runCommand(cmd, cliOptions) {
 
         process.title = `bc-${cmd.name}|env=${env.BC_ENV}`;
         logger.banner({ command: cmd.name, target: ctx.target, mode: ctx.mode, env });
+
+        if (cmd.needsBcConfig) locateBcConfig(process.cwd(), cliOptions.config);
+        if (cmd.needsBuilderConfig) locateBuilderConfig(process.cwd(), cliOptions.packConfig);
 
         await cmd.action(ctx);
     } catch (err) {

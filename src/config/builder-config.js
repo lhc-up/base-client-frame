@@ -36,4 +36,4 @@ function resolveBuilderConfig(ctx, pkgJson) {
     return customMerge(preset, userConfig);
 }
 
-module.exports = { resolveBuilderConfig };
+module.exports = { resolveBuilderConfig, locateBuilderConfig };

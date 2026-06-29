@@ -31,9 +31,8 @@ describe('pack/encrypt.computeCryptoState', () => {
         expect(() => computeCryptoState({ rootDir: tmpRoot, userConfig: { encrypt: true } })).toThrow(/encrypt\.key/);
     });
 
-    test('encrypt 缺省且密钥缺失 → encrypted=false（不抛错；开关明确为 false 才报）', () => {
-        const s = computeCryptoState({ rootDir: tmpRoot, userConfig: {} });
-        expect(s.encrypted).toBe(false);
+    test('encrypt 缺省（默认 true）且密钥缺失 → 抛错（与显式 encrypt:true 等价）', () => {
+        expect(() => computeCryptoState({ rootDir: tmpRoot, userConfig: {} })).toThrow(/encrypt\.key/);
     });
 
     test('密钥文件末尾换行被去除', () => {
@@ -41,6 +40,19 @@ describe('pack/encrypt.computeCryptoState', () => {
         fs.writeFileSync(path.join(tmpRoot, 'build/encrypt.key'), KEY + '\r\n');
         const s = computeCryptoState({ rootDir: tmpRoot, userConfig: { encrypt: true } });
         expect(s.encryptKey).toBe(KEY);
+    });
+
+    test('密钥含多字节字符 → 抛错（IV 字节对齐要求 ASCII）', () => {
+        fse.ensureDirSync(path.join(tmpRoot, 'build'));
+        const nonAscii = '密钥0123456789abcdef0123456789abcd';
+        fs.writeFileSync(path.join(tmpRoot, 'build/encrypt.key'), nonAscii);
+        expect(() => computeCryptoState({ rootDir: tmpRoot, userConfig: {} })).toThrow(/ASCII/);
+    });
+
+    test('密钥长度 < 32 → 抛错（AES-256 长度约束）', () => {
+        fse.ensureDirSync(path.join(tmpRoot, 'build'));
+        fs.writeFileSync(path.join(tmpRoot, 'build/encrypt.key'), 'tooshort');
+        expect(() => computeCryptoState({ rootDir: tmpRoot, userConfig: {} })).toThrow(/≥ 32/);
     });
 });
 

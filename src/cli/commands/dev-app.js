@@ -14,10 +14,12 @@ const { extractStatsSummary } = require('../../webpack-runner/format-stats');
 
 function compileMainPreload(mainConfig, preloadConfig) {
     return new Promise((resolve, reject) => {
-        webpack([mainConfig, preloadConfig], (err, multiStats) => {
+        const compiler = webpack([mainConfig, preloadConfig], (err, multiStats) => {
+            const finalize = (action) => compiler.close(() => action());
+
             if (err) {
                 logger.compileFailure('main+preload');
-                return reject(err);
+                return finalize(() => reject(err));
             }
             const stats = multiStats.stats;
             let failed = false;
@@ -32,8 +34,8 @@ function compileMainPreload(mainConfig, preloadConfig) {
                     logger.compileWarning(sum.name, sum.warningCount);
                 }
             }
-            if (failed) return reject(new Error('main / preload 编译失败'));
-            resolve();
+            if (failed) return finalize(() => reject(new Error('main / preload 编译失败')));
+            finalize(() => resolve());
         });
     });
 }

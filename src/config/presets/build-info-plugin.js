@@ -1,13 +1,11 @@
 const webpack = require('webpack');
 
 function buildInfoPlugin(buildInfo, { includeEncryptKey = false } = {}) {
-    const defs = {};
-    for (const [k, v] of Object.entries(buildInfo)) {
-        if (k === 'encryptKey' && !includeEncryptKey) continue;
-        if (v === undefined) continue;
-        defs[`__BC_BUILD__.${k}`] = JSON.stringify(v);
-    }
-    return new webpack.DefinePlugin(defs);
+    const obj = { ...buildInfo };
+    if (!includeEncryptKey) delete obj.encryptKey;
+    return new webpack.DefinePlugin({
+        __BC_BUILD__: JSON.stringify(obj),
+    });
 }
 
 module.exports = { buildInfoPlugin };
