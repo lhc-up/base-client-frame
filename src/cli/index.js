@@ -7,7 +7,8 @@ const logger = require('../core/logger');
 const COMMANDS = [
     require('./commands/dev-web'),
     require('./commands/build'),
-    // 后续 phase：dev-app / pack / installer / child
+    require('./commands/dev-app'),
+    // 后续 phase：pack / installer / child
 ];
 
 function applyBcEnvFallback(env, cliOptions) {

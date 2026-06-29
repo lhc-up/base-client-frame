@@ -27,6 +27,7 @@ describe('cli/index', () => {
         const names = cli.commands.map(c => c.name);
         expect(names).toContain('dev:web');
         expect(names).toContain('build');
+        expect(names).toContain('dev:app');
     });
 
     describe('runCommand', () => {
