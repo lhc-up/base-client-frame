@@ -1,4 +1,5 @@
 const path = require('path');
+const fs = require('fs');
 const fse = require('fs-extra');
 const { MODES } = require('../../core/mode');
 const { TARGETS } = require('../../core/target');
@@ -82,7 +83,28 @@ module.exports = {
         // 阶段 C · 安装包打包
         const targets = buildTargets(ctx.cliOptions);
         const builder = resolveElectronBuilder(rootDir);
-        await builder.build({ ...targets, config: mergedBuilderConfig });
+        const artifacts = await builder.build({ ...targets, config: mergedBuilderConfig });
+
+        // --unpack 完成后写 frame-state（供 installer 复用 unpacked 路径）
+        if (ctx.cliOptions.unpack) {
+            const { writeFrameState } = require('../../pack/frame-state');
+            const unpackedPath = (artifacts || []).find((p) => {
+                try { return fs.statSync(p).isDirectory(); } catch { return false; }
+            });
+            if (unpackedPath) {
+                writeFrameState(distDir, {
+                    lastUnpack: {
+                        platform: ctx.cliOptions.platform,
+                        arch: ctx.cliOptions.arch,
+                        env: buildInfo.env,
+                        version: buildInfo.version,
+                        unpackedPath: path.relative(rootDir, unpackedPath),
+                        timestamp: Date.now(),
+                    },
+                });
+                logger.info(`已写 dist/.frame-state.json（unpackedPath=${path.relative(rootDir, unpackedPath)}）`);
+            }
+        }
 
         logger.success('pack 完成');
     },

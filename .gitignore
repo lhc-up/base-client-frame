@@ -8,6 +8,8 @@ Desktop.ini
 ._*
 .iflycode/*
 node_modules/
+!tests/fixtures/**/node_modules/
+!tests/fixtures/**/node_modules/**
 electronPackage/
 /pack/
 /app/

@@ -2,20 +2,25 @@ const path = require('path');
 const fs = require('fs');
 const fse = require('fs-extra');
 
-const fixtureDir = path.join(__dirname, '../fixtures/minimal-pack');
+const sourceFixtureDir = path.join(__dirname, '../fixtures/minimal-pack');
+const fixtureDir = path.join(__dirname, '../fixtures/minimal-pack-core');
 
 describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
     let oldCwd;
 
     beforeAll(() => {
+        fse.copySync(sourceFixtureDir, fixtureDir);
+        const pkgPath = path.join(fixtureDir, 'package.json');
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+        pkg.name = 'minimal-pack-core';
+        fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 4));
         oldCwd = process.cwd();
         process.chdir(fixtureDir);
     });
 
     afterAll(() => {
         process.chdir(oldCwd);
-        fse.removeSync(path.join(fixtureDir, 'app'));
-        fse.removeSync(path.join(fixtureDir, 'dist'));
+        try { fs.rmSync(fixtureDir, { recursive: true, force: true }); } catch {}
     });
 
     beforeEach(() => {
@@ -49,7 +54,7 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
 
     test('pack --unpack 时 targets 改为 dir', async () => {
         fse.removeSync(path.join(fixtureDir, 'app'));
-        fse.removeSync(path.join(fixtureDir, 'dist'));
+        try { fs.rmSync(path.join(fixtureDir, 'dist'), { recursive: true, force: true }); } catch {}
 
         const cmd = require('../../src/cli/commands/pack');
         const { runCommand } = require('../../src/cli/index');

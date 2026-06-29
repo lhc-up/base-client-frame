@@ -9,7 +9,8 @@ const COMMANDS = [
     require('./commands/build'),
     require('./commands/dev-app'),
     require('./commands/pack'),
-    // 后续 phase：installer / child
+    require('./commands/installer'),
+    require('./commands/child'),
 ];
 
 function applyBcEnvFallback(env, cliOptions) {
