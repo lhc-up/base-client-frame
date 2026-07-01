@@ -1,21 +1,14 @@
 const path = require('path');
 const fs = require('fs');
+const { resolveModule } = require('../core/resolve-module');
 
 async function bytenodeMain({ rootDir, appDir, mergedBuilderConfig }) {
-    let bytenodeEntry;
-    try {
-        bytenodeEntry = require.resolve('bytenode', { paths: [rootDir] });
-    } catch (err) {
-        throw new Error(`[base-client] bytenode 未安装，请在项目中 npm i -D bytenode`);
-    }
-    // require.resolve 会回退到上游 node_modules，且内部有路径缓存（已删的文件仍可能返回旧路径）——
-    // 必须校验解析结果落在 rootDir 下且文件实际存在
-    const relative = path.relative(rootDir, bytenodeEntry);
-    if (relative.startsWith('..') || path.isAbsolute(relative) || !fs.existsSync(bytenodeEntry)) {
-        throw new Error(`[base-client] bytenode 未安装，请在项目中 npm i -D bytenode`);
-    }
-    delete require.cache[bytenodeEntry];
-    const bytenode = require(bytenodeEntry);
+    const bytenode = await resolveModule('bytenode', {
+        rootDir,
+        missingHint: '[base-client] bytenode 未安装，请在项目中 npm i -D bytenode',
+        esmCompat: true,
+        clearRequireCache: true,
+    });
 
     const src = path.join(appDir, 'main/index.js');
     const out = path.join(appDir, 'main/index.jsc');
