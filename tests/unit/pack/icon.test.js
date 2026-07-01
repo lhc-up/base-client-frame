@@ -21,10 +21,9 @@ describe('pack/icon (skip conditions)', () => {
 
     test('三平台 icon 全已显式覆盖 → 整步跳过', async () => {
         fse.ensureDirSync(path.join(tmpRoot, 'build'));
-        const sharp = require('sharp');
-        await sharp({
-            create: { width: 1, height: 1, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } },
-        }).png().toFile(path.join(tmpRoot, 'build/icon.png'));
+        const Jimp = require('jimp');
+        const img = new Jimp(1, 1, 0x000000ff);
+        await img.writeAsync(path.join(tmpRoot, 'build/icon.png'));
 
         const distDir = path.join(tmpRoot, 'dist');
         const mergedBuilderConfig = {
@@ -44,11 +43,10 @@ describe('pack/icon (active path)', () => {
     beforeEach(async () => {
         fse.ensureDirSync(path.join(tmpRoot, 'build'));
         const iconSrc = path.join(tmpRoot, 'build/icon.png');
-        const sharp = require('sharp');
-        await sharp({
-            create: { width: 1024, height: 1024, channels: 4, background: { r: 100, g: 200, b: 50, alpha: 1 } },
-        }).png().toFile(iconSrc);
-    });
+        const Jimp = require('jimp');
+        const img = new Jimp(1024, 1024, 0x64C832ff);
+        await img.writeAsync(iconSrc);
+    }, 30000);
 
     test('生成 ico + icns + 多尺寸 PNG 到 dist/icons/，并按需注入', async () => {
         const distDir = path.join(tmpRoot, 'dist');

@@ -14,15 +14,16 @@ async function adaptIcon({ rootDir, distDir, mergedBuilderConfig }) {
 
     if (win.icon && mac.icon && linux.icon) return;
 
-    const sharp = require('sharp');
+    const Jimp = require('jimp');
     const png2icons = require('png2icons');
 
     const iconsDir = path.join(distDir, 'icons');
     fse.ensureDirSync(iconsDir);
 
     const sourceBuf = fs.readFileSync(iconSrc);
+    const sourceImg = await Jimp.read(sourceBuf);
     for (const size of PNG_SIZES) {
-        const buf = await sharp(sourceBuf).resize(size, size).png().toBuffer();
+        const buf = await sourceImg.clone().resize(size, size).getBufferAsync(Jimp.MIME_PNG);
         fs.writeFileSync(path.join(iconsDir, `${size}.png`), buf);
     }
 
