@@ -43,7 +43,7 @@ module.exports = {
             : undefined;
 
         const targets = buildTargets(ctx.cliOptions);
-        const builder = resolveElectronBuilder(rootDir);
+        const builder = await resolveElectronBuilder(rootDir);
         await builder.build({
             ...targets,
             config: mergedBuilderConfig,

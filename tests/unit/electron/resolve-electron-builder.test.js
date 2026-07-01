@@ -17,16 +17,16 @@ beforeEach(() => {
 afterEach(() => { fs.rmSync(fixtureDir, { recursive: true, force: true }); });
 
 describe('electron/resolve-electron-builder', () => {
-    test('从 rootDir 解析 electron-builder 模块，返回其默认导出', () => {
-        const eb = resolveElectronBuilder(fixtureDir);
+    test('从 rootDir 解析 electron-builder 模块，返回其默认导出', async () => {
+        const eb = await resolveElectronBuilder(fixtureDir);
         expect(typeof eb.build).toBe('function');
     });
 
-    test('rootDir 下无 electron-builder 时抛错', () => {
+    test('rootDir 下无 electron-builder 时抛错', async () => {
         const empty = path.join(__dirname, '../../tmp/no-eb');
         fs.mkdirSync(empty, { recursive: true });
         try {
-            expect(() => resolveElectronBuilder(empty)).toThrow(/electron-builder/i);
+            await expect(resolveElectronBuilder(empty)).rejects.toThrow(/electron-builder/i);
         } finally {
             fs.rmSync(empty, { recursive: true, force: true });
         }

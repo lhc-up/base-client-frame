@@ -1,20 +1,11 @@
-const path = require('path');
-const fs = require('fs');
+const { resolveModule } = require('../core/resolve-module');
 
 function resolveElectronBuilder(rootDir) {
-    let entryPath;
-    try {
-        entryPath = require.resolve('electron-builder', { paths: [rootDir] });
-    } catch (err) {
-        throw new Error(`[base-client] electron-builder 未安装，请在项目中 npm i -D electron-builder`);
-    }
-    // require.resolve 会回退到上游 node_modules，且内部有路径缓存（已删的文件仍可能返回旧路径）——
-    // 必须校验解析结果落在 rootDir 下且文件实际存在
-    const relative = path.relative(rootDir, entryPath);
-    if (relative.startsWith('..') || path.isAbsolute(relative) || !fs.existsSync(entryPath)) {
-        throw new Error(`[base-client] electron-builder 未安装，请在项目中 npm i -D electron-builder`);
-    }
-    return require(entryPath);
+    return resolveModule('electron-builder', {
+        rootDir,
+        missingHint: '[base-client] electron-builder 未安装，请在项目中 npm i -D electron-builder',
+        esmCompat: true,
+    });
 }
 
 module.exports = { resolveElectronBuilder };

@@ -80,7 +80,7 @@ module.exports = {
 
         // 阶段 C · 安装包打包
         const targets = buildTargets(ctx.cliOptions);
-        const builder = resolveElectronBuilder(rootDir);
+        const builder = await resolveElectronBuilder(rootDir);
         const artifacts = await builder.build({ ...targets, config: mergedBuilderConfig });
 
         // --unpack 完成后写 frame-state（供 installer 复用 unpacked 路径）
