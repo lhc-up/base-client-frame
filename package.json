@@ -9,6 +9,10 @@
     },
     "private": false,
     "author": "lhc-up",
+    "engines": {
+        "node": ">=18.12.0"
+    },
+    "keywords": ["electron", "electron-builder", "bytenode", "webpack", "build", "packager", "cli"],
     "scripts": {
         "build": "rollup -c rollup.config.mjs",
         "prepublishOnly": "npm run build",
@@ -16,19 +20,8 @@
         "test:watch": "jest --watch"
     },
     "peerDependencies": {
-        "bytenode": "^1.5.0",
-        "electron": "22.3.1",
-        "electron-builder": "^24.0.0",
         "webpack": "^5.0.0",
         "webpack-dev-server": "^5.0.0"
-    },
-    "peerDependenciesMeta": {
-        "bytenode": {
-            "optional": true
-        },
-        "electron-builder": {
-            "optional": true
-        }
     },
     "devDependencies": {
         "@rollup/plugin-commonjs": "^28.0.0",
