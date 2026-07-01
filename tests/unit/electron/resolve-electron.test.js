@@ -16,16 +16,16 @@ beforeEach(() => {
 afterEach(() => { fs.rmSync(fixtureDir, { recursive: true, force: true }); });
 
 describe('electron/resolve-electron', () => {
-    test('从 rootDir 解析 electron 包，返回其默认导出（可执行文件路径）', () => {
-        const exe = resolveElectron(fixtureDir);
+    test('从 rootDir 解析 electron 包，返回其默认导出（可执行文件路径）', async () => {
+        const exe = await resolveElectron(fixtureDir);
         expect(exe).toBe('/fake/electron/binary');
     });
 
-    test('rootDir 下无 electron 时抛错', () => {
+    test('rootDir 下无 electron 时抛错', async () => {
         const empty = path.join(__dirname, '../../tmp/no-electron');
         fs.mkdirSync(empty, { recursive: true });
         try {
-            expect(() => resolveElectron(empty)).toThrow(/electron/i);
+            await expect(resolveElectron(empty)).rejects.toThrow(/electron/i);
         } finally {
             fs.rmSync(empty, { recursive: true, force: true });
         }

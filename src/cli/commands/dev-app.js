@@ -67,7 +67,7 @@ module.exports = {
             runDevServer(rendererWebpack, devServerOptions, 'renderer', ctx),
         ]);
 
-        const electronExe = resolveElectron(rootDir);
+        const electronExe = await resolveElectron(rootDir);
         const mainEntry = resolveMainEntry(rootDir);
         const child = cp.spawn(electronExe, [mainEntry], {
             stdio: 'inherit',
