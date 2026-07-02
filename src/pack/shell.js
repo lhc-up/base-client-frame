@@ -21,9 +21,6 @@ function renderTemplate(content, vars) {
 }
 
 function generateShellScripts({ rootDir, distDir, mergedBuilderConfig, appName, appDirName, appId, templatesDir }) {
-    // templatesDir 默认相对 frame 包内位置：
-    // - 开发期 src/pack/shell.js → ../templates/shell = src/templates/shell
-    // - 打包后 dist/cli/index.js（rollup bundle）→ ../templates/shell = dist/templates/shell
     const tplDir = templatesDir || path.join(__dirname, '../templates/shell');
     const shellDir = path.join(distDir, 'shell');
     fse.ensureDirSync(shellDir);
