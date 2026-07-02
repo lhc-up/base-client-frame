@@ -14,7 +14,7 @@ function getRendererPreset(ctx, pkgJson, buildInfo) {
             renderer: path.resolve(rootDir, 'src/renderer/index.js'),
         },
         output: {
-            path: path.resolve(rootDir, 'app'),
+            path: path.resolve(rootDir, 'app', 'renderer'),
             filename: '[name]/index.js',
             publicPath: isDev ? '/' : './',
             assetModuleFilename: 'assets/[name].[hash:8][ext][query]',
