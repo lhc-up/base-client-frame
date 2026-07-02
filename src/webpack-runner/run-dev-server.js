@@ -13,6 +13,7 @@ function resolveDevServerOptions(ctx, userDev, { defaultPort }) {
         host,
         port,
         hot: true,
+        open: ctx.isWeb,
         devMiddleware: {
             stats: false,
             ...(userDev.devMiddleware || {}),

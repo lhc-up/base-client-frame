@@ -8,7 +8,7 @@ function getRendererPreset(ctx, pkgJson, buildInfo) {
 
     return {
         name: 'renderer',
-        target: 'electron-renderer',
+        target: 'web',
         mode,
         entry: path.resolve(rootDir, 'src/renderer/index.js'),
         output: {
