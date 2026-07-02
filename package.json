@@ -3,7 +3,7 @@
     "version": "0.0.1",
     "description": "Base Client Framework",
     "type": "commonjs",
-    "main": "dist/index.js",
+    "main": "src/index.js",
     "bin": {
         "base-client": "./bin/base-client.js"
     },
@@ -14,8 +14,6 @@
     },
     "keywords": ["electron", "electron-builder", "bytenode", "webpack", "build", "packager", "cli"],
     "scripts": {
-        "build": "rollup -c rollup.config.mjs",
-        "prepublishOnly": "npm run build",
         "test": "jest",
         "test:watch": "jest --watch"
     },
@@ -24,14 +22,8 @@
         "webpack-dev-server": "^5.0.0"
     },
     "devDependencies": {
-        "@rollup/plugin-commonjs": "^28.0.0",
-        "@rollup/plugin-json": "^6.1.0",
-        "@rollup/plugin-node-resolve": "^16.0.0",
         "html-webpack-plugin": "^5.6.3",
         "jest": "^30.4.2",
-        "rollup": "^4.60.0",
-        "rollup-plugin-copy": "^3.5.0",
-        "rollup-plugin-node-externals": "^8.1.2",
         "webpack": "^5.107.2",
         "webpack-dev-server": "^5.2.4"
     },
@@ -48,6 +40,6 @@
     },
     "files": [
         "bin",
-        "dist"
+        "src"
     ]
 }
