@@ -3,7 +3,7 @@ const fse = require('fs-extra');
 
 function resolveMainEntry(rootDir) {
     const pkgPath = path.resolve(rootDir, 'package.json');
-    const pkg = JSON.parse(fse.readFileSync(pkgPath, 'utf8'));
+    const pkg = fse.readJsonSync(pkgPath);
     if (!pkg.main) {
         throw new Error(`[base-client] package.json 缺少 main 字段（${pkgPath}）`);
     }
