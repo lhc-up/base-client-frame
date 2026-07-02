@@ -55,7 +55,15 @@
       "Bash(tasklist /FI \"IMAGENAME eq node.exe\")",
       "Bash(cmd //c \"tasklist /FI \\\\\"IMAGENAME eq node.exe\\\\\"\")",
       "Bash(powershell *)",
-      "Bash(npm uninstall *)"
+      "Bash(npm uninstall *)",
+      "Bash(mkdir -p /tmp/esm-err-test/node_modules/epkg)",
+      "Bash(echo '{\"name\":\"epkg\",\"main\":\"index.mjs\",\"type\":\"module\"}')",
+      "Bash(echo 'export default 42;')",
+      "Bash(rm -rf /tmp/esm-err-test)",
+      "Bash(NODE_OPTIONS=--experimental-vm-modules npx jest *)",
+      "Bash(git *)",
+      "Bash(npm rm *)",
+      "Bash(echo \"exit: $?\")"
     ]
   }
 }
