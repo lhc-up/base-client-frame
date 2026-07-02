@@ -8,14 +8,12 @@ function getRendererPreset(ctx, pkgJson, buildInfo) {
 
     return {
         name: 'renderer',
-        target: 'web',
+        target: 'electron-renderer',
         mode,
-        entry: {
-            renderer: path.resolve(rootDir, 'src/renderer/index.js'),
-        },
+        entry: path.resolve(rootDir, 'src/renderer/index.js'),
         output: {
             path: path.resolve(rootDir, 'app', 'renderer'),
-            filename: '[name]/index.js',
+            filename: 'index.js',
             publicPath: isDev ? '/' : './',
             assetModuleFilename: 'assets/[name].[hash:8][ext][query]',
         },
