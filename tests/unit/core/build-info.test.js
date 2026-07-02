@@ -21,7 +21,7 @@ describe('core/build-info', () => {
         expect(typeof info.buildTime).toBe('number');
         expect(info.platform).toBeUndefined();
         expect(info.arch).toBeUndefined();
-        expect(info.unpack).toBe(false);
+        expect(info.dir).toBe(false);
         expect(info.sign).toBe(false);
         expect(info.child).toBe(false);
         expect(info.encrypted).toBe(false);
@@ -43,19 +43,19 @@ describe('core/build-info', () => {
             baseCtx({
                 target: 'app',
                 command: 'pack',
-                cliOptions: { platform: 'win', arch: 'x64', unpack: true, sign: true },
+                cliOptions: { platform: 'win', arch: 'x64', dir: true, sign: true },
             }),
             pkgJson,
         );
         expect(info.target).toBe('app');
         expect(info.platform).toBe('win');
         expect(info.arch).toBe('x64');
-        expect(info.unpack).toBe(true);
+        expect(info.dir).toBe(true);
         expect(info.sign).toBe(true);
         expect(info.child).toBe(false);
     });
 
-    test('child 命令派生：child=true，platform/arch=undefined，unpack/sign=false', () => {
+    test('child 命令派生：child=true，platform/arch=undefined，dir/sign=false', () => {
         const info = deriveBuildInfo(
             baseCtx({ target: 'app', command: 'child', cliOptions: {} }),
             pkgJson,
@@ -63,7 +63,7 @@ describe('core/build-info', () => {
         expect(info.child).toBe(true);
         expect(info.platform).toBeUndefined();
         expect(info.arch).toBeUndefined();
-        expect(info.unpack).toBe(false);
+        expect(info.dir).toBe(false);
         expect(info.sign).toBe(false);
     });
 

@@ -18,7 +18,7 @@ function deriveBuildInfo(ctx, pkgJson, cryptoState = {}) {
         buildTime: Date.now(),
         platform: isPack ? cliOptions.platform : undefined,
         arch: isPack ? cliOptions.arch : undefined,
-        unpack: isPack ? !!cliOptions.unpack : false,
+        dir: isPack ? !!cliOptions.dir : false,
         sign: isPack ? !!cliOptions.sign : false,
         child: isChild,
         encrypted: isApp ? !!encrypted : false,

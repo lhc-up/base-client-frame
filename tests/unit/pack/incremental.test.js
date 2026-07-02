@@ -24,7 +24,7 @@ describe('pack/incremental', () => {
         const buildInfo = {
             target: 'app', name: 'demo', productName: 'Demo', version: '1.2.3',
             env: 'prod', envName: undefined, buildTime: 1700000000000,
-            platform: 'win', arch: 'x64', unpack: false, sign: false, child: false,
+            platform: 'win', arch: 'x64', dir: false, sign: false, child: false,
             encrypted: true, encryptKey: 'SHOULD_NOT_LEAK',
         };
 

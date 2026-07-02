@@ -58,8 +58,8 @@ app target 编译后 `if ("app" === "app") { ... } else { ... }` → else 分支
 | `dev:web` | web | dev | 同上（显式名） |
 | `dev:app` | app | dev | Electron + webpack-dev-server（renderer HMR） |
 | `build` | web | prod | `dist/` 静态资源（含 `index.html` / `index.js` / `assets/*`） |
-| `pack` | app | prod | `dist/<productName>_*.<ext>` 安装包 + `dist/${env}-v${version}.asax`；`--unpack` 改为产 `dist/<platform>[-arch]-unpacked/` + `dist/.frame-state.json` |
-| `installer` | app | prod | `dist/<productName>_*.<ext>`（复用上次 `pack --unpack` 产出 + 外部签名场景） |
+| `pack` | app | prod | `dist/<productName>_*.<ext>` 安装包 + `dist/${env}-v${version}.asax`；`--dir` 改为产 `dist/<platform>[-arch]-unpacked/` |
+| `installer` | app | prod | `dist/<productName>_*.<ext>`（复用上次 `pack --dir` 产出 + 外部签名场景） |
 | `child` | app | prod | `dist/child-<name>-<env>-v<version>.asar` |
 
 `dev` 缺省即 `dev:web`：用户在 Electron 项目里仍可显式跑 `dev:app`，纯 web 项目跑 `dev` 即可。
@@ -81,14 +81,12 @@ app target 编译后 `if ("app" === "app") { ... } else { ... }` → else 分支
 | 平台脚本生成 | ✗ | ✗ | ✗ | ✓ | ✓ | ✗ |
 | AES 加密渲染层 | ✗ | ✗ | ✗ | ✓（可关） | ✗ | ✓（可关） |
 | bytenode 主进程 | ✗ | ✗ | ✗ | ✓（可关） | ✗ | ✗ |
-| 增量 `.asax` 包 | ✗ | ✗ | ✗ | ✓（可关 & 非 `--unpack`） | ✗ | ✗ |
+| 增量 `.asax` 包 | ✗ | ✗ | ✗ | ✓（可关 & 非 `--dir`） | ✗ | ✗ |
 | child `.asar` 包 | ✗ | ✗ | ✗ | ✗ | ✗ | ✓ |
 | 调 electron-builder | ✗ | ✗ | ✗ | ✓ | ✓ | ✗ |
-| 写 `dist/.frame-state.json` | ✗ | ✗ | ✗ | ✓（仅 `--unpack`） | ✗ | ✗ |
-| 读 `dist/.frame-state.json` | ✗ | ✗ | ✗ | ✗ | ✓ | ✗ |
 | 默认端口 | 8023 | 9000 | — | — | — | — |
 
-`installer` 是唯一不清 `dist/` 的命令（要保留 `dist/<...>-unpacked/`、`dist/.frame-state.json`、可能已被外部签名过的产物）。
+`installer` 是唯一不清 `dist/` 的命令（要保留 `dist/<...>-unpacked/`、可能已被外部签名过的产物）。
 
 ---
 
@@ -226,13 +224,13 @@ webpack DefinePlugin 注入的**单个聚合对象**，字面量替换。frame �
 | `buildTime` | number | `Date.now()` |
 | `platform` | `'win'\|'mac'\|'linux'` | `--platform`（仅 pack；其余 undefined） |
 | `arch` | string | `--arch`（同上） |
-| `unpack` | boolean | `--unpack`；其余 false |
+| `dir` | boolean | `--dir`；其余 false |
 | `sign` | boolean | `--sign`；其余 false |
 | `child` | boolean | child 命令为 true；其余 false |
 | `encrypted` | boolean | `bc.config.encrypt !== false && build/encrypt.key 存在` |
 | `encryptKey` | string | `build/encrypt.key` 内容；**仅注入 app target main 进程**，最小暴露面 |
 
-**target 缺省值规则**：app-only 字段（`platform / arch / unpack / sign / child / encrypted / encryptKey`）在 web 命令下取缺省值——字符串类型 undefined、布尔类型 false——应用代码可统一写 `if (__BC_BUILD__.sign) {...}` 不必判别 target。
+**target 缺省值规则**：app-only 字段（`platform / arch / dir / sign / child / encrypted / encryptKey`）在 web 命令下取缺省值——字符串类型 undefined、布尔类型 false——应用代码可统一写 `if (__BC_BUILD__.sign) {...}` 不必判别 target。
 
 **各命令缺省值表**：
 
@@ -241,7 +239,7 @@ webpack DefinePlugin 注入的**单个聚合对象**，字面量替换。frame �
 | `target` | `'app'` | `'app'` | `'app'` | `'web'` | — |
 | `platform` | undefined | `--platform` | undefined | undefined | — |
 | `arch` | undefined | `--arch` | undefined | undefined | — |
-| `unpack` | false | `--unpack` | false | false | — |
+| `dir` | false | `--dir` | false | false | — |
 | `sign` | false | `--sign` | false | false | — |
 | `child` | false | false | true | false | — |
 | `encrypted` | false | 按 encrypt 开关 | 按 encrypt 开关 | false | — |
@@ -642,7 +640,7 @@ ctx = { command:'dev:web', target:'web', mode:'dev', ... }
 ④  SIGINT → 关 dev-server、退出
 ```
 
-不起 Electron。`__BC_BUILD__` 派生时 app-only 字段取缺省值（platform/arch/sign/unpack/child 都 undefined/false，encrypted=false）。
+不起 Electron。`__BC_BUILD__` 派生时 app-only 字段取缺省值（platform/arch/sign/dir/child 都 undefined/false，encrypted=false）。
 
 dev-server options 构造与 7.1 同款，只是默认 port 9000、消费 `web.devServer` 而非 `renderer.devServer`。
 
@@ -679,9 +677,9 @@ build 是 web target 唯一生产命令。不读 electron-builder.config、不�
 
 | 命令 | A | B | C |
 |---|---|---|---|
-| `pack` | ✓ 完整 | ✓ 完整 | ✓（`--unpack` 时仅 dir target，输出 unpacked + 写状态文件） |
+| `pack` | ✓ 完整 | ✓ 完整 | ✓（`--dir` 时仅 dir target，输出 unpacked + 写状态文件） |
 | `child` | A 子集（仅 env / CLI / `__BC_BUILD__`） | B 子集（webpack + AES + asar；无 bytenode、无 .asax） | — |
-| `installer` | A 子集（不派生 `__BC_BUILD__`、不读 bc.config；读 builder.config + icon + shell） | — | ✓（`prepackaged` 透传 `.frame-state.json`.unpackedPath） |
+| `installer` | A 子集（不派生 `__BC_BUILD__`、不读 bc.config；读 builder.config + icon + shell） | — | ✓（按 CLI 的 platform/arch 推导 unpacked 路径，作 `prepackaged` 透传） |
 
 ### 9.1 pack 命令流程
 
@@ -706,7 +704,7 @@ build 是 web target 唯一生产命令。不读 electron-builder.config、不�
       main 注入 __BC_BUILD__ 全字段（含 encryptKey）
       preload / renderer 注入 __BC_BUILD__ 不含 encryptKey
 ⑩  encrypt === true：AES 加密 app/<除 main 外>/**/*.js
-⑪  incremental === true && 非 --unpack：
+⑪  incremental === true && 非 --dir：
       复制 app/{除 main 外} → 临时目录
       写 package.json（基于 __BC_BUILD__ 派生子集，不含 encryptKey）
       @electron/asar 打包 → dist/${env}-v${version}.asax
@@ -714,10 +712,10 @@ build 是 web target 唯一生产命令。不读 electron-builder.config、不�
 ⑫  bytenode === true：app/main/index.js → app/main/index.jsc + 加载入口
 
 [阶段 C]
-⑬  targets = buildTargets(cliOptions)             // --unpack 时改 dir
+⑬  targets = buildTargets(cliOptions)             // --dir 时改 dir
 ⑭  artifacts = await electronBuilder.build({ ...targets, config: mergedBuilderConfig })
       输出：dist/<productName>_*.<ext> 或 dist/<platform>[-arch]-unpacked/
-⑮  --unpack 完成：从 artifacts 取 unpacked 真实路径，写 dist/.frame-state.json
+⑮  --dir 完成：按 { platform, arch } 推导 unpacked 路径（10.7），fs.existsSync 校验后 logger 输出
 ```
 
 **dist/ 清空只发生在 ① 一次**——之后阶段 A 写入 `dist/icons` / `dist/shell`，阶段 B/C 累加 `.asax` 与安装包；其余目录不再触碰，icons/shell 自然保留。
@@ -735,7 +733,7 @@ build 是 web target 唯一生产命令。不读 electron-builder.config、不�
 ctx = { command:'child', target:'app', mode:'prod', ... }
 ①  fse.emptyDirSync('dist')                       // 整体清空
 ②  fse.emptyDirSync('app')
-③  派生 __BC_BUILD__（child=true、platform/arch=undefined、unpack/sign=false）
+③  派生 __BC_BUILD__（child=true、platform/arch=undefined、dir/sign=false）
 ④  加载 bc.config（不加载 electron-builder.config、不做 icon/shell）
 ⑤  三进程并行 webpack 编译 → app/
       三进程都注入 __BC_BUILD__（含 encryptKey 仅 main）
@@ -757,7 +755,7 @@ ctx = { command:'child', target:'app', mode:'prod', ... }
 ```
 ctx = { command:'installer', target:'app', mode:'prod', ... }
                                             // __BC_BUILD__ 不派生
-                                            // dist/ 不清（保留 <...>-unpacked/、.frame-state.json）
+                                            // dist/ 不清（保留 <...>-unpacked/）
 
 [阶段 A 子集]
 ①  加载 electron-builder.config（不读 bc.config）
@@ -767,8 +765,8 @@ ctx = { command:'installer', target:'app', mode:'prod', ... }
 ⑤  平台脚本生成（同 9.1 ⑦；覆盖式重生 dist/shell）
 
 [阶段 C]
-⑥  读 dist/.frame-state.json，取 lastUnpack.unpackedPath
-⑦  targets = buildTargets(cliOptions)             // installer 默认 installer target，不接受 --unpack
+⑥  unpackedPath = dist/{computeUnpackedDir({ platform, arch })}   // 按命名约定现算
+⑦  targets = buildTargets(cliOptions)             // installer 默认 installer target，不接受 --dir
 ⑧  electronBuilder.build({ ...targets, config: mergedBuilderConfig, prepackaged: unpackedPath })
 ```
 
@@ -777,24 +775,9 @@ ctx = { command:'installer', target:'app', mode:'prod', ... }
 - **不派生 `__BC_BUILD__`**：installer 路径不跑 webpack、不产 bundle，没有消费方
 - **不加载 bc.config**：bc.config 是 webpack / 加密 / 字节码 / 增量包的开关源，全部跟 installer 无关
 - **不重清 `dist/`**：`dist/<...>-unpacked/` 必须保留（可能已被外部签名过）；`dist/icons/`、`dist/shell/` 由阶段 A 子集覆盖式重生
-- **不校验状态文件**：`frame-state.json` 缺失、`unpackedPath` 不存在、平台/架构与命令参数不一致——这些 frame 都不拦截，统一交给 `electron-builder.build` 抛错
+- **不做前置校验**：unpacked 目录不存在、平台/架构与上次 pack 参数错配——frame 都不拦截，统一交给 `electron-builder.build` 抛错
 
-**`dist/.frame-state.json` 字段**：
-
-```json
-{
-    "lastUnpack": {
-        "platform": "win",
-        "arch": "x64",
-        "env": "prod",
-        "version": "1.2.3",
-        "unpackedPath": "dist/win-unpacked",
-        "timestamp": 1718956800000
-    }
-}
-```
-
-`unpackedPath` 用相对项目根的相对路径，便于 CI artifact 跨 agent 流转。
+**为什么不写状态文件**：pack 与 installer 都基于同一份命名约定（10.7）从 `{ platform, arch }` 推导 unpacked 路径；installer 命令本身就要求 `--platform` / `--arch`，因此无需持久化状态。这也让 installer 的行为更符合直觉——命令参数是什么、就找什么目录，避免"沉默使用旧状态里的错配值"。
 
 ### 9.4 pack 命令选项
 
@@ -806,7 +789,7 @@ ctx = { command:'installer', target:'app', mode:'prod', ... }
 | `--debug` | 否（全局） | boolean | 出错时附打印 `err.stack` |
 | `--platform <p>` | 是 | `win`/`mac`/`linux` | 目标平台 |
 | `--arch <a>` | 是 | `ia32`/`x64`/`armv7l`/`arm64`/`universal`/`loong64` | 目标架构 |
-| `--unpack` | 否 | boolean | 仅产 unpacked，跳过 installer 阶段；同时写状态文件 |
+| `--dir` | 否 | boolean | 仅产 unpacked，跳过 installer 阶段；同时写状态文件 |
 | `--sign` | 否 | boolean | 签名标志，透传至 `cliOptions.sign` 与 `__BC_BUILD__.sign` |
 
 ### 9.5 installer 命令选项
@@ -828,15 +811,15 @@ ctx = { command:'installer', target:'app', mode:'prod', ... }
 
 ```bash
 # Agent 1：编译 + 出 unpacked
-bc-frame pack --unpack --platform win --arch x64 --env prod
-# → dist/win-unpacked/ + dist/.frame-state.json，整个 dist/ 作 artifact 上传
+bc-frame pack --dir --platform win --arch x64 --env prod
+# → dist/win-unpacked/，整个 dist/ 作 artifact 上传
 
 # Agent 2：外部签名工具处理 unpacked 目录
 signtool sign /f cert.pfx dist/win-unpacked/**/*.exe dist/win-unpacked/**/*.dll
 
 # Agent 3：套 installer 壳
 bc-frame installer --platform win --arch x64 --env prod
-# 读 dist/.frame-state.json 拿 unpackedPath，调 electron-builder + prepackaged
+# 按 CLI 的 platform/arch 现算 dist/win-unpacked，调 electron-builder + prepackaged
 ```
 
 ---
@@ -932,7 +915,7 @@ bc-frame installer --platform win --arch x64 --env prod
 
 ### 10.5 增量 `.asax` 包（`src/pack/incremental.js`）
 
-**启用条件**：`bc.config.incremental !== false` **且** `pack` 命令 **且** 非 `--unpack`。
+**启用条件**：`bc.config.incremental !== false` **且** `pack` 命令 **且** 非 `--dir`。
 
 **流程**（pack 阶段 B ⑪，在 ⑫ bytenode **之前**）：
 
@@ -945,7 +928,7 @@ bc-frame installer --platform win --arch x64 --env prod
 **关键设计**：
 
 - `.asax` **不含主进程编译产物**——避免字节码与特定 Electron Node 版本绑定，使增量包跨次版本可移植
-- `--unpack` 不产 `.asax`：免安装目录本身已经是绿色版，分发增量包没有意义
+- `--dir` 不产 `.asax`：免安装目录本身已经是绿色版，分发增量包没有意义
 
 `.asax` 用于客户端运行时的增量更新——客户端启动时下载新 `.asax` 替换安装目录里渲染层产物。分发与替换机制由 toolkit 或用户代码承接，frame 仅负责产物。
 
@@ -957,10 +940,10 @@ setup 概念的产物清单，跟 webpack DefinePlugin 注入的 `__BC_BUILD__` 
 function derivePackageDescriptor(buildInfo) {
     // 从 __BC_BUILD__ 取以下字段（其余字段不出现）
     const { name, productName, version, env, envName, buildTime,
-            platform, arch, unpack, sign, child, encrypted } = buildInfo;
+            platform, arch, dir, sign, child, encrypted } = buildInfo;
     // 绝不包含 encryptKey ─ 与 10.3 最小暴露面约束一致
     return { name, productName, version, env, envName, buildTime,
-             platform, arch, unpack, sign, child, encrypted };
+             platform, arch, dir, sign, child, encrypted };
 }
 ```
 
@@ -976,30 +959,30 @@ function derivePackageDescriptor(buildInfo) {
 
 **后缀选择**：frame 统一使用 `.asar` 标准后缀，不沿用某些参考实现中"打包为 `.asar` 后改名 `.asax`"的做法。子应用是宿主动态加载的资源包，`.asar` 是 Electron 官方规格，业界工具链友好。
 
-`.asar` 根目录的 `package.json` 与 10.5.1 节「包描述约定」一致：基于 `__BC_BUILD__` 派生的子集（不含 `encryptKey`）。child 命令下 `platform` / `arch` 在序列化时按标准 JSON 行为省略（`undefined` 字段不出现），布尔字段（`unpack` / `sign` / `child` / `encrypted`）按缺省值序列化。宿主区分"child 包"与"主应用 .asax"以 `child: true` 字段为准。
+`.asar` 根目录的 `package.json` 与 10.5.1 节「包描述约定」一致：基于 `__BC_BUILD__` 派生的子集（不含 `encryptKey`）。child 命令下 `platform` / `arch` 在序列化时按标准 JSON 行为省略（`undefined` 字段不出现），布尔字段（`dir` / `sign` / `child` / `encrypted`）按缺省值序列化。宿主区分"child 包"与"主应用 .asax"以 `child: true` 字段为准。
 
-### 10.7 状态文件 `dist/.frame-state.json`（`src/pack/frame-state.js`）
+### 10.7 unpacked 路径推导（`src/electron/build-targets.js#computeUnpackedDir`）
 
-`installer` 命令复用上一次 `pack --unpack` 产出的 unpacked 目录作为 electron-builder 的 `prepackaged` 输入。frame 通过状态文件 `dist/.frame-state.json` 在两次命令调用之间传递这一信息——frame 不推算路径、不扫描目录，完全跟 electron-builder 返回的真实路径对齐。
+`installer` 命令复用上一次 `pack --dir` 产出的 unpacked 目录作为 electron-builder 的 `prepackaged` 输入。pack 与 installer 都基于同一份命名约定从 `{ platform, arch }` 推导路径，**不依赖任何持久化状态**。
 
-**写入端**（`pack --unpack` 命令末尾，9.1 ⑮）：
+**电子-builder `dir` target 命名约定**（`build()` 对该 target 返回空 artifacts，只能靠约定推导）：
 
-1. `electron-builder.build({ ...dirTarget, config })` 返回 artifact 路径数组
-2. 从返回值中取出 unpacked 目录路径（`*-unpacked/` 或 mac 的 `mac[-arch]/`）
-3. 写入 `dist/.frame-state.json`
+| 平台 | arch=x64 | 其他 arch |
+|---|---|---|
+| `win` | `dist/win-unpacked` | `dist/win-{arch}-unpacked` |
+| `linux` | `dist/linux-unpacked` | `dist/linux-{arch}-unpacked` |
+| `mac` | `dist/mac` | `dist/mac-{arch}`（无 `-unpacked` 后缀） |
 
-**读取端**（`installer` 命令阶段 C，9.3 ⑥）：
+**pack 侧**（`pack --dir` 末尾，9.1 ⑮）：`await build(...)` → `computeUnpackedDir` 推导预期路径 → `fs.existsSync` 校验 → 存在则日志确认、不存在则 `logger.warn` 提示后续 installer 无法复用。
 
-1. 读 `dist/.frame-state.json` → 取 `lastUnpack.unpackedPath`
-2. 透传给 `electron-builder.build({ ...installerTargets, config, prepackaged: unpackedPath })`
+**installer 侧**（9.3 ⑥）：`unpackedPath = path.resolve(rootDir, 'dist', computeUnpackedDir(cliOptions))` 直接现算 → 透传给 `electron-builder.build({ ..., prepackaged: unpackedPath })`。
 
 **frame 不做的校验**：
 
-- 不检查状态文件是否存在（缺失则 electron-builder 拿到 `undefined` 当 prepackaged，自身会用 app/ 算或抛错）
 - 不检查 `unpackedPath` 指向的目录是否存在（不存在由 electron-builder 抛 `prepackaged path does not exist`）
-- 不检查 `lastUnpack.platform` / `arch` / `env` 是否与本次 installer 命令的 CLI 参数一致——错配场景的报错由 electron-builder 自然产生
+- 不检查上次 pack 是否与本次 installer 的 CLI 参数一致——若确实错配（如 pack 用 x64、installer 用 ia32），命名约定会指向不同目录，electron-builder 自然抛错
 
-`.frame-state.json` 自身只是 dist/ 目录的普通文件，跟其余产物一起被 artifact 打包流转，无需用户手工管理。
+**为什么不写状态文件**：installer 命令本身就要求 `--platform` / `--arch`，两侧从同一份 CLI 参数推导路径即可，无需持久化。这也让 installer 的行为更符合直觉——命令参数是什么就找什么目录，避免"沉默使用旧状态里的错配值"。
 
 ### 10.8 `--sign` 透传
 
@@ -1061,11 +1044,11 @@ frame 的 renderer 预设 entry 改为对象形态（默认 `{ renderer: 'src/re
 | F14 | 平台脚本生成 | pack / installer | 模板 + 替换变量 | `dist/shell/*` + builder.config 注入 |
 | F15 | AES 加密渲染层 | pack / child（encrypt 开） | `build/encrypt.key` + 渲染产物 | 加密产物 + `__BC_BUILD__.encrypted/encryptKey` |
 | F16 | bytenode 主进程字节码 | pack（bytenode 开） | `app/main/index.js` | `.jsc` + 加载入口 |
-| F17 | 增量 `.asax` 包 | pack（incremental 开 & 非 `--unpack`） | `app/<除 main 外>` + 包描述 | `dist/${env}-v${version}.asax` |
+| F17 | 增量 `.asax` 包 | pack（incremental 开 & 非 `--dir`） | `app/<除 main 外>` + 包描述 | `dist/${env}-v${version}.asax` |
 | F18 | 子应用 `.asar` 包 | child | 编译后 `app/` + 包描述 | `dist/child-${name}-${env}-v${version}.asar` |
 | F19 | electron-builder 调用 | pack / installer | targets + config + 可选 prepackaged | `dist/*.exe/.dmg/.deb` 或 `dist/<unpacked>/` |
-| F20 | 写 `.frame-state.json` | pack 完成 + `--unpack` | electron-builder 返回的 unpacked 真实路径 | `dist/.frame-state.json` |
-| F21 | 读 `.frame-state.json` | installer 阶段 C | 状态文件 | `prepackaged` 参数 |
+| F20 | unpacked 路径校验 | pack 完成 + `--dir` | 按 platform/arch 推导路径 | 存在性校验 + logger 反馈 |
+| F21 | unpacked 路径推导 | installer 阶段 C | CLI 的 platform/arch | `prepackaged` 参数（透传 electron-builder） |
 
 ### 11.2 用户必做
 
@@ -1092,7 +1075,7 @@ frame 的 renderer 预设 entry 改为对象形态（默认 `{ renderer: 'src/re
 | O3 | 额外构建期 flag | 命令行追加 `--xxx`，仅 `cliOptions.xxx` 可读 |
 | O4 | 关闭运行时增强 | `bc.config.encrypt / bytenode / incremental: false` |
 | O5 | 子应用打包 | 跑 `child` 命令 |
-| O6 | 复用 unpacked 出 installer（外部签名场景） | 先 `pack --unpack`，再 `installer` |
+| O6 | 复用 unpacked 出 installer（外部签名场景） | 先 `pack --dir`，再 `installer` |
 | O7 | dev:app 与 dev:web 并存 | 错开端口（默认已错开），同时跑 |
 | O8 | 同构 renderer | 不动默认 entry（`src/renderer/index.js` 即 app+web 共享） |
 | O9 | 关闭 webpack 静默 | bc.config 覆盖 `stats` / `infrastructureLogging` |
@@ -1107,8 +1090,8 @@ frame 的 renderer 预设 entry 改为对象形态（默认 `{ renderer: 'src/re
 | 平台脚本生成 | pack / installer 始终开 | `nsis.include` / `deb.fpm` 显式写 → frame 不注入 | — |
 | AES 加密 | pack / child 开 | `bc.config.encrypt: false` | encrypt 开 但 `build/encrypt.key` 缺失 → 抛错 |
 | bytenode | pack 开 | `bc.config.bytenode: false` | — |
-| 增量 `.asax` | pack 开（非 `--unpack`） | `bc.config.incremental: false` 或 `--unpack` | — |
-| `dist/.frame-state.json` | `pack --unpack` 自动写；installer 自动读 | 不写：去掉 `--unpack`；不读：installer 命令本身就是要用的 | 缺失 / `unpackedPath` 不存在 → electron-builder 抛错；frame 不预校验 |
+| 增量 `.asax` | pack 开（非 `--dir`） | `bc.config.incremental: false` 或 `--dir` | — |
+| unpacked 路径衔接 | pack 与 installer 都按 `{ platform, arch }` 现算（`computeUnpackedDir`） | 无关闭开关 | installer 参数与 pack 错配 / 目录不存在 → electron-builder 抛错；frame 不预校验 |
 | 龙芯镜像 | 关 | — | 用户未配置且打 loong64 → electron-builder 用默认源（一般失败）；用户在 builder.config 自管 |
 | 同构 renderer 默认 entry | `src/renderer/index.js` 共享 | 用户在 `bc.config.web.entry` 改 | — |
 | HTML 模板 | 用户自注册 `html-webpack-plugin` | — | 用户不注册 → 不产 HTML，web/renderer 不可加载 |
@@ -1243,7 +1226,6 @@ src/
 │   ├── bytenode.js                 # bytenodeMain(ctx, mergedBuilderConfig)
 │   ├── incremental.js              # buildIncrementalAsax(ctx, buildInfo)
 │   ├── child-asar.js               # buildChildAsar(ctx, buildInfo)
-│   ├── frame-state.js              # readFrameState / writeFrameState
 │   └── package-descriptor.js       # derivePackageDescriptor(buildInfo)
 │
 ├── webpack-runner/                  # webpack 编排
@@ -1255,7 +1237,8 @@ src/
 │   ├── resolve-electron.js         # resolveElectron(rootDir)
 │   ├── resolve-main-entry.js       # resolveMainEntry(rootDir)
 │   ├── kill-electron.js            # killElectron(child) 跨平台
-│   └── resolve-electron-builder.js # resolveElectronBuilder(rootDir)
+│   ├── resolve-electron-builder.js # resolveElectronBuilder(rootDir)
+│   └── build-targets.js            # buildTargets / computeUnpackedDir（10.7）
 │
 ├── templates/
 │   └── shell/

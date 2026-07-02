@@ -347,7 +347,7 @@ npm i electron@22.3.1 electron-builder@24 bytenode@1.5.0 webpack webpack-dev-ser
 npx base-client dev:web
 npx base-client build
 npx base-client dev:app
-npx base-client pack --platform win --arch x64 --unpack
+npx base-client pack --platform win --arch x64 --dir
 npx base-client installer --platform win --arch x64
 ```
 

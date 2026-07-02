@@ -20,7 +20,7 @@
 - [x] buildInfoPlugin 改为逐字段注入 `__BC_BUILD__.<k>`（设计 §6.3）
 - [x] dispatcher 完整 preload bc.config / electron-builder.config，结果挂 `ctx.userConfig` / `ctx.userBuilderConfig`，避免用户函数被调多次
 - [x] dev:web SIGINT 走 `server.stop()`（对齐 dev:app）
-- [x] pack --unpack 未产出可识别 unpacked 目录时 logger.warn
+- [x] pack --dir 未产出可识别 unpacked 目录时 logger.warn
 - [x] dispatcher 错误格式加"失败："文案；process.title 加 BC_ENV ?? '?' 兜底
 - [x] target 字面量收敛至 `core/target.js`：bc-config / build-info 改用 TARGETS.APP / WEB
 - [x] 卸载未使用的 lodash 依赖

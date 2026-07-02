@@ -8,7 +8,7 @@ function derivePackageDescriptor(buildInfo) {
         buildTime: buildInfo.buildTime,
         platform: buildInfo.platform,
         arch: buildInfo.arch,
-        unpack: buildInfo.unpack,
+        dir: buildInfo.dir,
         sign: buildInfo.sign,
         child: buildInfo.child,
         encrypted: buildInfo.encrypted,

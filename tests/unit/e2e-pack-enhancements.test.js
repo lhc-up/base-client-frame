@@ -78,11 +78,11 @@ describe('E2E: pack 完整能力（encrypt + bytenode + incremental + 多入口�
         expect(pkgDescriptor.encrypted).toBe(true);
     }, 120000);
 
-    test('pack --unpack：不产 .asax', async () => {
+    test('pack --dir：不产 .asax', async () => {
         const cmd = require('../../src/cli/commands/pack');
         const { runCommand } = require('../../src/cli/index');
 
-        await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64', unpack: true });
+        await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64', dir: true });
 
         const asaxPath = path.join(fixtureDir, 'dist/prod-v1.0.0.asax');
         expect(fs.existsSync(asaxPath)).toBe(false);

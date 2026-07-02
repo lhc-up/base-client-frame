@@ -4,14 +4,13 @@ const { TARGETS } = require('../../core/target');
 const { resolveBuilderConfig } = require('../../config/builder-config');
 const { adaptIcon } = require('../../pack/icon');
 const { generateShellScripts } = require('../../pack/shell');
-const { readFrameState } = require('../../pack/frame-state');
 const { resolveElectronBuilder } = require('../../electron/resolve-electron-builder');
-const { buildTargets } = require('../../electron/build-targets');
+const { buildTargets, computeUnpackedDir } = require('../../electron/build-targets');
 const logger = require('../../core/logger');
 
 module.exports = {
     name: 'installer',
-    description: '复用上次 pack --unpack 产出的 unpacked 目录，套 installer 壳（外部签名场景）',
+    description: '复用上次 pack --dir 产出的 unpacked 目录，套 installer 壳（外部签名场景）',
     target: TARGETS.APP,
     mode: MODES.PROD,
     needsBcConfig: false,
@@ -36,11 +35,9 @@ module.exports = {
             appId: mergedBuilderConfig.appId,
         });
 
-        // 阶段 C：读 frame-state → prepackaged 透传
-        const state = readFrameState(distDir);
-        const unpackedPath = state?.lastUnpack?.unpackedPath
-            ? path.resolve(rootDir, state.lastUnpack.unpackedPath)
-            : undefined;
+        // 阶段 C：按 CLI 的 platform/arch 推导上次 pack --dir 的产物路径，作 prepackaged 输入
+        //   目录不存在 / 平台错配 → electron-builder 自然抛错，frame 不做前置校验
+        const unpackedPath = path.resolve(rootDir, 'dist', computeUnpackedDir(ctx.cliOptions));
 
         const targets = buildTargets(ctx.cliOptions);
         const builder = await resolveElectronBuilder(rootDir);

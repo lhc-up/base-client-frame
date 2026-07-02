@@ -11,12 +11,12 @@ describe('cli/commands/installer', () => {
         expect(cmd.needsBuilderConfig).toBe(true);
     });
 
-    test('options 含 --platform / --arch / --sign（无 --unpack）', () => {
+    test('options 含 --platform / --arch / --sign（无 --dir）', () => {
         const flags = cmd.options.map(o => o[0]).join(' ');
         expect(flags).toContain('--platform');
         expect(flags).toContain('--arch');
         expect(flags).toContain('--sign');
-        expect(flags).not.toContain('--unpack');
+        expect(flags).not.toContain('--dir');
     });
 
     test('action 是 async function', () => {

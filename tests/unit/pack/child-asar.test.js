@@ -26,7 +26,7 @@ describe('pack/child-asar', () => {
         const buildInfo = {
             target: 'app', name: 'plugin-x', productName: 'PluginX', version: '0.2.0',
             env: 'prod', envName: undefined, buildTime: 1700000000000,
-            platform: undefined, arch: undefined, unpack: false, sign: false, child: true,
+            platform: undefined, arch: undefined, dir: false, sign: false, child: true,
             encrypted: false, encryptKey: undefined,
         };
 

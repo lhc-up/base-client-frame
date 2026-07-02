@@ -11,7 +11,7 @@ const { adaptIcon } = require('../../pack/icon');
 const { generateShellScripts } = require('../../pack/shell');
 const { computeCryptoState } = require('../../pack/encrypt');
 const { resolveElectronBuilder } = require('../../electron/resolve-electron-builder');
-const { buildTargets } = require('../../electron/build-targets');
+const { buildTargets, computeUnpackedDir } = require('../../electron/build-targets');
 const logger = require('../../core/logger');
 
 module.exports = {
@@ -24,7 +24,7 @@ module.exports = {
     options: [
         ['--platform <p>', '目标平台：win / mac / linux'],
         ['--arch <a>', '目标架构：ia32 / x64 / armv7l / arm64 / universal / loong64'],
-        ['--unpack', '仅产 unpacked 目录，跳过 installer 阶段'],
+        ['--dir', '仅产 unpacked 目录，跳过 installer 阶段'],
         ['--sign', '签名标志（透传至 cliOptions.sign 与 __BC_BUILD__.sign）'],
     ],
     action: async (ctx) => {
@@ -64,8 +64,8 @@ module.exports = {
             logger.info('AES 加密完成');
         }
 
-        // ⑪ 增量 .asax 包（非 --unpack）
-        if (userConfig.incremental !== false && !ctx.cliOptions.unpack) {
+        // ⑪ 增量 .asax 包（非 --dir）
+        if (userConfig.incremental !== false && !ctx.cliOptions.dir) {
             const { buildIncrementalAsax } = require('../../pack/incremental');
             await buildIncrementalAsax({ appDir, distDir, buildInfo });
             logger.info(`增量包 dist/${buildInfo.env}-v${buildInfo.version}.asax 已产出`);
@@ -81,28 +81,16 @@ module.exports = {
         // 阶段 C · 安装包打包
         const targets = buildTargets(ctx.cliOptions);
         const builder = await resolveElectronBuilder(rootDir);
-        const artifacts = await builder.build({ ...targets, config: mergedBuilderConfig });
+        await builder.build({ ...targets, config: mergedBuilderConfig });
 
-        // --unpack 完成后写 frame-state（供 installer 复用 unpacked 路径）
-        if (ctx.cliOptions.unpack) {
-            const { writeFrameState } = require('../../pack/frame-state');
-            const unpackedPath = (artifacts || []).find((p) => {
-                try { return fs.statSync(p).isDirectory(); } catch { return false; }
-            });
-            if (unpackedPath) {
-                writeFrameState(distDir, {
-                    lastUnpack: {
-                        platform: ctx.cliOptions.platform,
-                        arch: ctx.cliOptions.arch,
-                        env: buildInfo.env,
-                        version: buildInfo.version,
-                        unpackedPath: path.relative(rootDir, unpackedPath),
-                        timestamp: Date.now(),
-                    },
-                });
-                logger.info(`已写 dist/.frame-state.json（unpackedPath=${path.relative(rootDir, unpackedPath)}）`);
+        // --dir 场景校验：unpacked 目录名由 electron-builder 命名约定决定；installer 会用相同 platform/arch 现算路径
+        if (ctx.cliOptions.dir) {
+            const unpackedRel = path.join('dist', computeUnpackedDir(ctx.cliOptions));
+            const unpackedAbs = path.join(rootDir, unpackedRel);
+            if (fs.existsSync(unpackedAbs)) {
+                logger.info(`unpacked 目录已产出：${unpackedRel}`);
             } else {
-                logger.warn('--unpack 未产出可识别的 unpacked 目录，未写 dist/.frame-state.json；后续 installer 命令将无法复用本次产物');
+                logger.warn(`--dir 未在预期路径 ${unpackedRel} 找到 unpacked 目录；后续 installer 命令将无法复用本次产物`);
             }
         }
 

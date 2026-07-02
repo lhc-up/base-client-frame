@@ -52,7 +52,7 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
         expect(lastCall.config.nsis.include).toBe('dist/shell/win-installer.nsh');
     }, 60000);
 
-    test('pack --unpack 时 targets 改为 dir', async () => {
+    test('pack --dir 时 targets 改为 dir', async () => {
         fse.removeSync(path.join(fixtureDir, 'app'));
         try { fs.rmSync(path.join(fixtureDir, 'dist'), { recursive: true, force: true }); } catch {}
 
@@ -61,7 +61,7 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
         const builderPath = path.join(fixtureDir, 'node_modules/electron-builder/out/index.js');
         delete require.cache[builderPath];
 
-        await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64', unpack: true });
+        await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64', dir: true });
 
         const builder = require(builderPath);
         const lastCall = builder._getLastCall();

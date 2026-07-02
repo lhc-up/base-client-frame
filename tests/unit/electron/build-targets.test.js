@@ -1,4 +1,4 @@
-const { buildTargets } = require('../../../src/electron/build-targets');
+const { buildTargets, computeUnpackedDir } = require('../../../src/electron/build-targets');
 
 describe('electron/build-targets', () => {
     test('win + x64：{ win: ["nsis"], x64: true }', () => {
@@ -13,8 +13,8 @@ describe('electron/build-targets', () => {
         expect(buildTargets({ platform: 'linux', arch: 'x64' })).toEqual({ linux: ['deb'], x64: true });
     });
 
-    test('--unpack 时 targets 改为 dir', () => {
-        expect(buildTargets({ platform: 'win', arch: 'x64', unpack: true })).toEqual({ win: ['dir'], x64: true });
+    test('--dir 时 targets 改为 dir', () => {
+        expect(buildTargets({ platform: 'win', arch: 'x64', dir: true })).toEqual({ win: ['dir'], x64: true });
     });
 
     test('缺 platform → 抛错', () => {
@@ -38,5 +38,43 @@ describe('electron/build-targets', () => {
         expect(buildTargets({ platform: 'linux', arch: 'armv7l' })).toEqual({ linux: ['deb'], armv7l: true });
         expect(buildTargets({ platform: 'mac', arch: 'universal' })).toEqual({ mac: ['dmg'], universal: true });
         expect(buildTargets({ platform: 'win', arch: 'ia32' })).toEqual({ win: ['nsis'], ia32: true });
+    });
+});
+
+describe('electron/computeUnpackedDir', () => {
+    test('win + x64：win-unpacked（x64 省略 arch 段）', () => {
+        expect(computeUnpackedDir({ platform: 'win', arch: 'x64' })).toBe('win-unpacked');
+    });
+
+    test('win + ia32：win-ia32-unpacked', () => {
+        expect(computeUnpackedDir({ platform: 'win', arch: 'ia32' })).toBe('win-ia32-unpacked');
+    });
+
+    test('win + arm64：win-arm64-unpacked', () => {
+        expect(computeUnpackedDir({ platform: 'win', arch: 'arm64' })).toBe('win-arm64-unpacked');
+    });
+
+    test('linux + x64：linux-unpacked', () => {
+        expect(computeUnpackedDir({ platform: 'linux', arch: 'x64' })).toBe('linux-unpacked');
+    });
+
+    test('linux + armv7l：linux-armv7l-unpacked', () => {
+        expect(computeUnpackedDir({ platform: 'linux', arch: 'armv7l' })).toBe('linux-armv7l-unpacked');
+    });
+
+    test('linux + loong64：linux-loong64-unpacked', () => {
+        expect(computeUnpackedDir({ platform: 'linux', arch: 'loong64' })).toBe('linux-loong64-unpacked');
+    });
+
+    test('mac + x64：mac（无 -unpacked 后缀）', () => {
+        expect(computeUnpackedDir({ platform: 'mac', arch: 'x64' })).toBe('mac');
+    });
+
+    test('mac + arm64：mac-arm64', () => {
+        expect(computeUnpackedDir({ platform: 'mac', arch: 'arm64' })).toBe('mac-arm64');
+    });
+
+    test('mac + universal：mac-universal', () => {
+        expect(computeUnpackedDir({ platform: 'mac', arch: 'universal' })).toBe('mac-universal');
     });
 });
