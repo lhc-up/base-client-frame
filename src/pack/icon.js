@@ -1,12 +1,11 @@
 const path = require('path');
-const fs = require('fs');
 const fse = require('fs-extra');
 
 const PNG_SIZES = [16, 24, 32, 48, 64, 96, 128, 256, 512, 1024];
 
 async function adaptIcon({ rootDir, distDir, mergedBuilderConfig }) {
     const iconSrc = path.join(rootDir, 'build/icon.png');
-    if (!fs.existsSync(iconSrc)) return;
+    if (!fse.existsSync(iconSrc)) return;
 
     const win = mergedBuilderConfig.win || (mergedBuilderConfig.win = {});
     const mac = mergedBuilderConfig.mac || (mergedBuilderConfig.mac = {});
@@ -20,18 +19,18 @@ async function adaptIcon({ rootDir, distDir, mergedBuilderConfig }) {
     const iconsDir = path.join(distDir, 'icons');
     fse.ensureDirSync(iconsDir);
 
-    const sourceBuf = fs.readFileSync(iconSrc);
+    const sourceBuf = fse.readFileSync(iconSrc);
     const sourceImg = await Jimp.read(sourceBuf);
     for (const size of PNG_SIZES) {
         const buf = await sourceImg.clone().resize(size, size).getBufferAsync(Jimp.MIME_PNG);
-        fs.writeFileSync(path.join(iconsDir, `${size}.png`), buf);
+        fse.writeFileSync(path.join(iconsDir, `${size}.png`), buf);
     }
 
     const ico = png2icons.createICO(sourceBuf, png2icons.BILINEAR, 0, false, true);
-    if (ico) fs.writeFileSync(path.join(iconsDir, 'icon.ico'), ico);
+    if (ico) fse.writeFileSync(path.join(iconsDir, 'icon.ico'), ico);
 
     const icns = png2icons.createICNS(sourceBuf, png2icons.BILINEAR, 0);
-    if (icns) fs.writeFileSync(path.join(iconsDir, 'icon.icns'), icns);
+    if (icns) fse.writeFileSync(path.join(iconsDir, 'icon.icns'), icns);
 
     if (!win.icon)   win.icon   = 'dist/icons/icon.ico';
     if (!mac.icon)   mac.icon   = 'dist/icons/icon.icns';

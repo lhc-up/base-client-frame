@@ -1,10 +1,10 @@
-const fs = require('fs');
+const fse = require('fs-extra');
 const path = require('path');
 const dotenv = require('dotenv');
 
 function readEnvFile(file) {
-    if (!fs.existsSync(file)) return null;
-    return dotenv.parse(fs.readFileSync(file));
+    if (!fse.existsSync(file)) return null;
+    return dotenv.parse(fse.readFileSync(file));
 }
 
 function loadEnv(envName, { cwd = process.cwd() } = {}) {

@@ -1,5 +1,4 @@
 const path = require('path');
-const fs = require('fs');
 const fse = require('fs-extra');
 
 const FILES = [
@@ -28,9 +27,9 @@ function generateShellScripts({ rootDir, distDir, mergedBuilderConfig, appName, 
     for (const name of FILES) {
         const src = path.join(tplDir, name);
         const out = path.join(shellDir, name);
-        const raw = fs.readFileSync(src, 'utf8');
+        const raw = fse.readFileSync(src, 'utf8');
         const rendered = normalizeLineEndings(renderTemplate(raw, { appName, appDirName, appId }));
-        fs.writeFileSync(out, rendered, { encoding: 'utf8' });
+        fse.writeFileSync(out, rendered, { encoding: 'utf8' });
     }
 
     if (!mergedBuilderConfig.nsis) mergedBuilderConfig.nsis = {};

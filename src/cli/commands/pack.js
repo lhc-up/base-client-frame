@@ -1,5 +1,4 @@
 const path = require('path');
-const fs = require('fs');
 const fse = require('fs-extra');
 const { MODES } = require('../../core/mode');
 const { TARGETS } = require('../../core/target');
@@ -87,7 +86,7 @@ module.exports = {
         if (ctx.cliOptions.dir) {
             const unpackedRel = path.join('dist', computeUnpackedDir(ctx.cliOptions));
             const unpackedAbs = path.join(rootDir, unpackedRel);
-            if (fs.existsSync(unpackedAbs)) {
+            if (fse.existsSync(unpackedAbs)) {
                 logger.info(`unpacked 目录已产出：${unpackedRel}`);
             } else {
                 logger.warn(`--dir 未在预期路径 ${unpackedRel} 找到 unpacked 目录；后续 installer 命令将无法复用本次产物`);

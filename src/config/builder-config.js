@@ -1,5 +1,5 @@
 const path = require('path');
-const fs = require('fs');
+const fse = require('fs-extra');
 const { customMerge, replace } = require('./merge');
 const { getPackPreset } = require('./presets/pack');
 
@@ -7,14 +7,14 @@ const CONFIG_NAMES = ['electron-builder.config.js', 'electron-builder.config.cjs
 
 function locateBuilderConfig(cwd, explicit) {
     if (explicit) {
-        if (!fs.existsSync(explicit)) {
+        if (!fse.existsSync(explicit)) {
             throw new Error(`[base-client] 未找到 electron-builder.config（--pack-config 指定的路径不存在）：${explicit}`);
         }
         return explicit;
     }
     for (const name of CONFIG_NAMES) {
         const p = path.join(cwd, name);
-        if (fs.existsSync(p)) return p;
+        if (fse.existsSync(p)) return p;
     }
     throw new Error(`[base-client] 未找到 electron-builder.config.js（cwd=${cwd}）`);
 }

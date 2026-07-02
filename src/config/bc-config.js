@@ -1,5 +1,5 @@
 const path = require('path');
-const fs = require('fs');
+const fse = require('fs-extra');
 const { merge: webpackMerge } = require('webpack-merge');
 const { TARGETS } = require('../core/target');
 const { getWebPreset } = require('./presets/web');
@@ -11,14 +11,14 @@ const CONFIG_NAMES = ['bc.config.js', 'bc.config.cjs', 'bc.config.mjs'];
 
 function locateBcConfig(cwd, explicit) {
     if (explicit) {
-        if (!fs.existsSync(explicit)) {
+        if (!fse.existsSync(explicit)) {
             throw new Error(`[base-client] 未找到 bc.config（--config 指定的路径不存在）：${explicit}`);
         }
         return explicit;
     }
     for (const name of CONFIG_NAMES) {
         const p = path.join(cwd, name);
-        if (fs.existsSync(p)) return p;
+        if (fse.existsSync(p)) return p;
     }
     throw new Error(`[base-client] 未找到 bc.config.js（cwd=${cwd}）`);
 }

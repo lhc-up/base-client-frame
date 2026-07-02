@@ -1,5 +1,5 @@
 const path = require('path');
-const fs = require('fs');
+const fse = require('fs-extra');
 const { resolveModule } = require('../core/resolve-module');
 
 async function bytenodeMain({ rootDir, appDir, mergedBuilderConfig }) {
@@ -16,9 +16,9 @@ async function bytenodeMain({ rootDir, appDir, mergedBuilderConfig }) {
 
     bytenode.compileFile({ filename: src, output: out });
 
-    fs.writeFileSync(loaderPath, `require('bytenode');\nrequire('./index.jsc');\n`);
+    fse.writeFileSync(loaderPath, `require('bytenode');\nrequire('./index.jsc');\n`);
 
-    if (fs.existsSync(src)) fs.unlinkSync(src);
+    if (fse.existsSync(src)) fse.unlinkSync(src);
 
     if (!mergedBuilderConfig.extraMetadata) mergedBuilderConfig.extraMetadata = {};
     mergedBuilderConfig.extraMetadata.main = 'main/loader.js';
