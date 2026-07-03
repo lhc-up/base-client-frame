@@ -27,3 +27,6 @@
 - [x] 去重 --pack-config（保留 cli 全局声明，pack/installer options 数组移除）
 - [x] src/index.js 补 createCli / TARGETS / MODES / replace / customMerge / logger 公共导出
 - [x] 设计文档 §10.6 / §4.1 dev:app / §12.3 spinner 三处修订
+
+- [ ] 打包子应用和升级包时，一些构建参数是否适合打包进去？因为子包、升级包有可能被应用到各个平台，导致不准确
+- [ ] webpack打包预设规整（比如main中不需要处理资源，有无共用需不需要抽取等）
