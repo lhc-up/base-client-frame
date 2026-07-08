@@ -66,7 +66,7 @@ frame 仍然只做构建工具链，**不介入**：
 
 ## §3 迭代项 B 档：接入过程验证/确认
 
-### F-03 多入口 renderer 用户自配透传验证
+### F-03 多入口 renderer 用户自配透传验证 ✓ 已完成（2026-07-08）
 
 | 项 | 内容 |
 |---|---|
@@ -75,6 +75,7 @@ frame 仍然只做构建工具链，**不介入**：
 | 定性 | 验证 `bc.config.renderer` 用户传对象/数组 entry + 自注 `html-webpack-plugin` 时，preset 不阻挠、dev-server 多入口 HMR 天然可用 |
 | 后续 spec 触发时机 | 阶段 4 起步时（验证式，若发现阻挠再拉 spec） |
 | 阻塞什么 | 若发现阻挠，阶段 4 可能回退到阶段 1 补配置能力 |
+| 实际结论 | 静态推演通过，preset 全链路无阻挠。用户按 frame-design.md §10.9 recipe（对象 entry + 覆盖 `output.filename` 为 `[name]/index.js` + 自注多个 `HtmlWebpackPlugin`）即可跑通：webpack-merge 类型不匹配时以用户值覆盖 preset；plugins 数组追加得到 buildInfo/userEnv/HtmlWebpackPlugin 共存；dev-server 5 天然给每 entry 注入 HMR client；encryptRenderer / pack asax / child asar 递归复制目录，与多入口子目录布局天然兼容；bytenode 只作用 main，不影响。生活便利性备注：默认 `output.path='app/renderer'` 使多入口产物落 `app/renderer/<name>/`；如需 `app/<name>/` 层级，用户同步覆盖 `output.path` 即可，非阻挠。 |
 
 ### F-04 electron-builder.config 样板集
 
