@@ -43,11 +43,6 @@ describe('config/presets/main', () => {
         expect(allDefs['process.env.BC_ENV']).toBe('"prod"');
     });
 
-    test('module.rules 含 Asset Modules', () => {
-        const p = getMainPreset(baseCtx(), pkgJson, buildInfo);
-        expect(p.module.rules.some(r => r.test.test('foo.png'))).toBe(true);
-    });
-
     test('resolve.extensions 含 .js .mjs .cjs .json', () => {
         const p = getMainPreset(baseCtx(), pkgJson, buildInfo);
         expect(p.resolve.extensions).toEqual(expect.arrayContaining(['.js', '.mjs', '.cjs', '.json']));

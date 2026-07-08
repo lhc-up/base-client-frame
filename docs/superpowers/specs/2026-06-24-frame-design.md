@@ -462,19 +462,21 @@ getRendererPreset(ctx)    // app target
 getWebPreset(ctx)         // web target
 ```
 
-每个 getter **自包含产出完整 webpack 配置**，不共享中间层：`mode` / `devtool` / `resolve.extensions` 基线 / Asset Modules / DefinePlugin 在每个 getter 内分别构造。其中：
+每个 getter **自包含产出完整 webpack 配置**，不共享中间层：`mode` / `devtool` / `resolve.extensions` 基线 / DefinePlugin 在每个 getter 内分别构造。其中：
 
-- 共享逻辑（Asset Modules、`__BC_BUILD__` 注入、`process.env.BC_*` 注入）复用同一份工具函数，避免漂移
+- 共享逻辑（`__BC_BUILD__` 注入、`process.env.BC_*` 注入）复用同一份工具函数，避免漂移
 - 每个 getter 内自包含 `const { isDev, isProd } = deriveMode(ctx.mode)`、`const { isApp, isWeb } = deriveTarget(ctx.target)`
+
+**预设不提供接管机制**：preset 表达 frame 职责内的基础配置（target/mode/entry/output/devtool/resolve/DefinePlugin/stats）。bc.config 三进程 / web 的合并遵循 webpack-merge 官方默认语义——标量覆盖、对象深合并、数组追加。用户不需要、frame 也不提供任何"整组替换"标记；如果某项是用户技术栈专属的（转译 loader / 资源处理 rules / HTML 模板 / 单例插件），frame 一律不放进 preset，由用户在 bc.config 自加。
 
 ### 6.1 三进程预设
 
 | 维度 | main | preload | renderer |
 |---|---|---|---|
 | webpack target | `'electron-main'` | `'electron-preload'` | `'web'`（无 nodeIntegration） |
-| 默认 entry | `src/main/index.js` | `src/preload/index.js` | `{ renderer: 'src/renderer/index.js' }` |
-| `output.path` | `app/main` | `app/preload` | `app/` |
-| `output.filename` | `index.js` | `index.js` | `[name]/index.js` |
+| 默认 entry | `src/main/index.js` | `src/preload/index.js` | `src/renderer/index.js` |
+| `output.path` | `app/main` | `app/preload` | `app/renderer` |
+| `output.filename` | `index.js` | `index.js` | `index.js` |
 | `output.libraryTarget` | `commonjs2` | `commonjs2` | —（默认） |
 | externals | `{ electron: 'commonjs electron' }` | 同 main | 无 |
 | publicPath | — | — | `'./'`(prod) / `'/'`(dev) |
@@ -484,7 +486,7 @@ getWebPreset(ctx)         // web target
 | `process.env.BC_*` 注入 | BC_ 子集 | 同 | 同 |
 | stats 输出 | webpack 回调内调 logger | 同 | `'none'`（dev-server 接管） |
 
-**renderer 多入口默认**：entry 默认对象形态，便于用户追加 `update / about` 等额外窗口入口；output 用 `[name]/index.js` 模式产到 `app/<entryName>/`。
+**renderer 默认单入口**：预设 entry 是字符串 `src/renderer/index.js`，产物落 `app/renderer/index.js`。多入口场景归用户在 `bc.config.renderer` 自配 —— entry 传对象、同步覆盖 `output.filename` 为 `[name]/index.js` 模式即可产到 `app/renderer/<entryName>/`（frame 加密链路遍历 `app/*` 除 main 外所有子目录，与用户自定义的入口子目录布局天然兼容）。
 
 **renderer publicPath 按 mode 分支**：production 用 `'./'`，让打包后 `file://` 加载时静态资源以相对路径正确解析；development 用 `'/'`，让 webpack-dev-server 把内存中的 emit assets 挂在根路径下，浏览器访问 `http://localhost:<port>/` 才能命中。两种 mode 用同一个值会顾此失彼。
 
@@ -510,19 +512,6 @@ getWebPreset(ctx)         // web target
 ### 6.3 共享工具
 
 四个预设均使用：
-
-**Asset Modules**（零依赖、webpack 5 原生）：
-
-```js
-module.rules: [
-    { test: /\.(png|jpe?g|gif|svg|webp|avif)$/i,    type: 'asset/resource' },
-    { test: /\.(woff2?|eot|ttf|otf)$/i,             type: 'asset/resource' },
-    { test: /\.(mp4|webm|ogg|mp3|wav|flac|aac)$/i,  type: 'asset/resource' },
-]
-output.assetModuleFilename: 'assets/[name].[hash:8][ext][query]'
-```
-
-统一用 `asset/resource`：一律产出独立文件、不做 base64 内联，输出可预测。
 
 **`__BC_BUILD__` 注入插件**（`src/config/presets/build-info-plugin.js`）：
 
@@ -551,7 +540,7 @@ function userEnvPlugin(env) {
 }
 ```
 
-**转译 loader 一律不在预设**——target 异、技术栈异（main/preload 跑在 Electron Node、renderer 跑在 Chromium、web 跑在浏览器；版本随项目走）。用户在 bc.config 自加 babel/ts/vue/css loader，webpack-merge 追加到预设之上。
+**转译 loader / 资源处理 rules 一律不在预设**——target 异、技术栈异（main/preload 跑在 Electron Node、renderer 跑在 Chromium、web 跑在浏览器；版本随项目走），且图片/字体/媒体处理策略常绑定业务约定（是否走 CDN、内联阈值、Hash 长度、目录布局）。用户在 bc.config 自加 babel/ts/vue/css loader 与 asset modules 规则（含 `output.assetModuleFilename`），webpack-merge 追加到预设之上。
 
 ### 6.4 webpack 输出静默
 
@@ -999,7 +988,9 @@ function derivePackageDescriptor(buildInfo) {
 
 ### 10.9 多渲染入口扩展
 
-`bc.config.renderer.entry` 支持对象形态：
+frame 预设是单入口：`entry: 'src/renderer/index.js'`、`output.path: app/renderer`、`output.filename: 'index.js'`，产物落 `app/renderer/index.js`。
+
+多入口场景归用户在 `bc.config.renderer` 自配：
 
 ```js
 renderer: {
@@ -1008,17 +999,18 @@ renderer: {
         update:   'src/update/index.js',
         about:    'src/about/index.js',
     },
+    output: {
+        filename: '[name]/index.js',   // 同步覆盖，让各入口产到子目录
+    },
 }
 ```
 
-frame 的 renderer 预设 entry 改为对象形态（默认 `{ renderer: 'src/renderer/index.js' }`），webpack output filename 使用 `[name]/index.js` 模式，多个入口分别产出到 `app/<entryName>/`。
+**合并行为**（webpack-merge 官方默认）：
 
-**合并行为**：
+- 用户传对象 entry → 字符串预设被对象覆盖（webpack-merge 对不同类型直接以用户值取代）
+- 用户传字符串 entry → 用户字符串覆盖预设，仍是单入口，产物路径由 `output.filename` 决定
 
-- 用户在 bc.config.js 写对象（`entry: { renderer: '...', update: '...' }`）→ webpack-merge 对象深合并，frame 预设条目与用户条目并存
-- 用户写字符串（`entry: 'src/foo.js'`）→ 用户字符串覆盖预设对象，回归单入口产物到 `app/main.js`（不推荐，会破坏多入口产物布局约定）
-
-**AES 加密生效时**，对**所有**渲染入口子目录的 `*.js` 都加密。
+**AES 加密生效时**，遍历 `app/*` 除 `main` 外所有子目录，递归加密 `.js`。默认单入口只加密 `app/renderer/*.js`；用户多入口 + `[name]/index.js` 后，`app/renderer/<entryName>/*.js` 也在加密范围内。
 
 ---
 

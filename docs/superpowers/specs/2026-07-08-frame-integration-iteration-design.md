@@ -39,7 +39,7 @@ frame 仍然只做构建工具链，**不介入**：
 
 ## §2 迭代项 A 档：接入必备
 
-### F-01 preset 可覆盖性验证与手册化
+### F-01 preset 可覆盖性验证与手册化 ✓ 已完成（2026-07-08）
 
 | 项 | 内容 |
 |---|---|
@@ -48,6 +48,7 @@ frame 仍然只做构建工具链，**不介入**：
 | 定性 | 保证 renderer / web / preload / main preset 均能被用户 `replace` / `customMerge` 完全接管（entry / plugins / loader / target 都可换） |
 | 后续 spec 触发时机 | 阶段 1 起步前必须先出 spec |
 | 阻塞什么 | 阶段 1 无法开始 |
+| 实际结论 | 不提供接管机制。删除四个 preset 中的 `module.rules`（asset/resource）与 `output.assetModuleFilename`；bc.config 合并沿用 webpack-merge 官方默认语义（标量覆盖 / 对象深合并 / 数组追加）；资源处理、转译 loader、HTML 模板、单例插件均归用户在 bc.config 自加。已同步 frame-design.md §6 头部、§6.1、§6.3、§10.9。 |
 
 ### F-02 子应用/升级包（child + asax）构建参数注入隔离
 

@@ -46,20 +46,6 @@ describe('config/presets/web', () => {
         expect(hasUserEnv).toBe(true);
     });
 
-    test('module.rules 含 Asset Modules（图片/字体/媒体）', () => {
-        const preset = getWebPreset(baseCtx(), pkgJson, buildInfo);
-        const rules = preset.module.rules;
-        const imgRule = rules.find(r => r.test.test('foo.png'));
-        const fontRule = rules.find(r => r.test.test('foo.woff2'));
-        expect(imgRule.type).toBe('asset/resource');
-        expect(fontRule.type).toBe('asset/resource');
-    });
-
-    test('output.assetModuleFilename 走 assets/[name].[hash:8][ext][query] 模板', () => {
-        const preset = getWebPreset(baseCtx(), pkgJson, buildInfo);
-        expect(preset.output.assetModuleFilename).toBe('assets/[name].[hash:8][ext][query]');
-    });
-
     test('stats 静默 + infrastructureLogging level=warn', () => {
         const preset = getWebPreset(baseCtx(), pkgJson, buildInfo);
         expect(preset.stats).toBe('none');

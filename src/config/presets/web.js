@@ -14,18 +14,10 @@ function getWebPreset(ctx, pkgJson, buildInfo) {
             path: path.resolve(rootDir, 'dist'),
             filename: 'index.js',
             publicPath: isDev ? '/' : './',
-            assetModuleFilename: 'assets/[name].[hash:8][ext][query]',
         },
         devtool: isDev ? 'source-map' : false,
         resolve: {
             extensions: ['.js', '.mjs', '.cjs', '.json'],
-        },
-        module: {
-            rules: [
-                { test: /\.(png|jpe?g|gif|svg|webp|avif|ico|hdr)$/i,   type: 'asset/resource' },
-                { test: /\.(woff2?|eot|ttf|otf)$/i,            type: 'asset/resource' },
-                { test: /\.(mp4|webm|ogg|mp3|wav|flac|aac)$/i, type: 'asset/resource' },
-            ],
         },
         plugins: [
             buildInfoPlugin(buildInfo),
