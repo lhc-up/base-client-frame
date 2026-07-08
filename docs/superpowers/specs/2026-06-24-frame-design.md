@@ -1014,6 +1014,69 @@ renderer: {
 
 **AES 加密生效时**，遍历 `app/*` 除 `main` 外所有子目录，递归加密 `.js`。默认单入口只加密 `app/renderer/*.js`；用户多入口 + `[name]/index.js` 后，`app/renderer/<entryName>/*.js` 也在加密范围内。
 
+### 10.10 附加资源打包（native / 脚本 / 其他资源）
+
+frame preset `files` 默认 `[{ from: 'app', to: '.' }, 'package.json', '!**/node_modules/**']`——只把 `app/` 与 `package.json` 打进 asar，其余全部由用户在 `electron-builder.config.js` 显式声明。electron-builder 提供 4 个字段各司其职：
+
+| 字段 | 落位 | 应用代码访问方式 | 典型场景 |
+|---|---|---|---|
+| `files` | asar 内 | 与源码同路径 require / fs | 源码、静态 JSON / 图片等**可走虚拟文件系统**的资源 |
+| `asarUnpack` | asar 外副本（`app.asar.unpacked/`） | 同上（Electron 自动查找 unpacked） | `.node` 二进制、需 spawn 执行的可执行文件、需 fs 写的文件 |
+| `extraResources` | asar 外 `resources/`（与 `app.asar` 同级） | `path.join(process.resourcesPath, ...)` | 脚本、模板、外部工具、大型静态资源 |
+| `extraFiles` | 应用**根**目录 | `path.dirname(process.execPath)` | 与安装包 / OS 交互的文件（安装脚本、系统集成清单） |
+
+**决策路径**：
+
+1. 代码要 `require` / `fs` 读源码同层路径？→ `files`（asar 内）
+2. 是 `.node` 或必须磁盘可执行 / 可写？→ `asarUnpack`（asar 内 + 磁盘副本，代码路径无感）
+3. 是脚本、模板、外部工具？希望路径明确、隔离于源码？→ `extraResources`（`process.resourcesPath`）
+4. 与应用**根**目录 / 安装脚本交互？→ `extraFiles`
+
+**示例 · 项目内 `native/` 目录含 `.node`**：
+
+```js
+module.exports = (ctx) => ({
+    files: [
+        { from: 'app', to: '.' },
+        'package.json',
+        '!**/node_modules/**',
+        'native/**',                    // 加入 asar（源码同路径 require 可读）
+    ],
+    asarUnpack: [
+        '**/*.node',                    // .node 从 asar 抽出到 unpacked 副本
+    ],
+});
+```
+
+**示例 · 项目内 `scripts/` 目录含运行时执行的脚本**：
+
+```js
+module.exports = (ctx) => ({
+    extraResources: [
+        { from: 'scripts/', to: 'scripts/' },
+    ],
+});
+// 运行时：path.join(process.resourcesPath, 'scripts', 'foo.sh')
+```
+
+**示例 · 第三方 `node_modules` 里带 `.node` 的模块**（如 `better-sqlite3`）：
+
+```js
+module.exports = (ctx) => ({
+    files: [
+        { from: 'app', to: '.' },
+        'package.json',
+        '!**/node_modules/**',
+        'node_modules/better-sqlite3/**',   // 白名单反选，把需要的模块加回来
+    ],
+    asarUnpack: [
+        '**/*.node',
+    ],
+});
+```
+
+**与 preset `files` 的合并**：electron-builder.config 走 customMerge（§5.3），用户数组默认与 preset 追加；如需完全接管 `files` 白名单，用 `files: replace([...])`。
+
 ---
 
 ## § 11 frame ↔ user 边界 + 默认行为大矩阵
@@ -1055,7 +1118,7 @@ renderer: {
 | U5 | 龙芯 `electronDownload` 配置 | electron-builder.config（用 `cliOptions.arch === 'loong64'` 分支） | 版本由用户决定 |
 | U6 | 解密逻辑实现 | 用户主进程代码或 toolkit | 读 `__BC_BUILD__.encrypted` 与 `__BC_BUILD__.encryptKey` 决定解密分支 |
 | U7 | HTML 模板 | `bc.config.renderer.plugins` / `bc.config.web.plugins` 自注册 `html-webpack-plugin` | frame 不内置 |
-| U8 | 资产（证书、addons、自定义图标等）准备 | `build/cert/` / extraResources 等 | 用户在 electron-builder.config 配 `extraResources` |
+| U8 | 资产（证书、addons、自定义图标等）准备 | `build/cert/` / extraResources 等 | 用户在 electron-builder.config 配；native / 脚本 / 其他附加资源打包决策见 §10.10 |
 | U9 | 运行时入口选择（`loadURL` vs `loadFile`） | 用户主进程代码 | frame 仅注入 `NODE_ENV` + `RENDERER_DEV_URL`，不提供运行时对象 |
 | U10 | `bc.config` 行为开关 | bc.config | `encrypt` / `bytenode` / `incremental` 等 |
 | U11 | `package.json.main` 指向 main 产物 | package.json | 用户写 `app/main/index.js` 即可（dev 直接读；pack 内 bytenode 路径 A 通过 `extraMetadata.main` 在安装包内重写为 `main/loader.js`，用户无需调整 package.json） |

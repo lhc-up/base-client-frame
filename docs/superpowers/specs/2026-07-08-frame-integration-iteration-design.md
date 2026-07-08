@@ -77,7 +77,7 @@ frame 仍然只做构建工具链，**不介入**：
 | 阻塞什么 | 若发现阻挠，阶段 4 可能回退到阶段 1 补配置能力 |
 | 实际结论 | 静态推演通过，preset 全链路无阻挠。用户按 frame-design.md §10.9 recipe（对象 entry + 覆盖 `output.filename` 为 `[name]/index.js` + 自注多个 `HtmlWebpackPlugin`）即可跑通：webpack-merge 类型不匹配时以用户值覆盖 preset；plugins 数组追加得到 buildInfo/userEnv/HtmlWebpackPlugin 共存；dev-server 5 天然给每 entry 注入 HMR client；encryptRenderer / pack asax / child asar 递归复制目录，与多入口子目录布局天然兼容；bytenode 只作用 main，不影响。生活便利性备注：默认 `output.path='app/renderer'` 使多入口产物落 `app/renderer/<name>/`；如需 `app/<name>/` 层级，用户同步覆盖 `output.path` 即可，非阻挠。 |
 
-### F-04 electron-builder.config 样板集
+### F-04 electron-builder.config 样板集 ✓ 已完成（2026-07-08）
 
 | 项 | 内容 |
 |---|---|
@@ -86,6 +86,7 @@ frame 仍然只做构建工具链，**不介入**：
 | 定性 | 产物名带 env、addons/native 目录打包、多平台 icon、龙芯镜像源 等，全归用户配置。frame 侧不动代码，只提供 recipe 参考文档 |
 | 后续 spec 触发时机 | 阶段 5 起步时（文档产出，非代码） |
 | 阻塞什么 | 只影响用户使用便利性，不阻塞代码链路 |
+| 实际结论 | 产物名（`artifactName` 已内置 `${env.BC_ENV}`）/ 多平台 icon（§10.1）/ 龙芯镜像源（§5.2 + §11.2 U5）/ NSIS/DEB 脚本（§10.2 + §11.3 O1）/ 签名（§10.8 + §11.2 U3）等 recipe 已在 frame-design.md 现有章节充分覆盖，无需新增。**仅缺 addons/native 目录打包 recipe**：本次新增 §10.10《附加资源打包》（files / asarUnpack / extraResources / extraFiles 四字段决策矩阵 + 决策路径 + 三示例：项目内 native / 项目内 scripts / 第三方 node_modules 里带 .node 模块），并在 §11.2 U8 加入 §10.10 参见链接。frame 侧代码零改动。 |
 
 ---
 
