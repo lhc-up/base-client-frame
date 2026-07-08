@@ -50,7 +50,7 @@ frame 仍然只做构建工具链，**不介入**：
 | 阻塞什么 | 阶段 1 无法开始 |
 | 实际结论 | 不提供接管机制。删除四个 preset 中的 `module.rules`（asset/resource）与 `output.assetModuleFilename`；bc.config 合并沿用 webpack-merge 官方默认语义（标量覆盖 / 对象深合并 / 数组追加）；资源处理、转译 loader、HTML 模板、单例插件均归用户在 bc.config 自加。已同步 frame-design.md §6 头部、§6.1、§6.3、§10.9。 |
 
-### F-02 子应用/升级包（child + asax）构建参数注入隔离
+### F-02 子应用/升级包（child + asax）构建参数注入隔离 ✓ 已完成（2026-07-08）
 
 | 项 | 内容 |
 |---|---|
@@ -60,6 +60,7 @@ frame 仍然只做构建工具链，**不介入**：
 | 后续 spec 触发时机 | 阶段 5 起步前 |
 | 阻塞什么 | 阶段 5 无法完成 |
 | 备注 | 已在现有 `TODOs.md` 列出 |
+| 实际结论 | 代码零改动：`__BC_BUILD__` 全 14 字段保留，asax/child 内 `package.json` 也保留 `platform/arch/dir/sign/child`。语义澄清落到 frame-design.md §4.1——这些字段是**构建时目标信息**（包来源），跨平台复用时应用代码/宿主装载器不得据此判断当前运行平台（走 `process.platform` / `process.arch`）。TODOs.md 原第 31 行条目已删除。 |
 
 ---
 

@@ -222,11 +222,11 @@ webpack DefinePlugin 注入的**单个聚合对象**，字面量替换。frame �
 | `env` | string | `process.env.BC_ENV`（用户在 .env 声明；缺失用 `--env` 兜底） |
 | `envName` | string | `process.env.BC_ENV_NAME`（缺失为 undefined） |
 | `buildTime` | number | `Date.now()` |
-| `platform` | `'win'\|'mac'\|'linux'` | `--platform`（仅 pack；其余 undefined） |
-| `arch` | string | `--arch`（同上） |
-| `dir` | boolean | `--dir`；其余 false |
-| `sign` | boolean | `--sign`；其余 false |
-| `child` | boolean | child 命令为 true；其余 false |
+| `platform` | `'win'\|'mac'\|'linux'` | 包**构建时的目标平台**（pack 命令来自 `--platform`；child / dev:app 无目标平台，取 undefined）——识别**包来源**，非运行时判据 |
+| `arch` | string | 包**构建时的目标架构**（pack 命令来自 `--arch`；其余 undefined）——语义同上 |
+| `dir` | boolean | pack 命令是否传 `--dir`；其余 false。**构建期语义**，作为原始构建信息保留 |
+| `sign` | boolean | pack 命令是否传 `--sign`；其余 false。识别**这个包是否是签名版**，构建期语义 |
+| `child` | boolean | child 命令为 true；其余 false。识别**包来源类型**（child 子应用包 vs 主安装包） |
 | `encrypted` | boolean | `bc.config.encrypt !== false && build/encrypt.key 存在` |
 | `encryptKey` | string | `build/encrypt.key` 内容；**仅注入 app target main 进程**，最小暴露面 |
 
@@ -248,6 +248,8 @@ webpack DefinePlugin 注入的**单个聚合对象**，字面量替换。frame �
 **`dev:app` 加密字段恒为缺省**：dev 态渲染层走 dev-server 内存、不落盘加密，若 `encrypted: true` 但产物未加密，应用代码读到 `encrypted` 字段会尝试解密未加密内容并失败。dev:app 只在 pack / child 真正落盘加密时才派生 encrypted。
 
 **`installer` 命令不派生 `__BC_BUILD__`**——不跑 webpack、不产 bundle，没消费方。
+
+**跨平台复用产物内的字段语义**：asax（增量升级包）与 child（子应用包）都是**跨平台复用**产物——同一份 asar 可能被不同平台/架构的宿主装载。其中 `__BC_BUILD__.platform / arch / dir / sign / child` 与 asar 内 `package.json` 里的对应字段，记录的都是**构建时目标信息**（包来源、构建期标志），**不能**作为运行时"当前平台/架构"的判据。运行时判断当前平台走 `process.platform`、当前架构走 `process.arch`；宿主装载 asax/child 时也不得据此判断装载环境。
 
 ### 4.2 第二层：`process.env.BC_*`（用户运行时变量）
 
