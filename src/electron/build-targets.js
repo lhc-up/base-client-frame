@@ -1,14 +1,31 @@
+const logger = require('../core/logger');
+
 const PLATFORM_MAP = { win: ['nsis'], mac: ['dmg'], linux: ['deb'] };
 const ARCH_LIST = ['ia32', 'x64', 'armv7l', 'arm64', 'universal', 'loong64'];
 
+const HOST_PLATFORM_MAP = { win32: 'win', darwin: 'mac', linux: 'linux' };
+
 function buildTargets({ platform, arch, dir }) {
-    if (!platform) throw new Error('[base-client] 缺少 --platform');
-    if (!PLATFORM_MAP[platform]) throw new Error(`[base-client] 不支持的平台：${platform}`);
-    if (!arch) throw new Error('[base-client] 缺少 --arch');
-    if (!ARCH_LIST.includes(arch)) throw new Error(`[base-client] 不支持的架构：${arch}`);
+    let resolvedPlatform = platform;
+    if (!resolvedPlatform) {
+        resolvedPlatform = HOST_PLATFORM_MAP[process.platform];
+        if (!resolvedPlatform) {
+            throw new Error(`[base-client] 不支持的平台：宿主 ${process.platform} 未映射；请显式传 --platform`);
+        }
+        logger.info(`--platform 未指定，使用宿主 ${resolvedPlatform}`);
+    }
+    if (!PLATFORM_MAP[resolvedPlatform]) throw new Error(`[base-client] 不支持的平台：${resolvedPlatform}`);
+
+    let resolvedArch = arch;
+    if (!resolvedArch) {
+        resolvedArch = process.arch;
+        logger.info(`--arch 未指定，使用宿主 ${resolvedArch}`);
+    }
+    if (!ARCH_LIST.includes(resolvedArch)) throw new Error(`[base-client] 不支持的架构：${resolvedArch}`);
+
     return {
-        [platform]: dir ? ['dir'] : PLATFORM_MAP[platform],
-        [arch]: true,
+        [resolvedPlatform]: dir ? ['dir'] : PLATFORM_MAP[resolvedPlatform],
+        [resolvedArch]: true,
     };
 }
 
