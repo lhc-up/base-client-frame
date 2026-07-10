@@ -602,6 +602,19 @@ const opts = {
 
 **`host` / `port` 三级优先级**：CLI `--host` / `--port` > `renderer.devServer` 中对应值 > 默认（`localhost` / `8023`）。CLI 层**不预置默认值**：cac 默认会让 `cliOptions.port` 恒有值，导致 `bc.config` 永远无法覆盖。
 
+#### 7.1.1 dev-app 运行时 env 契约
+
+dev:app 起 Electron 子进程时，`cp.spawn` 的 `env` 字段追加下列变量，作为 frame → 用户主进程的**运行时契约**。字段名与语义稳定，**变更前先在本节公告**：
+
+| 变量 | 值 | 语义 |
+|---|---|---|
+| `NODE_ENV` | `'development'` | dev-app 恒为 development；用户据此走 dev 分支加载 |
+| `RENDERER_DEV_URL` | 完整 URL（含协议、host、port，如 `http://localhost:8023`） | renderer webpack-dev-server 的访问地址，主进程 `loadURL` 用 |
+
+**为什么不导出 runtime helper**：这两个变量足够简单，包一层 `require('@base-client/frame/runtime').getRendererDevUrl()` 反而增加 frame 的对外面。若未来需要跨命令共享 runtime 常量再重启这个讨论。
+
+**未来新增变量流程**：先补入本节表格 + 明确稳定性承诺，再落地 CLI 侧的注入代码。
+
 **渲染入口加载约定**（用户主进程代码自行选择，frame 不提供运行时对象）：
 
 ```js
