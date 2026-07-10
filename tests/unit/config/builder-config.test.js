@@ -71,7 +71,13 @@ describe('config/builder-config', () => {
         );
         expect(c.appId).toBe('com.demo.object');
         // 对象式导出无法用 replace()，preset 的 files 应按 customMerge 默认（追加）规则保留
-        expect(Array.isArray(c.files)).toBe(true);
+        expect(c.files).toEqual([
+            { from: 'app', to: '.' },
+            'package.json',
+            '!**/node_modules/**',
+        ]);
+        // 对象式 fixture 显式配了 productName，customMerge 应让用户值覆盖 preset 的 pkgJson 派生值
+        expect(c.productName).toBe('Demo Object');
     });
 
     test('--pack-config 缺省且 cwd 无 electron-builder.config.* 时抛错', () => {

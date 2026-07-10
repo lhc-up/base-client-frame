@@ -28,7 +28,7 @@ function loadUserBuilderConfig(configPath, ctx) {
     if (raw && typeof raw === 'object') {
         return raw;
     }
-    throw new Error(`[base-client] electron-builder.config 必须导出对象或 (ctx) => config 函数，收到：${typeof raw}`);
+    throw new Error(`[base-client] electron-builder.config 必须导出对象或 (ctx) => config 函数，收到：${raw === null ? 'null' : typeof raw}`);
 }
 
 function preloadBuilderConfig(ctx) {
