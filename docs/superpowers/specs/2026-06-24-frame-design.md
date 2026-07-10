@@ -1335,17 +1335,17 @@ cli/index.js ← cli/commands/*
 - `webpack-merge`：bc.config 合并 + customMerge 基础
 - `jimp` / `png2icons`：icon 自适配
 
-**peerDependencies**（用户项目提供，`peerDependenciesMeta.optional` 标记按命令按需）：
+**peerDependencies**（用户项目提供）：
 
 | 包 | 用途 | 何时必需 |
 |---|---|---|
 | `webpack` | 编译核心 | 所有跑 webpack 的命令 |
 | `webpack-dev-server` | dev 命令 dev-server | `dev:app` / `dev:web` |
-| `electron` | Electron 主进程 | `dev:app` |
+| `electron` | Electron 主进程 / electron-builder 打包时依赖 | `dev:app` / `pack` / `installer` |
 | `electron-builder` | 安装包封装 | `pack` / `installer` |
 | `bytenode` | 主进程字节码 | `pack` 且 `bc.config.bytenode !== false` |
 
-`electron` / `electron-builder` / `bytenode` 不在 frame 的 dependencies——按需从用户项目 `node_modules` 解析、版本随项目走、frame 不锁定。`peerDependenciesMeta.optional` 让 npm install 阶段不因未启用相应命令而红字。
+`electron` / `electron-builder` / `bytenode` 不在 frame 的 dependencies，也在 `peerDependenciesMeta` 里标为 `optional`——按需从用户项目 `node_modules` 解析、版本随项目走，未启用相应命令的用户 install 时不受红字警告。`webpack` / `webpack-dev-server` 是几乎所有命令的核心依赖，**不打 optional**，缺失时给用户正常 peer 警告。
 
 ### 13.3 编译期内置常量
 
