@@ -2,6 +2,7 @@ const path = require('path');
 const fse = require('fs-extra');
 const { customMerge, replace } = require('./merge');
 const { getPackPreset } = require('./presets/pack');
+const logger = require('../core/logger');
 
 const CONFIG_NAMES = ['electron-builder.config.js', 'electron-builder.config.cjs', 'electron-builder.config.mjs'];
 
@@ -36,10 +37,20 @@ function preloadBuilderConfig(ctx) {
     ctx.userBuilderConfig = loadUserBuilderConfig(configPath, ctx);
 }
 
+function enforceDistOutput(mergedConfig) {
+    const cur = mergedConfig.directories?.output;
+    if (cur && cur !== 'dist') {
+        logger.warn(`electron-builder.config.directories.output 被显式配置为 "${cur}"，但 frame 强制使用 "dist"（设计约定，见 frame-design.md §1.3）；已覆盖回 "dist"。`);
+    }
+    mergedConfig.directories = { ...(mergedConfig.directories || {}), output: 'dist' };
+}
+
 function resolveBuilderConfig(ctx, pkgJson) {
     const userConfig = ctx.userBuilderConfig ?? loadUserBuilderConfig(locateBuilderConfig(process.cwd(), ctx.cliOptions.packConfig), ctx);
     const preset = getPackPreset(ctx, pkgJson);
-    return customMerge(preset, userConfig);
+    const merged = customMerge(preset, userConfig);
+    enforceDistOutput(merged);
+    return merged;
 }
 
 module.exports = { resolveBuilderConfig, locateBuilderConfig, preloadBuilderConfig };

@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { resolveBuilderConfig } = require('../../../src/config/builder-config');
+const logger = require('../../../src/core/logger');
 
 const fixtureDir = path.join(__dirname, '../../fixtures/builder-config');
 const pkgJson = { name: 'demo', productName: 'Demo App', version: '1.0.0' };
@@ -22,6 +23,13 @@ beforeAll(() => {
             appId: 'com.demo.object',
             productName: 'Demo Object',
         };
+    `);
+    // M2 fixture：用户显式改 directories.output
+    fs.writeFileSync(path.join(fixtureDir, 'electron-builder.config.custom-output.js'), `
+        module.exports = () => ({
+            appId: 'com.demo.custom',
+            directories: { output: 'pack' },
+        });
     `);
 });
 afterAll(() => { fs.rmSync(fixtureDir, { recursive: true, force: true }); });
@@ -92,5 +100,37 @@ describe('config/builder-config', () => {
             process.chdir(oldCwd);
             fs.rmSync(emptyDir, { recursive: true, force: true });
         }
+    });
+
+    describe('directories.output 归位（M2）', () => {
+        let warnSpy;
+        beforeEach(() => {
+            warnSpy = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+        });
+
+        test('用户未配 directories.output → 采用 preset 默认 dist、不 warn', () => {
+            const c = resolveBuilderConfig(ctx(), pkgJson);
+            expect(c.directories.output).toBe('dist');
+            expect(warnSpy).not.toHaveBeenCalled();
+        });
+
+        test('用户显式配 dist（与约定一致）→ 保持 dist、不 warn', () => {
+            // 复用主 fixture（其用户 config 未配 directories.output，preset 补 dist），
+            // 与 undefined 场景等价——防回归
+            const c = resolveBuilderConfig(ctx(), pkgJson);
+            expect(c.directories.output).toBe('dist');
+            expect(warnSpy).not.toHaveBeenCalled();
+        });
+
+        test('用户显式配非 dist（如 pack）→ 覆盖回 dist 并 logger.warn', () => {
+            const c = resolveBuilderConfig(
+                ctx({ cliOptions: { platform: 'win', arch: 'x64', packConfig: path.join(fixtureDir, 'electron-builder.config.custom-output.js') } }),
+                pkgJson,
+            );
+            expect(c.directories.output).toBe('dist');
+            expect(warnSpy).toHaveBeenCalledWith(
+                expect.stringMatching(/directories\.output.*pack.*dist/),
+            );
+        });
     });
 });

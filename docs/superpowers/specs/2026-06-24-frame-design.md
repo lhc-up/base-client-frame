@@ -34,7 +34,7 @@ app target 编译后 `if ("app" === "app") { ... } else { ... }` → else 分支
 | Web 源码 | `src/renderer/index.js`（默认与 app renderer 共享） | web | `bc.config.web.entry` 覆盖 |
 | HTML 模板 | 用户在 `renderer.plugins` / `web.plugins` 自注册 `html-webpack-plugin` | 两端 | — |
 | 中间产物 | `app/{main,preload,renderer,...}/`（纯生成物，不要手写；webpack 编译唯一落点） | app | — |
-| 最终产物 | `dist/` 全部归此（含 web 静态资源 / 安装包 / .asax / .asar / 状态文件） | 两端 | — |
+| 最终产物 | `dist/` 全部归此（含 web 静态资源 / 安装包 / .asax / .asar / 状态文件）；**frame 强制**——用户在 `electron-builder.config` 里配 `directories.output` 非 `dist` 会被 frame 覆盖并 warn | 两端 | — |
 | 环境变量 | `.env` + `.env.<name>`（项目根） | 全部 | — |
 | `bc.config.{js,mjs,cjs}` | cwd 探测 | 跑 webpack 的命令必需 | `--config` |
 | `electron-builder.config.{js,mjs,cjs}` | cwd 探测 | `pack` / `installer` 必需 | `--pack-config` |
@@ -384,6 +384,8 @@ module.exports = ({ env, cliOptions, replace, isApp, isProd }) => ({
     ]) },
 });
 ```
+
+**`directories.output` 归位**：`resolveBuilderConfig` 出口强制 `directories.output = 'dist'`（frame 内部 icon / shell / .asax / emptyDirSync 都写 `dist/`，若允许用户改会与其它写点割裂）。用户在 `electron-builder.config.js` 里配非 `dist` 值时，frame logger.warn 后覆盖回 `dist`。若未来需要放开产物目录名，会同时改造 frame 所有 dist 写点走同一真相源，届时更新本节。
 
 **ctx 字段**（与 § 3 一致，外加 `replace`）：
 
