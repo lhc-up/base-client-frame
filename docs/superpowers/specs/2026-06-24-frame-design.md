@@ -1329,22 +1329,23 @@ cli/index.js ← cli/commands/*
 - `cac`：CLI 解析
 - `dotenv`：`.env` 文件解析
 - `fs-extra`：`emptyDirSync` 等文件操作
-- `lodash`：少量工具函数
 - `ora`：编译 spinner
 - `picocolors`：极简 ANSI 上色
 - `@electron/asar`：增量 `.asax` / child `.asar` 打包
 - `webpack-merge`：bc.config 合并 + customMerge 基础
-- 字节码库：`bytenode`（plan 阶段确认依赖位置）
-- icon 适配库：plan 阶段从 `sharp` / `png2icons` / `png-to-ico` 中选定
+- `jimp` / `png2icons`：icon 自适配
 
-**peerDependencies**（用户项目提供）：
+**peerDependencies**（用户项目提供，`peerDependenciesMeta.optional` 标记按命令按需）：
 
-- `electron`
-- `webpack`
-- `webpack-dev-server`
-- `electron-builder`（pack / installer 命令时解析）
+| 包 | 用途 | 何时必需 |
+|---|---|---|
+| `webpack` | 编译核心 | 所有跑 webpack 的命令 |
+| `webpack-dev-server` | dev 命令 dev-server | `dev:app` / `dev:web` |
+| `electron` | Electron 主进程 | `dev:app` |
+| `electron-builder` | 安装包封装 | `pack` / `installer` |
+| `bytenode` | 主进程字节码 | `pack` 且 `bc.config.bytenode !== false` |
 
-`electron` / `electron-builder` 不在 frame 的 dependencies——按需从用户项目 `node_modules` 解析，版本随项目走、frame 不锁定。
+`electron` / `electron-builder` / `bytenode` 不在 frame 的 dependencies——按需从用户项目 `node_modules` 解析、版本随项目走、frame 不锁定。`peerDependenciesMeta.optional` 让 npm install 阶段不因未启用相应命令而红字。
 
 ### 13.3 编译期内置常量
 

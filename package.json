@@ -18,8 +18,16 @@
         "test:watch": "jest --watch"
     },
     "peerDependencies": {
+        "bytenode": "^1.4.0",
+        "electron": "*",
+        "electron-builder": "^24.0.0 || ^25.0.0 || ^26.0.0",
         "webpack": "^5.0.0",
         "webpack-dev-server": "^5.0.0"
+    },
+    "peerDependenciesMeta": {
+        "bytenode": { "optional": true },
+        "electron": { "optional": true },
+        "electron-builder": { "optional": true }
     },
     "devDependencies": {
         "html-webpack-plugin": "^5.6.3",
