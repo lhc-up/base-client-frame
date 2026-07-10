@@ -21,11 +21,14 @@ function locateBuilderConfig(cwd, explicit) {
 
 function loadUserBuilderConfig(configPath, ctx) {
     const loaded = require(configPath);
-    const fn = loaded.default ?? loaded;
-    if (typeof fn !== 'function') {
-        throw new Error(`[base-client] electron-builder.config 必须导出函数 (ctx) => config`);
+    const raw = loaded.default ?? loaded;
+    if (typeof raw === 'function') {
+        return raw({ ...ctx, replace }) || {};
     }
-    return fn({ ...ctx, replace }) || {};
+    if (raw && typeof raw === 'object') {
+        return raw;
+    }
+    throw new Error(`[base-client] electron-builder.config 必须导出对象或 (ctx) => config 函数，收到：${typeof raw}`);
 }
 
 function preloadBuilderConfig(ctx) {

@@ -16,6 +16,13 @@ beforeAll(() => {
             files: replace(['package.json', '!**/node_modules/**']),
         });
     `);
+    // 对象式 fixture（H1 新增）
+    fs.writeFileSync(path.join(fixtureDir, 'electron-builder.config.object.js'), `
+        module.exports = {
+            appId: 'com.demo.object',
+            productName: 'Demo Object',
+        };
+    `);
 });
 afterAll(() => { fs.rmSync(fixtureDir, { recursive: true, force: true }); });
 
@@ -55,6 +62,16 @@ describe('config/builder-config', () => {
     test('--pack-config 路径不存在时抛错', () => {
         const bad = ctx({ cliOptions: { ...ctx().cliOptions, packConfig: '/nonexistent/eb.config.js' } });
         expect(() => resolveBuilderConfig(bad, pkgJson)).toThrow(/未找到 electron-builder\.config/);
+    });
+
+    test('用户 electron-builder.config 导出对象式时正确加载', () => {
+        const c = resolveBuilderConfig(
+            ctx({ cliOptions: { platform: 'win', arch: 'x64', packConfig: path.join(fixtureDir, 'electron-builder.config.object.js') } }),
+            pkgJson,
+        );
+        expect(c.appId).toBe('com.demo.object');
+        // 对象式导出无法用 replace()，preset 的 files 应按 customMerge 默认（追加）规则保留
+        expect(Array.isArray(c.files)).toBe(true);
     });
 
     test('--pack-config 缺省且 cwd 无 electron-builder.config.* 时抛错', () => {
