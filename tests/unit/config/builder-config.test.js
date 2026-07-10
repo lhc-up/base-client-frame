@@ -31,6 +31,13 @@ beforeAll(() => {
             directories: { output: 'pack' },
         });
     `);
+    // M2 fixture：用户显式配 dist（与约定一致，验证不误 warn）
+    fs.writeFileSync(path.join(fixtureDir, 'electron-builder.config.explicit-dist.js'), `
+        module.exports = () => ({
+            appId: 'com.demo.explicit-dist',
+            directories: { output: 'dist' },
+        });
+    `);
 });
 afterAll(() => { fs.rmSync(fixtureDir, { recursive: true, force: true }); });
 
@@ -115,9 +122,10 @@ describe('config/builder-config', () => {
         });
 
         test('用户显式配 dist（与约定一致）→ 保持 dist、不 warn', () => {
-            // 复用主 fixture（其用户 config 未配 directories.output，preset 补 dist），
-            // 与 undefined 场景等价——防回归
-            const c = resolveBuilderConfig(ctx(), pkgJson);
+            const c = resolveBuilderConfig(
+                ctx({ cliOptions: { platform: 'win', arch: 'x64', packConfig: path.join(fixtureDir, 'electron-builder.config.explicit-dist.js') } }),
+                pkgJson,
+            );
             expect(c.directories.output).toBe('dist');
             expect(warnSpy).not.toHaveBeenCalled();
         });
