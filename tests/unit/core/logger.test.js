@@ -1,10 +1,11 @@
 const logger = require('../../../src/core/logger');
 
 describe('core/logger', () => {
-    let logSpy, errSpy;
+    let logSpy, errSpy, warnSpy;
     beforeEach(() => {
         logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
         errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+        warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     });
 
     test('info 输出 [base-client] 前缀', () => {
@@ -19,9 +20,11 @@ describe('core/logger', () => {
         expect(logSpy.mock.calls[0][0]).toContain('✓');
     });
 
-    test('warn 含 ⚠', () => {
+    test('warn 含 ⚠ 且走 console.warn（stderr）', () => {
         logger.warn('careful');
-        expect(logSpy.mock.calls[0][0]).toContain('⚠');
+        expect(warnSpy).toHaveBeenCalled();
+        expect(warnSpy.mock.calls[0][0]).toContain('⚠');
+        expect(logSpy).not.toHaveBeenCalled();
     });
 
     test('error 调用 console.error，含 scope 与 msg', () => {
@@ -62,16 +65,19 @@ describe('core/logger', () => {
         expect(out).toContain('web');
     });
 
-    test('compileWarning 0 个时不输出', () => {
+    test('compileWarning 0 个时不输出（stdout / stderr 都不写）', () => {
         logger.compileWarning('web', 0);
         expect(logSpy).not.toHaveBeenCalled();
+        expect(warnSpy).not.toHaveBeenCalled();
     });
 
-    test('compileWarning > 0 时输出 N warnings', () => {
+    test('compileWarning > 0 时走 console.warn（stderr）', () => {
         logger.compileWarning('web', 3);
-        const out = logSpy.mock.calls[0][0];
+        expect(warnSpy).toHaveBeenCalled();
+        const out = warnSpy.mock.calls[0][0];
         expect(out).toContain('3');
         expect(out).toContain('warning');
+        expect(logSpy).not.toHaveBeenCalled();
     });
 
     test('formatBytes 1024 → "1.0 KB"', () => {

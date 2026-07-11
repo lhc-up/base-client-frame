@@ -12,7 +12,7 @@ function success(msg) {
 }
 
 function warn(msg) {
-    console.log(`${PREFIX} ${pc.yellow('⚠')} ${msg}`);
+    console.warn(`${PREFIX} ${pc.yellow('⚠')} ${msg}`);
 }
 
 function error(scope, msg) {
@@ -39,7 +39,7 @@ function compileFailure(name) {
 
 function compileWarning(name, count) {
     if (!count) return;
-    console.log(`${PREFIX} ${pc.yellow('⚠')} ${name} ${count} warnings`);
+    console.warn(`${PREFIX} ${pc.yellow('⚠')} ${name} ${count} warnings`);
 }
 
 function formatBytes(n) {
