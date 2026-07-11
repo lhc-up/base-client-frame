@@ -48,7 +48,7 @@ module.exports = {
     needsBcConfig: true,
     needsBuilderConfig: false,
     options: [
-        ['--port <n>', 'renderer dev-server 端口（默认 8023）'],
+        ['--port <n>', 'renderer dev-server 端口（默认 8023，与 dev:web 的 9000 错开避免冲突）'],
         ['--host <host>', 'renderer dev-server host（默认 localhost）'],
     ],
     action: async (ctx) => {
