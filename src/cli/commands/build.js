@@ -19,6 +19,7 @@ module.exports = {
         const rootDir = process.cwd();
         const distDir = path.join(rootDir, 'dist');
 
+        logger.info('清空 dist/（frame 约定输出目录，如有重要文件请移出）');
         fse.emptyDirSync(distDir);
 
         const pkgJson = require(path.resolve(rootDir, 'package.json'));

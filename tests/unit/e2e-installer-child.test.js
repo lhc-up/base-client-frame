@@ -82,6 +82,7 @@ describe('E2E: child 命令独立（独立 fixture 避免 asar 文件句柄锁�
     test('child：产 dist/child-${name}-${env}-v${version}.asar，含完整 app/', async () => {
         const cmd = require('../../src/cli/commands/child');
         const { runCommand } = require('../../src/cli/index');
+        const infoSpy = jest.spyOn(require('../../src/core/logger'), 'info').mockImplementation(() => {});
 
         await runCommand(cmd, { env: 'prod' });
 
@@ -99,5 +100,9 @@ describe('E2E: child 命令独立（独立 fixture 避免 asar 文件句柄锁�
         expect(pkg.child).toBe(true);
         expect(pkg.encryptKey).toBeUndefined();
         expect(pkg.platform).toBeUndefined();
+
+        expect(infoSpy).toHaveBeenCalledWith(expect.stringMatching(/清空 dist\//));
+        expect(infoSpy).toHaveBeenCalledWith(expect.stringMatching(/清空 app\//));
+        infoSpy.mockRestore();
     }, 120000);
 });

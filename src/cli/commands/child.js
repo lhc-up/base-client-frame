@@ -24,7 +24,9 @@ module.exports = {
         const pkgJson = require(path.resolve(rootDir, 'package.json'));
 
         // 进场清空 dist + app
+        logger.info('清空 dist/（frame 约定输出目录，如有重要文件请移出）');
         fse.emptyDirSync(distDir);
+        logger.info('清空 app/');
         fse.emptyDirSync(appDir);
 
         const cryptoState = computeCryptoState({ rootDir, userConfig: ctx.userConfig });

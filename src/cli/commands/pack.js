@@ -33,6 +33,7 @@ module.exports = {
         const pkgJson = require(path.resolve(rootDir, 'package.json'));
 
         // 阶段 A · 资源准备
+        logger.info('清空 dist/（frame 约定输出目录，如有重要文件请移出）');
         fse.emptyDirSync(distDir);
 
         const userConfig = ctx.userConfig;

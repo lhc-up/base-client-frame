@@ -31,6 +31,7 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
     test('pack 跑通：app/ 三进程产物 + dist/shell/* + 调 electron-builder.build', async () => {
         const cmd = require('../../src/cli/commands/pack');
         const { runCommand } = require('../../src/cli/index');
+        const infoSpy = jest.spyOn(require('../../src/core/logger'), 'info').mockImplementation(() => {});
 
         await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64' });
 
@@ -50,6 +51,9 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
         expect(lastCall.config.appId).toBe('com.test.minimal');
         expect(lastCall.config.productName).toBe('MinimalPack');
         expect(lastCall.config.nsis.include).toBe('dist/shell/win-installer.nsh');
+
+        expect(infoSpy).toHaveBeenCalledWith(expect.stringMatching(/清空 dist\//));
+        infoSpy.mockRestore();
     }, 60000);
 
     test('pack --dir 时 targets 改为 dir', async () => {
