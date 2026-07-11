@@ -7,13 +7,15 @@ const { createCompileSpinner } = require('./compile-spinner');
 function resolveDevServerOptions(ctx, userDev, { defaultPort }) {
     const host = ctx.cliOptions.host ?? userDev.host ?? 'localhost';
     const port = ctx.cliOptions.port ?? userDev.port ?? defaultPort;
+    const hot = userDev.hot ?? true;
+    const open = userDev.open ?? ctx.isWeb;
     return {
         historyApiFallback: true,
         ...userDev,
         host,
         port,
-        hot: true,
-        open: ctx.isWeb,
+        hot,
+        open,
         devMiddleware: {
             stats: false,
             ...(userDev.devMiddleware || {}),
