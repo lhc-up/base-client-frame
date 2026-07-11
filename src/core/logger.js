@@ -19,6 +19,11 @@ function error(scope, msg) {
     console.error(`${pc.red('[base-client]')} ${pc.bold(scope)} ${msg}`);
 }
 
+function debug(msg) {
+    if (!process.env.BC_DEBUG && !global.__BC_DEBUG__) return;
+    console.warn(`${PREFIX} ${pc.dim('debug')} ${msg}`);
+}
+
 function banner({ command, target, mode, env }) {
     const bcEnv = env?.BC_ENV ?? '?';
     console.log(`${PREFIX} v${version}  ${pc.bold(command)} | target=${target} | env=${bcEnv} | mode=${mode}`);
@@ -54,7 +59,7 @@ function formatMs(n) {
 }
 
 module.exports = {
-    info, success, warn, error,
+    info, success, warn, error, debug,
     banner, footer,
     compileSuccess, compileFailure, compileWarning,
     formatBytes, formatMs,

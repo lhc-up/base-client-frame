@@ -91,4 +91,39 @@ describe('core/logger', () => {
     test('formatMs 500 → "500 ms"', () => {
         expect(logger.formatMs(500)).toMatch(/500 ?ms/);
     });
+
+    describe('debug 门控（L1/FB-017）', () => {
+        let savedEnv, savedGlobal;
+        beforeEach(() => {
+            savedEnv = process.env.BC_DEBUG;
+            savedGlobal = global.__BC_DEBUG__;
+            delete process.env.BC_DEBUG;
+            delete global.__BC_DEBUG__;
+        });
+        afterEach(() => {
+            if (savedEnv === undefined) delete process.env.BC_DEBUG; else process.env.BC_DEBUG = savedEnv;
+            if (savedGlobal === undefined) delete global.__BC_DEBUG__; else global.__BC_DEBUG__ = savedGlobal;
+        });
+
+        test('无 BC_DEBUG / global 时静默', () => {
+            logger.debug('x');
+            expect(logSpy).not.toHaveBeenCalled();
+            expect(warnSpy).not.toHaveBeenCalled();
+            expect(errSpy).not.toHaveBeenCalled();
+        });
+
+        test('BC_DEBUG=1 时走 console.warn（stderr）', () => {
+            process.env.BC_DEBUG = '1';
+            logger.debug('bc.config 命中：/tmp/x.js');
+            expect(warnSpy).toHaveBeenCalled();
+            expect(warnSpy.mock.calls[0][0]).toContain('bc.config 命中');
+            expect(warnSpy.mock.calls[0][0]).toContain('debug');
+        });
+
+        test('global.__BC_DEBUG__=true 时走 console.warn', () => {
+            global.__BC_DEBUG__ = true;
+            logger.debug('devServer 最终配置');
+            expect(warnSpy).toHaveBeenCalled();
+        });
+    });
 });
