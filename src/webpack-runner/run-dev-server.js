@@ -9,7 +9,7 @@ function resolveDevServerOptions(ctx, userDev, { defaultPort }) {
     const port = ctx.cliOptions.port ?? userDev.port ?? defaultPort;
     const hot = userDev.hot ?? true;
     const open = userDev.open ?? ctx.isWeb;
-    return {
+    const result = {
         historyApiFallback: true,
         ...userDev,
         host,
@@ -21,6 +21,8 @@ function resolveDevServerOptions(ctx, userDev, { defaultPort }) {
             ...(userDev.devMiddleware || {}),
         },
     };
+    logger.debug(`devServer 最终配置：host=${host} port=${port} hot=${hot} open=${open}`);
+    return result;
 }
 
 async function runDevServer(webpackConfig, devServerOptions, name, ctx) {

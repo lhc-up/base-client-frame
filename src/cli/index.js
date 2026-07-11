@@ -26,6 +26,7 @@ function injectBcSubsetToProcessEnv(env) {
 }
 
 async function runCommand(cmd, cliOptions) {
+    if (cliOptions?.debug) global.__BC_DEBUG__ = true;
     try {
         const env = loadEnv(cliOptions.env);
         applyBcEnvFallback(env, cliOptions);

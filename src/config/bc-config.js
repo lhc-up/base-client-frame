@@ -6,6 +6,7 @@ const { getWebPreset } = require('./presets/web');
 const { getMainPreset } = require('./presets/main');
 const { getPreloadPreset } = require('./presets/preload');
 const { getRendererPreset } = require('./presets/renderer');
+const logger = require('../core/logger');
 
 const CONFIG_NAMES = ['bc.config.js', 'bc.config.cjs'];
 
@@ -33,6 +34,7 @@ function loadUserConfig(configPath, ctx) {
 
 function preloadBcConfig(ctx) {
     const configPath = locateBcConfig(process.cwd(), ctx.cliOptions.config);
+    logger.debug(`bc.config 命中：${configPath}`);
     ctx.userConfig = loadUserConfig(configPath, ctx);
 }
 

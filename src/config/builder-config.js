@@ -34,6 +34,7 @@ function loadUserBuilderConfig(configPath, ctx) {
 
 function preloadBuilderConfig(ctx) {
     const configPath = locateBuilderConfig(process.cwd(), ctx.cliOptions.packConfig);
+    logger.debug(`electron-builder.config 命中：${configPath}`);
     ctx.userBuilderConfig = loadUserBuilderConfig(configPath, ctx);
 }
 
