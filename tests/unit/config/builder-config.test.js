@@ -141,4 +141,19 @@ describe('config/builder-config', () => {
             );
         });
     });
+
+    test('electron-builder.config.mjs 单独存在（无 .js/.cjs）时不命中 → throw 未找到', () => {
+        const mjsOnlyDir = path.join(__dirname, '../../fixtures/builder-mjs-only');
+        fs.mkdirSync(mjsOnlyDir, { recursive: true });
+        fs.writeFileSync(path.join(mjsOnlyDir, 'electron-builder.config.mjs'), `export default () => ({});`);
+        const oldCwd = process.cwd();
+        try {
+            process.chdir(mjsOnlyDir);
+            const noCfg = ctx({ cliOptions: { platform: 'win', arch: 'x64' } });
+            expect(() => resolveBuilderConfig(noCfg, pkgJson)).toThrow(/未找到 electron-builder\.config/);
+        } finally {
+            process.chdir(oldCwd);
+            fs.rmSync(mjsOnlyDir, { recursive: true, force: true });
+        }
+    });
 });

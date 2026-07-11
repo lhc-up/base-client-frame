@@ -7,7 +7,7 @@ const { getMainPreset } = require('./presets/main');
 const { getPreloadPreset } = require('./presets/preload');
 const { getRendererPreset } = require('./presets/renderer');
 
-const CONFIG_NAMES = ['bc.config.js', 'bc.config.cjs', 'bc.config.mjs'];
+const CONFIG_NAMES = ['bc.config.js', 'bc.config.cjs'];
 
 function locateBcConfig(cwd, explicit) {
     if (explicit) {

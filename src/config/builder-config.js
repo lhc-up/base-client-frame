@@ -4,7 +4,7 @@ const { customMerge, replace } = require('./merge');
 const { getPackPreset } = require('./presets/pack');
 const logger = require('../core/logger');
 
-const CONFIG_NAMES = ['electron-builder.config.js', 'electron-builder.config.cjs', 'electron-builder.config.mjs'];
+const CONFIG_NAMES = ['electron-builder.config.js', 'electron-builder.config.cjs'];
 
 function locateBuilderConfig(cwd, explicit) {
     if (explicit) {

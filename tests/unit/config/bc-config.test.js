@@ -69,6 +69,25 @@ describe('config/bc-config', () => {
             fs.rmSync(emptyDir, { recursive: true, force: true });
         }
     });
+
+    test('bc.config.mjs 单独存在（无 .js/.cjs）时不命中 → throw 未找到', () => {
+        const mjsOnlyDir = path.join(__dirname, '../../fixtures/bc-config-mjs-only');
+        const fs = require('fs');
+        fs.mkdirSync(mjsOnlyDir, { recursive: true });
+        fs.writeFileSync(path.join(mjsOnlyDir, 'bc.config.mjs'), `export default () => ({});`);
+        const oldCwd = process.cwd();
+        try {
+            process.chdir(mjsOnlyDir);
+            expect(() => resolveBuildConfig(
+                baseCtx({ cliOptions: {} }),
+                pkgJson,
+                { target: 'web' },
+            )).toThrow(/未找到 bc\.config/);
+        } finally {
+            process.chdir(oldCwd);
+            fs.rmSync(mjsOnlyDir, { recursive: true, force: true });
+        }
+    });
 });
 
 describe('config/bc-config (app target)', () => {
