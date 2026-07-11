@@ -156,4 +156,29 @@ describe('config/builder-config', () => {
             fs.rmSync(mjsOnlyDir, { recursive: true, force: true });
         }
     });
+
+    describe('electron-builder.config 导出形态兼容（M1-followup）', () => {
+        const cases = path.join(__dirname, '../../fixtures/builder-config-shapes');
+
+        beforeAll(() => {
+            fs.mkdirSync(cases, { recursive: true });
+            fs.writeFileSync(path.join(cases, 'null.js'), `module.exports = null;`);
+            fs.writeFileSync(path.join(cases, 'str.js'), `module.exports = 'bad';`);
+        });
+        afterAll(() => { fs.rmSync(cases, { recursive: true, force: true }); });
+
+        test('导出 null → throw，错误含 "null"', () => {
+            expect(() => resolveBuilderConfig(
+                ctx({ cliOptions: { platform: 'win', arch: 'x64', packConfig: path.join(cases, 'null.js') } }),
+                pkgJson,
+            )).toThrow(/electron-builder\.config 必须导出对象或.*收到：null/);
+        });
+
+        test('导出字符串 → throw，错误含 "string"', () => {
+            expect(() => resolveBuilderConfig(
+                ctx({ cliOptions: { platform: 'win', arch: 'x64', packConfig: path.join(cases, 'str.js') } }),
+                pkgJson,
+            )).toThrow(/electron-builder\.config 必须导出对象或.*收到：string/);
+        });
+    });
 });

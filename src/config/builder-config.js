@@ -22,7 +22,7 @@ function locateBuilderConfig(cwd, explicit) {
 
 function loadUserBuilderConfig(configPath, ctx) {
     const loaded = require(configPath);
-    const raw = loaded.default ?? loaded;
+    const raw = loaded?.default ?? loaded;
     if (typeof raw === 'function') {
         return raw({ ...ctx, replace }) || {};
     }
