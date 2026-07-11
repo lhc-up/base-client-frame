@@ -99,6 +99,15 @@ describe('webpack-runner/run-dev-server.resolveDevServerOptions', () => {
         ).devMiddleware.stats).toBe('verbose');
     });
 
+    test('devMiddleware.hot 用户可传入，与 stats 深合并共存', () => {
+        const opts = resolveDevServerOptions(
+            { cliOptions: {}, isWeb: true },
+            { devMiddleware: { hot: false } },
+            { defaultPort: 9000 },
+        );
+        expect(opts.devMiddleware).toEqual({ stats: false, hot: false });
+    });
+
     test('proxy / setupMiddlewares 等任意用户字段透传', () => {
         const opts = resolveDevServerOptions(
             { cliOptions: {}, isWeb: true },
