@@ -146,3 +146,53 @@ describe('config/bc-config (app target)', () => {
         expect(main.plugins.length).toBe(3);
     });
 });
+
+describe('bc.config 导出形态兼容（M1/FB-010）', () => {
+    const fs = require('fs');
+    const cases = path.join(__dirname, '../../fixtures/bc-config-shapes');
+
+    beforeAll(() => {
+        fs.mkdirSync(cases, { recursive: true });
+        fs.writeFileSync(path.join(cases, 'obj.js'),
+            `module.exports = { web: { devServer: { port: 7000 } } };`);
+        fs.writeFileSync(path.join(cases, 'fn.js'),
+            `module.exports = () => ({ web: { devServer: { port: 7001 } } });`);
+        fs.writeFileSync(path.join(cases, 'null.js'), `module.exports = null;`);
+        fs.writeFileSync(path.join(cases, 'str.js'), `module.exports = 'bad';`);
+    });
+    afterAll(() => { fs.rmSync(cases, { recursive: true, force: true }); });
+
+    test('对象式导出 → 直接返回', () => {
+        const { web } = resolveBuildConfig(
+            baseCtx({ cliOptions: { config: path.join(cases, 'obj.js') } }),
+            pkgJson,
+            { target: 'web' },
+        );
+        expect(web.devServer).toEqual({ port: 7000 });
+    });
+
+    test('函数式导出 → 调 fn(ctx) 返回（回归）', () => {
+        const { web } = resolveBuildConfig(
+            baseCtx({ cliOptions: { config: path.join(cases, 'fn.js') } }),
+            pkgJson,
+            { target: 'web' },
+        );
+        expect(web.devServer).toEqual({ port: 7001 });
+    });
+
+    test('导出 null → throw，错误含 "null"', () => {
+        expect(() => resolveBuildConfig(
+            baseCtx({ cliOptions: { config: path.join(cases, 'null.js') } }),
+            pkgJson,
+            { target: 'web' },
+        )).toThrow(/bc\.config 必须导出对象或.*收到：null/);
+    });
+
+    test('导出字符串 → throw，错误含 "string"', () => {
+        expect(() => resolveBuildConfig(
+            baseCtx({ cliOptions: { config: path.join(cases, 'str.js') } }),
+            pkgJson,
+            { target: 'web' },
+        )).toThrow(/bc\.config 必须导出对象或.*收到：string/);
+    });
+});

@@ -25,11 +25,10 @@ function locateBcConfig(cwd, explicit) {
 
 function loadUserConfig(configPath, ctx) {
     const loaded = require(configPath);
-    const fn = loaded.default ?? loaded;
-    if (typeof fn !== 'function') {
-        throw new Error(`[base-client] bc.config 必须导出函数 (ctx) => config，收到：${typeof fn}`);
-    }
-    return fn(ctx) || {};
+    const raw = loaded?.default ?? loaded;
+    if (typeof raw === 'function') return raw(ctx) || {};
+    if (raw && typeof raw === 'object') return raw;
+    throw new Error(`[base-client] bc.config 必须导出对象或 (ctx) => config 函数，收到：${raw === null ? 'null' : typeof raw}`);
 }
 
 function preloadBcConfig(ctx) {
