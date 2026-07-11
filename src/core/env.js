@@ -1,6 +1,7 @@
 const fse = require('fs-extra');
 const path = require('path');
 const dotenv = require('dotenv');
+const logger = require('./logger');
 
 function readEnvFile(file) {
     if (!fse.existsSync(file)) return null;
@@ -12,9 +13,9 @@ function loadEnv(envName, { cwd = process.cwd() } = {}) {
     const specificPath = path.join(cwd, `.env.${envName}`);
     const specific = readEnvFile(specificPath);
     if (!specific) {
-        throw new Error(`[base-client] 未找到 .env.${envName}（cwd=${cwd}）`);
+        logger.info(`未找到 .env.${envName}，视作空环境`);
     }
-    return { ...base, ...specific };
+    return { ...base, ...(specific || {}) };
 }
 
 module.exports = { loadEnv };

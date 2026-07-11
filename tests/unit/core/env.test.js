@@ -25,13 +25,37 @@ describe('core/env', () => {
         }
     });
 
-    test('loadEnv .env.<name> 不存在时抛错', () => {
-        expect(() => loadEnv('nope', { cwd: fixtureDir })).toThrow(/未找到 .env\.nope/);
+    test('loadEnv .env.<name> 不存在时 info 提示 + 视作空环境（不抛错）', () => {
+        const infoSpy = jest.spyOn(require('../../../src/core/logger'), 'info').mockImplementation(() => {});
+        try {
+            const env = loadEnv('nope', { cwd: fixtureDir });
+            // fixtureDir 里有 .env（base），loadEnv 应返回 base 内容
+            expect(env.SHARED_TOKEN).toBeDefined();
+            expect(infoSpy).toHaveBeenCalledWith(expect.stringMatching(/未找到 \.env\.nope/));
+        } finally {
+            infoSpy.mockRestore();
+        }
     });
 
     test('loadEnv 不修改 process.env', () => {
         const before = process.env.BC_API_BASE;
         loadEnv('prod', { cwd: fixtureDir });
         expect(process.env.BC_API_BASE).toBe(before);
+    });
+
+    test('loadEnv .env 与 .env.<name> 都不存在时返回 {} + info（.env 缺失沉默）', () => {
+        const emptyDir = path.join(__dirname, '../../fixtures/env-empty');
+        const fs = require('fs');
+        fs.mkdirSync(emptyDir, { recursive: true });
+        const infoSpy = jest.spyOn(require('../../../src/core/logger'), 'info').mockImplementation(() => {});
+        try {
+            const env = loadEnv('anything', { cwd: emptyDir });
+            expect(env).toEqual({});
+            expect(infoSpy).toHaveBeenCalledTimes(1);
+            expect(infoSpy).toHaveBeenCalledWith(expect.stringMatching(/未找到 \.env\.anything/));
+        } finally {
+            infoSpy.mockRestore();
+            fs.rmSync(emptyDir, { recursive: true, force: true });
+        }
     });
 });
