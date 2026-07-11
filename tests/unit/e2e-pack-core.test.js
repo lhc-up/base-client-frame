@@ -32,28 +32,30 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
         const cmd = require('../../src/cli/commands/pack');
         const { runCommand } = require('../../src/cli/index');
         const infoSpy = jest.spyOn(require('../../src/core/logger'), 'info').mockImplementation(() => {});
+        try {
+            await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64' });
 
-        await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64' });
+            expect(fs.existsSync(path.join(fixtureDir, 'app/main/index.js'))).toBe(true);
+            expect(fs.existsSync(path.join(fixtureDir, 'app/preload/index.js'))).toBe(true);
+            expect(fs.existsSync(path.join(fixtureDir, 'app/renderer/index.js'))).toBe(true);
 
-        expect(fs.existsSync(path.join(fixtureDir, 'app/main/index.js'))).toBe(true);
-        expect(fs.existsSync(path.join(fixtureDir, 'app/preload/index.js'))).toBe(true);
-        expect(fs.existsSync(path.join(fixtureDir, 'app/renderer/index.js'))).toBe(true);
+            expect(fs.existsSync(path.join(fixtureDir, 'dist/shell/win-installer.nsh'))).toBe(true);
+            expect(fs.existsSync(path.join(fixtureDir, 'dist/shell/deb-preinstall.sh'))).toBe(true);
 
-        expect(fs.existsSync(path.join(fixtureDir, 'dist/shell/win-installer.nsh'))).toBe(true);
-        expect(fs.existsSync(path.join(fixtureDir, 'dist/shell/deb-preinstall.sh'))).toBe(true);
+            const builderPath = path.join(fixtureDir, 'node_modules/electron-builder/out/index.js');
+            const builder = require(builderPath);
+            const lastCall = builder._getLastCall();
+            expect(lastCall).toBeTruthy();
+            expect(lastCall.win).toEqual(['nsis']);
+            expect(lastCall.x64).toBe(true);
+            expect(lastCall.config.appId).toBe('com.test.minimal');
+            expect(lastCall.config.productName).toBe('MinimalPack');
+            expect(lastCall.config.nsis.include).toBe('dist/shell/win-installer.nsh');
 
-        const builderPath = path.join(fixtureDir, 'node_modules/electron-builder/out/index.js');
-        const builder = require(builderPath);
-        const lastCall = builder._getLastCall();
-        expect(lastCall).toBeTruthy();
-        expect(lastCall.win).toEqual(['nsis']);
-        expect(lastCall.x64).toBe(true);
-        expect(lastCall.config.appId).toBe('com.test.minimal');
-        expect(lastCall.config.productName).toBe('MinimalPack');
-        expect(lastCall.config.nsis.include).toBe('dist/shell/win-installer.nsh');
-
-        expect(infoSpy).toHaveBeenCalledWith(expect.stringMatching(/清空 dist\//));
-        infoSpy.mockRestore();
+            expect(infoSpy).toHaveBeenCalledWith(expect.stringMatching(/清空 dist\//));
+        } finally {
+            infoSpy.mockRestore();
+        }
     }, 60000);
 
     test('pack --dir 时 targets 改为 dir', async () => {

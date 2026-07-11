@@ -83,26 +83,28 @@ describe('E2E: child 命令独立（独立 fixture 避免 asar 文件句柄锁�
         const cmd = require('../../src/cli/commands/child');
         const { runCommand } = require('../../src/cli/index');
         const infoSpy = jest.spyOn(require('../../src/core/logger'), 'info').mockImplementation(() => {});
+        try {
+            await runCommand(cmd, { env: 'prod' });
 
-        await runCommand(cmd, { env: 'prod' });
+            const asarPath = path.join(childFixtureDir, 'dist/child-minimal-pack-child-prod-v1.0.0.asar');
+            expect(fs.existsSync(asarPath)).toBe(true);
 
-        const asarPath = path.join(childFixtureDir, 'dist/child-minimal-pack-child-prod-v1.0.0.asar');
-        expect(fs.existsSync(asarPath)).toBe(true);
+            const extractDir = path.join(childFixtureDir, 'dist/_extract');
+            asar.extractAll(asarPath, extractDir);
+            expect(fs.existsSync(path.join(extractDir, 'main/index.js'))).toBe(true);
+            expect(fs.existsSync(path.join(extractDir, 'preload/index.js'))).toBe(true);
+            expect(fs.existsSync(path.join(extractDir, 'renderer/index.js'))).toBe(true);
 
-        const extractDir = path.join(childFixtureDir, 'dist/_extract');
-        asar.extractAll(asarPath, extractDir);
-        expect(fs.existsSync(path.join(extractDir, 'main/index.js'))).toBe(true);
-        expect(fs.existsSync(path.join(extractDir, 'preload/index.js'))).toBe(true);
-        expect(fs.existsSync(path.join(extractDir, 'renderer/index.js'))).toBe(true);
+            const pkg = JSON.parse(fs.readFileSync(path.join(extractDir, 'package.json'), 'utf8'));
+            expect(pkg.name).toBe('minimal-pack-child');
+            expect(pkg.child).toBe(true);
+            expect(pkg.encryptKey).toBeUndefined();
+            expect(pkg.platform).toBeUndefined();
 
-        const pkg = JSON.parse(fs.readFileSync(path.join(extractDir, 'package.json'), 'utf8'));
-        expect(pkg.name).toBe('minimal-pack-child');
-        expect(pkg.child).toBe(true);
-        expect(pkg.encryptKey).toBeUndefined();
-        expect(pkg.platform).toBeUndefined();
-
-        expect(infoSpy).toHaveBeenCalledWith(expect.stringMatching(/清空 dist\//));
-        expect(infoSpy).toHaveBeenCalledWith(expect.stringMatching(/清空 app\//));
-        infoSpy.mockRestore();
+            expect(infoSpy).toHaveBeenCalledWith(expect.stringMatching(/清空 dist\//));
+            expect(infoSpy).toHaveBeenCalledWith(expect.stringMatching(/清空 app\//));
+        } finally {
+            infoSpy.mockRestore();
+        }
     }, 120000);
 });
