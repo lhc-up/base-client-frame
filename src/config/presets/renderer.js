@@ -10,10 +10,10 @@ function getRendererPreset(ctx, pkgJson, buildInfo) {
         name: 'renderer',
         target: 'web',
         mode,
-        entry: path.resolve(rootDir, 'src/renderer/index.js'),
+        entry: { index: path.resolve(rootDir, 'src/renderer/index.js') },
         output: {
             path: path.resolve(rootDir, 'app', 'renderer'),
-            filename: 'index.js',
+            filename: '[name].js',
             publicPath: isDev ? '/' : './',
         },
         devtool: isDev ? 'source-map' : false,

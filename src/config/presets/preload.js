@@ -10,10 +10,10 @@ function getPreloadPreset(ctx, pkgJson, buildInfo) {
         name: 'preload',
         target: 'electron-preload',
         mode,
-        entry: path.resolve(rootDir, 'src/preload/index.js'),
+        entry: { index: path.resolve(rootDir, 'src/preload/index.js') },
         output: {
             path: path.resolve(rootDir, 'app/preload'),
-            filename: 'index.js',
+            filename: '[name].js',
         },
         externals: { electron: 'commonjs electron' },
         devtool: isDev ? 'source-map' : false,

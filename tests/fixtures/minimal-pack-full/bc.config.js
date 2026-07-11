@@ -4,12 +4,11 @@ module.exports = (ctx) => ({
     preload: {},
     renderer: {
         entry: {
-            renderer: './src/renderer/index.js',
             update: './src/update/index.js',
         },
         plugins: [
-            new HtmlWebpackPlugin({ template: 'src/renderer/index.html', filename: 'renderer/index.html', chunks: ['renderer'] }),
-            new HtmlWebpackPlugin({ template: 'src/renderer/index.html', filename: 'update/index.html', chunks: ['update'] }),
+            new HtmlWebpackPlugin({ template: 'src/renderer/index.html', filename: 'index.html', chunks: ['index'] }),
+            new HtmlWebpackPlugin({ template: 'src/renderer/index.html', filename: 'update.html', chunks: ['update'] }),
         ],
     },
     encrypt: true,

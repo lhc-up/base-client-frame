@@ -36,6 +36,8 @@ describe('E2E: dev:app 编排链路（mock spawn）', () => {
         fakeChild.pid = 999;
         fakeChild.exitCode = null;
         fakeChild.kill = jest.fn();
+        fakeChild.stdout = new EventEmitter();
+        fakeChild.stderr = new EventEmitter();
         cp.spawn.mockReturnValue(fakeChild);
     });
 
@@ -64,7 +66,8 @@ describe('E2E: dev:app 编排链路（mock spawn）', () => {
             expect(exe).toBe('/fake/electron-binary');
             expect(args[0]).toContain(path.join('app', 'main', 'index.js'));
             expect(opts.env.NODE_ENV).toBe('development');
-            expect(opts.env.RENDERER_DEV_URL).toBe('http://localhost:19023');
+            expect(opts.env.RENDERER_DEV_URL).toBe('http://localhost:19023/');
+            expect(opts.stdio).toEqual(['inherit', 'pipe', 'pipe']);
 
             fakeChild.exitCode = 0;
             fakeChild.emit('close', 0);

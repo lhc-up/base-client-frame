@@ -15,16 +15,15 @@ const pkgJson = { name: 'demo', version: '1.0.0' };
 const buildInfo = { target: 'app', name: 'demo', version: '1.0.0', env: 'prod', encrypted: false, encryptKey: 'KEY' };
 
 describe('config/presets/renderer', () => {
-    test('target=web，entry 是字符串（默认单入口）', () => {
+    test('target=web，entry 是对象（多入口友好默认）', () => {
         const p = getRendererPreset(baseCtx(), pkgJson, buildInfo);
         expect(p.target).toBe('web');
-        expect(typeof p.entry).toBe('string');
-        expect(p.entry).toContain(path.join('src', 'renderer', 'index.js'));
+        expect(p.entry).toEqual({ index: expect.stringContaining(path.join('src', 'renderer', 'index.js')) });
     });
 
-    test('output.filename=index.js，产物落 app/renderer', () => {
+    test('output.filename=[name].js，产物落 app/renderer', () => {
         const p = getRendererPreset(baseCtx(), pkgJson, buildInfo);
-        expect(p.output.filename).toBe('index.js');
+        expect(p.output.filename).toBe('[name].js');
         expect(p.output.path).toContain(path.join('app', 'renderer'));
     });
 

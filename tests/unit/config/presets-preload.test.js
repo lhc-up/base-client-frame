@@ -15,12 +15,12 @@ const pkgJson = { name: 'demo', version: '1.0.0' };
 const buildInfo = { target: 'app', name: 'demo', version: '1.0.0', env: 'prod', encrypted: false, encryptKey: 'KEY' };
 
 describe('config/presets/preload', () => {
-    test('target=electron-preload, entry/output 正确', () => {
+    test('target=electron-preload, entry/output 正确（多入口友好默认）', () => {
         const p = getPreloadPreset(baseCtx(), pkgJson, buildInfo);
         expect(p.target).toBe('electron-preload');
-        expect(p.entry).toContain(path.join('src', 'preload', 'index.js'));
+        expect(p.entry).toEqual({ index: expect.stringContaining(path.join('src', 'preload', 'index.js')) });
         expect(p.output.path).toContain(path.join('app', 'preload'));
-        expect(p.output.filename).toBe('index.js');
+        expect(p.output.filename).toBe('[name].js');
     });
 
     test('externals 含 electron', () => {

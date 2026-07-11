@@ -494,9 +494,9 @@ getWebPreset(ctx)         // web target
 | 维度 | main | preload | renderer |
 |---|---|---|---|
 | webpack target | `'electron-main'` | `'electron-preload'` | `'web'`（无 nodeIntegration） |
-| 默认 entry | `src/main/index.js` | `src/preload/index.js` | `src/renderer/index.js` |
+| 默认 entry | `src/main/index.js` | `{ index: 'src/preload/index.js' }` | `{ index: 'src/renderer/index.js' }` |
 | `output.path` | `app/main` | `app/preload` | `app/renderer` |
-| `output.filename` | `index.js` | `index.js` | `index.js` |
+| `output.filename` | `index.js` | `[name].js` | `[name].js` |
 | `output.libraryTarget` | `commonjs2` | `commonjs2` | —（默认） |
 | externals | `{ electron: 'commonjs electron' }` | 同 main | 无 |
 | publicPath | — | — | `'./'`(prod) / `'/'`(dev) |
@@ -506,7 +506,25 @@ getWebPreset(ctx)         // web target
 | `process.env.BC_*` 注入 | BC_ 子集 | 同 | 同 |
 | stats 输出 | webpack 回调内调 logger | 同 | `'none'`（dev-server 接管） |
 
-**renderer 默认单入口**：预设 entry 是字符串 `src/renderer/index.js`，产物落 `app/renderer/index.js`。多入口场景归用户在 `bc.config.renderer` 自配 —— entry 传对象、同步覆盖 `output.filename` 为 `[name]/index.js` 模式即可产到 `app/renderer/<entryName>/`（frame 加密链路遍历 `app/*` 除 main 外所有子目录，与用户自定义的入口子目录布局天然兼容）。
+**preload / renderer 多入口友好默认**：预设 `entry` 为对象 `{ index: 'src/preload/index.js' }` / `{ index: 'src/renderer/index.js' }`，`output.filename` 为 `[name].js`。默认单入口时产物落 `app/preload/index.js` / `app/renderer/index.js`，与旧行为等价。业务需要多入口时（如 `UpdateWindow` 独立 preload），在 `bc.config.js` 追加 key 即可，无需 override `output.filename`：
+
+```js
+// bc.config.js
+module.exports = {
+    preload: {
+        entry: { update: 'src/preload/update.js' }, // 与 preset { index } 合并成 { index, update }
+    },
+    renderer: {
+        entry: { update: 'src/renderer/update.js' },
+        plugins: [
+            new HtmlWebpackPlugin({ filename: 'index.html', chunks: ['index'], template: 'src/renderer/index.html' }),
+            new HtmlWebpackPlugin({ filename: 'update.html', chunks: ['update'], template: 'src/renderer/update.html' }),
+        ],
+    },
+};
+```
+
+产物平铺：`app/preload/{index,update}.js`、`app/renderer/{index,update}.js`（HTML 由业务 `HtmlWebpackPlugin` 追加）。frame 加密链路遍历 `app/*` 除 main 外所有子目录，与平铺布局天然兼容。
 
 **renderer publicPath 按 mode 分支**：production 用 `'./'`，让打包后 `file://` 加载时静态资源以相对路径正确解析；development 用 `'/'`，让 webpack-dev-server 把内存中的 emit assets 挂在根路径下，浏览器访问 `http://localhost:<port>/` 才能命中。两种 mode 用同一个值会顾此失彼。
 
@@ -592,7 +610,7 @@ ctx = { command:'dev:app', target:'app', mode:'dev', ... }
     ⓑ webpack-dev-server(renderer)，host/port 兜底 localhost:8023，内存提供 HMR
        done hook → logger.compileSuccess + logger.footer
 ③  ⓐⓑ 都就绪 → resolveElectron(rootDir) + resolveMainEntry(rootDir) → spawn Electron
-    注入 env：NODE_ENV=development、RENDERER_DEV_URL=http://<host>:<port>
+    注入 env：NODE_ENV=development、RENDERER_DEV_URL=http://<host>:<port>/（含尾斜杠）
 ④  Electron close → 关 dev-server → 按 Electron 退出码退出
     SIGINT → 终止 Electron + 关 dev-server + 退出
 ```
@@ -627,7 +645,7 @@ dev:app 起 Electron 子进程时，`cp.spawn` 的 `env` 字段追加下列变�
 | 变量 | 值 | 语义 |
 |---|---|---|
 | `NODE_ENV` | `'development'` | dev-app 恒为 development；用户据此走 dev 分支加载 |
-| `RENDERER_DEV_URL` | 完整 URL（含协议、host、port，如 `http://localhost:8023`） | renderer webpack-dev-server 的访问地址，主进程 `loadURL` 用 |
+| `RENDERER_DEV_URL` | 完整 URL（含协议、host、port、**尾斜杠**，如 `http://localhost:8023/`） | renderer webpack-dev-server 的访问地址；主进程 `loadURL` 用；业务多入口拼子路径可直接 `RENDERER_DEV_URL + 'update.html'` |
 
 **为什么不导出 runtime helper**：这两个变量足够简单，包一层 `require('@base-client/frame/runtime').getRendererDevUrl()` 反而增加 frame 的对外面。若未来需要跨命令共享 runtime 常量再重启这个讨论。
 

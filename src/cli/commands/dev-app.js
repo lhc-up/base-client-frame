@@ -60,7 +60,7 @@ module.exports = {
 
         const { devServer: userDev = {}, ...rendererWebpack } = renderer;
         const devServerOptions = resolveDevServerOptions(ctx, userDev, { defaultPort: 8023 });
-        const devUrl = `http://${devServerOptions.host}:${devServerOptions.port}`;
+        const devUrl = `http://${devServerOptions.host}:${devServerOptions.port}/`;
 
         const [, devServer] = await Promise.all([
             compileMainPreload(main, preload),
@@ -70,13 +70,15 @@ module.exports = {
         const electronExe = await resolveElectron(rootDir);
         const mainEntry = resolveMainEntry(rootDir);
         const child = cp.spawn(electronExe, [mainEntry], {
-            stdio: 'inherit',
+            stdio: ['inherit', 'pipe', 'pipe'],
             env: {
                 ...process.env,
                 NODE_ENV: 'development',
                 RENDERER_DEV_URL: devUrl,
             },
         });
+        child.stdout.on('data', (chunk) => process.stdout.write(chunk.toString('utf8')));
+        child.stderr.on('data', (chunk) => process.stderr.write(chunk.toString('utf8')));
 
         const shutdown = async (exitCode = 0) => {
             killElectron(child);

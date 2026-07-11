@@ -57,8 +57,8 @@ describe('E2E: pack 完整能力（encrypt + bytenode + incremental + 多入口�
         expect(decrypted.toString('utf8')).toMatch(/(function|require|module|var|const)/);
 
         // 4. update 入口也产出且加密
-        expect(fs.existsSync(path.join(fixtureDir, 'app/update/index.js'))).toBe(true);
-        const updateBuf = fs.readFileSync(path.join(fixtureDir, 'app/update/index.js'));
+        expect(fs.existsSync(path.join(fixtureDir, 'app/renderer/update.js'))).toBe(true);
+        const updateBuf = fs.readFileSync(path.join(fixtureDir, 'app/renderer/update.js'));
         const decipher2 = crypto.createDecipheriv('aes-256-cbc', Buffer.from(KEY, 'utf8'), iv);
         Buffer.concat([decipher2.update(updateBuf), decipher2.final()]);
 
@@ -68,7 +68,7 @@ describe('E2E: pack 完整能力（encrypt + bytenode + incremental + 多入口�
         const extractDir = path.join(fixtureDir, 'dist/_extract');
         asar.extractAll(asaxPath, extractDir);
         expect(fs.existsSync(path.join(extractDir, 'renderer/index.js'))).toBe(true);
-        expect(fs.existsSync(path.join(extractDir, 'update/index.js'))).toBe(true);
+        expect(fs.existsSync(path.join(extractDir, 'renderer/update.js'))).toBe(true);
         expect(fs.existsSync(path.join(extractDir, 'preload/index.js'))).toBe(true);
         expect(fs.existsSync(path.join(extractDir, 'main'))).toBe(false);
 
