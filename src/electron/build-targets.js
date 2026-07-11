@@ -23,12 +23,11 @@ function buildTargets({ platform, arch, dir }) {
     }
     if (!ARCH_LIST.includes(resolvedArch)) throw new Error(`[base-client] 不支持的架构：${resolvedArch}`);
 
-    const result = {
+    logger.debug(`buildTargets 最终：platform=${resolvedPlatform} arch=${resolvedArch} dir=${!!dir}`);
+    return {
         [resolvedPlatform]: dir ? ['dir'] : PLATFORM_MAP[resolvedPlatform],
         [resolvedArch]: true,
     };
-    logger.debug(`buildTargets 最终：platform=${resolvedPlatform} arch=${resolvedArch} dir=${!!dir}`);
-    return result;
 }
 
 // electron-builder 对 dir target 的固定命名约定：

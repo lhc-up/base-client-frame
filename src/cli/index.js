@@ -45,6 +45,8 @@ async function runCommand(cmd, cliOptions) {
         logger.error(`${cmd.name} 失败：`, err.message);
         if (cliOptions?.debug) console.error(err.stack);
         process.exit(1);
+    } finally {
+        if (cliOptions?.debug) delete global.__BC_DEBUG__;
     }
 }
 
