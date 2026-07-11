@@ -247,6 +247,22 @@ webpack DefinePlugin 注入的**单个聚合对象**，字面量替换。frame �
 
 **`dev:app` 加密字段恒为缺省**：dev 态渲染层走 dev-server 内存、不落盘加密，若 `encrypted: true` 但产物未加密，应用代码读到 `encrypted` 字段会尝试解密未加密内容并失败。dev:app 只在 pack / child 真正落盘加密时才派生 encrypted。
 
+**字段矩阵：不同命令下的取值**：
+
+| 字段 | dev:web | build | dev:app | pack | child | installer |
+|---|---|---|---|---|---|---|
+| `target` | web | web | app | app | app | — |
+| `name / productName / version` | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| `env / envName` | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| `buildTime` | ✓ | ✓ | ✓ | ✓ | ✓ | — |
+| `platform / arch` | undefined | undefined | undefined | cli 值 | undefined | — |
+| `dir / sign` | false | false | false | cli 值 | false | — |
+| `encrypted` | false | false | false | cryptoState | cryptoState | — |
+| `encryptKey` | undefined | undefined | undefined | 有条件 | 有条件 | — |
+| `child` | false | false | false | false | true | — |
+
+`installer` 命令不派生 `__BC_BUILD__`（`needsBcConfig=false`），故整列为 —；用户在 renderer 里的 `__BC_BUILD__` 字段访问在 `installer` 命令下不存在消费方。字段派生逻辑源码：`src/core/build-info.js`。
+
 **`installer` 命令不派生 `__BC_BUILD__`**——不跑 webpack、不产 bundle，没消费方。
 
 **跨平台复用产物内的字段语义**：asax（增量升级包）与 child（子应用包）都是**跨平台复用**产物——同一份 asar 可能被不同平台/架构的宿主装载。其中 `__BC_BUILD__.platform / arch / dir / sign / child` 与 asar 内 `package.json` 里的对应字段，记录的都是**构建时目标信息**（包来源、构建期标志），**不能**作为运行时"当前平台/架构"的判据。运行时判断当前平台走 `process.platform`、当前架构走 `process.arch`；宿主装载 asax/child 时也不得据此判断装载环境。
