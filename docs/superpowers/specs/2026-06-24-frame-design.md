@@ -902,6 +902,7 @@ bc-frame installer --platform win --arch x64 --env prod
    - `{{APP_NAME}}` ← `pkg.name`
    - `{{APP_DIR_NAME}}` ← `mergedBuilderConfig.productName`
    - `{{APP_ID}}` ← `mergedBuilderConfig.appId`
+   - Windows 模板直接使用 electron-builder 的 NSIS 编译期变量 `${APP_GUID}`；frame 不自行计算 GUID，从而同时兼容显式 `nsis.guid` 与基于 `appId` 的默认派生值
 3. 文件编码统一为 **UTF-8 without BOM**；`.sh` 与 `.nsh` 都做 CRLF → LF 行尾规范化（NSIS 编译器对行尾大多容忍，但部分指令在历史版本中对 `\r` 行为不一致，统一 LF 是稳妥选择）
 4. 写入 `dist/shell/<name>`
 5. 按需注入：

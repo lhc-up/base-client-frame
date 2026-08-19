@@ -29,10 +29,11 @@ describe('pack/shell', () => {
         const shellDir = path.join(distDir, 'shell');
         const nsh = fs.readFileSync(path.join(shellDir, 'win-installer.nsh'), 'utf8');
         const pre = fs.readFileSync(path.join(shellDir, 'deb-preinstall.sh'), 'utf8');
-        expect(nsh).toContain('"demo"');
-        expect(nsh).toContain('"Demo App"');
-        expect(nsh).toContain('"com.demo.app"');
-        expect(pre).toContain('"demo"');
+        const post = fs.readFileSync(path.join(shellDir, 'deb-postinstall.sh'), 'utf8');
+        expect(nsh).toContain('${APP_GUID}');
+        expect(nsh).not.toMatch(/\{\{[A-Z_]+\}\}/);
+        expect(pre).toContain('APP_NAME=demo');
+        expect(post).toContain('APP_DIR_NAME=Demo App');
         expect(nsh).not.toContain('\r\n');
         expect(pre).not.toContain('\r\n');
     });

@@ -9,11 +9,11 @@ Var Label
 
 ; ============================================
 ; 以下变量由打包脚本自动注入，请勿手动修改
-; GUID: 应用GUID，来自 electron-builder-config.js 的 nsis.guid 字段
+; APP_GUID: electron-builder 在 NSIS 编译期注入，兼容显式 nsis.guid 与 appId 派生默认值
 ; ============================================
 
 !macro customInit
-    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\{{GUID}}"
+    DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APP_GUID}"
 !macroend
 
 ; https://nsis.sourceforge.io/Docs/nsDialogs/Readme.html#step-page

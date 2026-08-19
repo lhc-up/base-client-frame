@@ -2,6 +2,18 @@ const path = require('path');
 const http = require('http');
 
 const fixtureDir = path.join(__dirname, '../fixtures/minimal-web');
+let mockServer;
+
+jest.mock('../../src/webpack-runner/run-dev-server', () => {
+    const actual = jest.requireActual('../../src/webpack-runner/run-dev-server');
+    return {
+        ...actual,
+        runDevServer: async (...args) => {
+            mockServer = await actual.runDevServer(...args);
+            return mockServer;
+        },
+    };
+});
 
 function httpGet(url, { timeoutMs = 3000 } = {}) {
     return new Promise((resolve, reject) => {
@@ -17,7 +29,6 @@ function httpGet(url, { timeoutMs = 3000 } = {}) {
 
 describe('E2E: dev:web 起 dev-server，浏览器路径可访问', () => {
     let oldCwd;
-    let server;
 
     beforeAll(() => {
         oldCwd = process.cwd();
@@ -25,7 +36,7 @@ describe('E2E: dev:web 起 dev-server，浏览器路径可访问', () => {
     });
 
     afterAll(async () => {
-        if (server) await server.stop?.();
+        if (mockServer) await mockServer.stop?.();
         process.chdir(oldCwd);
     });
 
@@ -33,21 +44,10 @@ describe('E2E: dev:web 起 dev-server，浏览器路径可访问', () => {
         const cmd = require('../../src/cli/commands/dev-web');
         const { runCommand } = require('../../src/cli/index');
 
-        const runDevServerMod = require('../../src/webpack-runner/run-dev-server');
-        const originalRun = runDevServerMod.runDevServer;
-        runDevServerMod.runDevServer = async (...args) => {
-            server = await originalRun(...args);
-            return server;
-        };
-
-        try {
-            await runCommand(cmd, { env: 'prod' });
-            await new Promise((r) => setTimeout(r, 3000));
-            const res = await httpGet('http://localhost:19099/');
-            expect(res.status).toBe(200);
-            expect(res.body).toContain('<title>minimal-web</title>');
-        } finally {
-            runDevServerMod.runDevServer = originalRun;
-        }
+        await runCommand(cmd, { env: 'prod' });
+        await new Promise((r) => setTimeout(r, 3000));
+        const res = await httpGet('http://localhost:19099/');
+        expect(res.status).toBe(200);
+        expect(res.body).toContain('<title>minimal-web</title>');
     }, 30000);
 });
