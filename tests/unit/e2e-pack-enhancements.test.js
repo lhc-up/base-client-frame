@@ -39,8 +39,9 @@ describe('E2E: pack 完整能力（encrypt + bytenode + incremental + 多入口�
         expect(fs.existsSync(path.join(fixtureDir, 'app/main/index.js'))).toBe(false);
         expect(fs.existsSync(path.join(fixtureDir, 'app/main/index.jsc'))).toBe(true);
         const loader = fs.readFileSync(path.join(fixtureDir, 'app/main/loader.js'), 'utf8');
-        expect(loader).toContain(`require('bytenode')`);
+        expect(loader).toContain(`require('./vendor/bytenode')`);
         expect(loader).toContain(`require('./index.jsc')`);
+        expect(fs.existsSync(path.join(fixtureDir, 'app/main/vendor/bytenode/package.json'))).toBe(true);
 
         // 2. extraMetadata.main 被 frame 注入
         const builder = require(path.join(fixtureDir, 'node_modules/electron-builder/out/index.js'));
