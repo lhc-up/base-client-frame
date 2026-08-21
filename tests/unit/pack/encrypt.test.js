@@ -49,10 +49,13 @@ describe('pack/encrypt.computeCryptoState', () => {
         expect(() => computeCryptoState({ rootDir: tmpRoot, userConfig: {} })).toThrow(/ASCII/);
     });
 
-    test('密钥长度 < 32 → 抛错（AES-256 长度约束）', () => {
+    test('密钥长度不是 32 → 抛错（AES-256 长度约束）', () => {
         fse.ensureDirSync(path.join(tmpRoot, 'build'));
         fs.writeFileSync(path.join(tmpRoot, 'build/encrypt.key'), 'tooshort');
-        expect(() => computeCryptoState({ rootDir: tmpRoot, userConfig: {} })).toThrow(/≥ 32/);
+        expect(() => computeCryptoState({ rootDir: tmpRoot, userConfig: {} })).toThrow(/32/);
+
+        fs.writeFileSync(path.join(tmpRoot, 'build/encrypt.key'), KEY + 'x');
+        expect(() => computeCryptoState({ rootDir: tmpRoot, userConfig: {} })).toThrow(/32/);
     });
 });
 

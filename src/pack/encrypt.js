@@ -1,6 +1,6 @@
 const path = require('path');
 const fse = require('fs-extra');
-const crypto = require('crypto');
+const { normalizeKey, encryptBuffer } = require('./crypto/aes-256-cbc');
 
 function computeCryptoState({ rootDir, userConfig }) {
     if (userConfig.encrypt === false) return { encrypted: false };
@@ -11,41 +11,37 @@ function computeCryptoState({ rootDir, userConfig }) {
     }
 
     const encryptKey = fse.readFileSync(keyPath, 'utf8').replace(/\r?\n$/, '');
-    if (Buffer.byteLength(encryptKey, 'utf8') !== encryptKey.length) {
-        throw new Error('[base-client] build/encrypt.key 必须为 ASCII 字符（IV 取前 16 字符，多字节会破坏字节对齐）');
-    }
-    if (encryptKey.length < 32) {
-        throw new Error(`[base-client] build/encrypt.key 长度为 ${encryptKey.length}，AES-256 要求 ≥ 32 字符`);
+    try {
+        normalizeKey(encryptKey);
+    } catch (err) {
+        throw new Error(`[base-client] build/encrypt.key 无效：${err.message}`);
     }
     return { encrypted: true, encryptKey };
 }
 
 async function encryptRenderer({ appDir, encryptKey }) {
-    const key = Buffer.from(encryptKey, 'utf8');
-    const iv = Buffer.from(encryptKey.slice(0, 16), 'utf8');
+    normalizeKey(encryptKey);
 
     const entries = fse.readdirSync(appDir, { withFileTypes: true });
     for (const ent of entries) {
         if (!ent.isDirectory()) continue;
         if (ent.name === 'main') continue;
-        await encryptDirRecursive(path.join(appDir, ent.name), key, iv);
+        await encryptDirRecursive(path.join(appDir, ent.name), encryptKey);
     }
 }
 
-async function encryptDirRecursive(dir, key, iv) {
+async function encryptDirRecursive(dir, encryptKey) {
     const entries = fse.readdirSync(dir, { withFileTypes: true });
     for (const ent of entries) {
         const p = path.join(dir, ent.name);
         if (ent.isDirectory()) {
-            await encryptDirRecursive(p, key, iv);
+            await encryptDirRecursive(p, encryptKey);
             continue;
         }
         if (!ent.name.endsWith('.js')) continue;
 
         const raw = fse.readFileSync(p);
-        const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-        const encrypted = Buffer.concat([cipher.update(raw), cipher.final()]);
-        fse.writeFileSync(p, encrypted);
+        fse.writeFileSync(p, encryptBuffer(raw, encryptKey));
     }
 }
 
