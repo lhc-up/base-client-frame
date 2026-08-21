@@ -70,6 +70,17 @@ describe('cli/index', () => {
             expect(process.env.BC_API_BASE).toBe('https://api.test');
         });
 
+        test('runCommand 在构造 ctx 后应用命令级 cliOptions 归一化', async () => {
+            const resolvingCmd = {
+                ...fakeCmd,
+                resolveCliOptions: options => ({ ...options, platform: 'win', arch: 'x64' }),
+                action: jest.fn().mockResolvedValue(undefined),
+            };
+            await runCommand(resolvingCmd, { env: 'prod' });
+            const ctx = resolvingCmd.action.mock.calls[0][0];
+            expect(ctx.cliOptions).toEqual({ env: 'prod', platform: 'win', arch: 'x64' });
+        });
+
         test('BC_ENV 未声明时用 cliOptions.env 兜底', async () => {
             const fs = require('fs');
             fs.writeFileSync(path.join(fixtureDir, '.env.staging'), 'BC_API_BASE=https://api\n');

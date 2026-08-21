@@ -5,7 +5,8 @@ const ARCH_LIST = ['ia32', 'x64', 'armv7l', 'arm64', 'universal', 'loong64'];
 
 const HOST_PLATFORM_MAP = { win32: 'win', darwin: 'mac', linux: 'linux' };
 
-function buildTargets({ platform, arch, dir }) {
+function resolveBuildTargetOptions(options = {}) {
+    const { platform, arch } = options;
     let resolvedPlatform = platform;
     if (!resolvedPlatform) {
         resolvedPlatform = HOST_PLATFORM_MAP[process.platform];
@@ -23,17 +24,23 @@ function buildTargets({ platform, arch, dir }) {
     }
     if (!ARCH_LIST.includes(resolvedArch)) throw new Error(`[base-client] 不支持的架构：${resolvedArch}`);
 
-    logger.debug(`buildTargets 最终：platform=${resolvedPlatform} arch=${resolvedArch} dir=${!!dir}`);
+    return { ...options, platform: resolvedPlatform, arch: resolvedArch };
+}
+
+function buildTargets(options) {
+    const { platform, arch, dir } = resolveBuildTargetOptions(options);
+    logger.debug(`buildTargets 最终：platform=${platform} arch=${arch} dir=${!!dir}`);
     return {
-        [resolvedPlatform]: dir ? ['dir'] : PLATFORM_MAP[resolvedPlatform],
-        [resolvedArch]: true,
+        [platform]: dir ? ['dir'] : PLATFORM_MAP[platform],
+        [arch]: true,
     };
 }
 
 // electron-builder 对 dir target 的固定命名约定：
 //   win/linux：{platform}[-{arch}]-unpacked（arch=x64 时省略 arch 段）
 //   mac：mac[-{arch}]（无 -unpacked 后缀，因 .app 本身就是打包形态）
-function computeUnpackedDir({ platform, arch }) {
+function computeUnpackedDir(options) {
+    const { platform, arch } = resolveBuildTargetOptions(options);
     if (platform === 'mac') {
         return arch === 'x64' ? 'mac' : `mac-${arch}`;
     }
@@ -41,4 +48,10 @@ function computeUnpackedDir({ platform, arch }) {
     return `${platform}${archSuffix}-unpacked`;
 }
 
-module.exports = { buildTargets, computeUnpackedDir, PLATFORM_MAP, ARCH_LIST };
+module.exports = {
+    resolveBuildTargetOptions,
+    buildTargets,
+    computeUnpackedDir,
+    PLATFORM_MAP,
+    ARCH_LIST,
+};

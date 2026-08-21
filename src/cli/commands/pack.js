@@ -10,7 +10,11 @@ const { adaptIcon } = require('../../pack/icon');
 const { generateShellScripts } = require('../../pack/shell');
 const { computeCryptoState } = require('../../pack/encrypt');
 const { resolveElectronBuilder } = require('../../electron/resolve-electron-builder');
-const { buildTargets, computeUnpackedDir } = require('../../electron/build-targets');
+const {
+    resolveBuildTargetOptions,
+    buildTargets,
+    computeUnpackedDir,
+} = require('../../electron/build-targets');
 const logger = require('../../core/logger');
 
 module.exports = {
@@ -20,6 +24,7 @@ module.exports = {
     mode: MODES.PROD,
     needsBcConfig: true,
     needsBuilderConfig: true,
+    resolveCliOptions: resolveBuildTargetOptions,
     options: [
         ['--platform <p>', '目标平台：win / mac / linux'],
         ['--arch <a>', '目标架构：ia32 / x64 / armv7l / arm64 / universal / loong64'],

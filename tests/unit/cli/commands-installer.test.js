@@ -9,6 +9,7 @@ describe('cli/commands/installer', () => {
         expect(cmd.mode).toBe(MODES.PROD);
         expect(cmd.needsBcConfig).toBe(false);
         expect(cmd.needsBuilderConfig).toBe(true);
+        expect(cmd.resolveCliOptions).toEqual(expect.any(Function));
     });
 
     test('options 含 --platform / --arch / --sign（无 --dir）', () => {

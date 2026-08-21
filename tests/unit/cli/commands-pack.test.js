@@ -9,6 +9,7 @@ describe('cli/commands/pack', () => {
         expect(cmd.mode).toBe(MODES.PROD);
         expect(cmd.needsBcConfig).toBe(true);
         expect(cmd.needsBuilderConfig).toBe(true);
+        expect(cmd.resolveCliOptions).toEqual(expect.any(Function));
     });
 
     test('options 含 --platform / --arch / --dir / --sign（--pack-config 已下沉至 cli 全局 option，避免重复注册）', () => {

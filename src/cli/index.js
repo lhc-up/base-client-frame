@@ -33,6 +33,9 @@ async function runCommand(cmd, cliOptions) {
         injectBcSubsetToProcessEnv(env);
 
         const ctx = buildCtx(cmd, cliOptions, env);
+        if (cmd.resolveCliOptions) {
+            ctx.cliOptions = cmd.resolveCliOptions(ctx.cliOptions);
+        }
 
         process.title = `bc-${cmd.name}|env=${env.BC_ENV ?? '?'}`;
         logger.banner({ command: cmd.name, target: ctx.target, mode: ctx.mode, env });

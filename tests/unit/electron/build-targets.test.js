@@ -81,6 +81,12 @@ describe('electron/build-targets', () => {
             expect(() => buildTargets({ platform: 'linux' })).toThrow(/不支持的架构/);
         });
 
+        test('computeUnpackedDir 复用宿主兜底结果', () => {
+            Object.defineProperty(process, 'platform', { value: 'win32' });
+            Object.defineProperty(process, 'arch', { value: 'x64' });
+            expect(computeUnpackedDir({})).toBe('win-unpacked');
+        });
+
         test('用户显式 --platform 覆盖宿主兜底', () => {
             Object.defineProperty(process, 'platform', { value: 'linux' });
             Object.defineProperty(process, 'arch', { value: 'x64' });

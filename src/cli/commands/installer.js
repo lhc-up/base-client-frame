@@ -5,7 +5,11 @@ const { resolveBuilderConfig } = require('../../config/builder-config');
 const { adaptIcon } = require('../../pack/icon');
 const { generateShellScripts } = require('../../pack/shell');
 const { resolveElectronBuilder } = require('../../electron/resolve-electron-builder');
-const { buildTargets, computeUnpackedDir } = require('../../electron/build-targets');
+const {
+    resolveBuildTargetOptions,
+    buildTargets,
+    computeUnpackedDir,
+} = require('../../electron/build-targets');
 const logger = require('../../core/logger');
 
 module.exports = {
@@ -15,6 +19,7 @@ module.exports = {
     mode: MODES.PROD,
     needsBcConfig: false,
     needsBuilderConfig: true,
+    resolveCliOptions: resolveBuildTargetOptions,
     options: [
         ['--platform <p>', '目标平台：win / mac / linux'],
         ['--arch <a>', '目标架构'],
