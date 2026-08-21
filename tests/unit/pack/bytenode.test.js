@@ -29,6 +29,18 @@ beforeEach(() => {
 afterEach(() => { fse.removeSync(fixtureDir); });
 
 describe('pack/bytenode (path A)', () => {
+    test('rejects bytecode compilation for a different target OS or architecture', () => {
+        const { assertBytenodeTarget } = require('../../../src/pack/bytenode');
+        expect(() => assertBytenodeTarget({
+            hostPlatform: 'win32', hostArch: 'x64', targetPlatform: 'linux', targetArch: 'x64',
+        })).toThrow(/target OS\/arch/);
+        expect(() => assertBytenodeTarget({
+            hostPlatform: 'win32', hostArch: 'x64', targetPlatform: 'win', targetArch: 'arm64',
+        })).toThrow(/target OS\/arch/);
+        expect(() => assertBytenodeTarget({
+            hostPlatform: 'win32', hostArch: 'x64', targetPlatform: 'win', targetArch: 'x64',
+        })).not.toThrow();
+    });
     test('产 main/index.jsc + main/loader.js，原 main/index.js 删除', async () => {
         const appDir = path.join(fixtureDir, 'app');
         fse.ensureDirSync(path.join(appDir, 'main'));

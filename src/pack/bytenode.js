@@ -21,7 +21,25 @@ function findPackageRoot(entryPath, packageName) {
     throw new Error(`[base-client] cannot locate ${packageName} package root`);
 }
 
-async function bytenodeMain({ rootDir, appDir, mergedBuilderConfig }) {
+function assertBytenodeTarget({
+    targetPlatform,
+    targetArch,
+    hostPlatform = process.platform,
+    hostArch = process.arch,
+} = {}) {
+    const platformAliases = { win: 'win32', windows: 'win32', mac: 'darwin', macos: 'darwin' };
+    const normalizedTargetPlatform = platformAliases[targetPlatform] || targetPlatform || hostPlatform;
+    const normalizedTargetArch = targetArch || hostArch;
+    if (normalizedTargetPlatform !== hostPlatform || normalizedTargetArch !== hostArch) {
+        throw new Error(
+            `[base-client] bytenode must run on the target OS/arch: `
+            + `host=${hostPlatform}/${hostArch}, target=${normalizedTargetPlatform}/${normalizedTargetArch}`,
+        );
+    }
+}
+
+async function bytenodeMain({ rootDir, appDir, mergedBuilderConfig, targetPlatform, targetArch }) {
+    assertBytenodeTarget({ targetPlatform, targetArch });
     const [bytenode, electronPath] = await Promise.all([
         resolveModule('bytenode', {
             rootDir,
@@ -50,4 +68,4 @@ async function bytenodeMain({ rootDir, appDir, mergedBuilderConfig }) {
     mergedBuilderConfig.extraMetadata.main = 'main/loader.js';
 }
 
-module.exports = { bytenodeMain };
+module.exports = { assertBytenodeTarget, bytenodeMain };

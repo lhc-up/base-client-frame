@@ -5,6 +5,7 @@
 ## 构建期依赖
 
 - 使用方项目安装兼容版本的 `electron` 与 `bytenode`，frame 从项目根目录解析二者。
+- bytenode 字节码必须在目标 OS 和目标 CPU 架构上构建。开启 bytenode 时，`--platform`/`--arch` 与当前构建机不一致会直接失败；跨平台产物应在对应平台和架构的构建节点分别生成。
 - frame 使用目标 Electron 可执行文件编译 `app/main/index.js`，不使用启动 CLI 的 Node/V8 直接编译。
 - frame 等待字节码编译完成后再进入 electron-builder 阶段。
 

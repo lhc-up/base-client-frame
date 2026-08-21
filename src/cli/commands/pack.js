@@ -79,7 +79,13 @@ module.exports = {
         // ⑫ bytenode 主进程字节码
         if (userConfig.bytenode !== false) {
             const { bytenodeMain } = require('../../pack/bytenode');
-            await bytenodeMain({ rootDir, appDir, mergedBuilderConfig });
+            await bytenodeMain({
+                rootDir,
+                appDir,
+                mergedBuilderConfig,
+                targetPlatform: ctx.cliOptions.platform,
+                targetArch: ctx.cliOptions.arch,
+            });
             logger.info('bytenode 字节码完成');
         }
 
