@@ -7,6 +7,10 @@ Desktop.ini
 ._DS_Store
 ._*
 .iflycode/*
+.agents
+.claude
+.codegraph
+.codex
 node_modules/
 !tests/fixtures/**/node_modules/
 !tests/fixtures/**/node_modules/**

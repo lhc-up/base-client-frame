@@ -63,7 +63,10 @@
       "Bash(NODE_OPTIONS=--experimental-vm-modules npx jest *)",
       "Bash(git *)",
       "Bash(npm rm *)",
-      "Bash(echo \"exit: $?\")"
+      "Bash(echo \"exit: $?\")",
+      "Bash(sed -n '20,25p' D:/Desktop/npm/base-client-frame/src/cli/commands/build.js)",
+      "Bash(sed -n '33,38p' D:/Desktop/npm/base-client-frame/src/cli/commands/pack.js)",
+      "Bash(sed -n '25,32p' D:/Desktop/npm/base-client-frame/src/cli/commands/child.js)"
     ]
   }
 }
