@@ -44,6 +44,43 @@ function compileOneShotConfigs(configs) {
     });
 }
 
+function createShutdown({
+    child,
+    devServer,
+    kill = killElectron,
+    exitProcess = process.exit,
+    timeoutMs = 5000,
+    setTimeoutFn = setTimeout,
+    clearTimeoutFn = clearTimeout,
+}) {
+    let pending;
+    return function shutdown(exitCode = 0) {
+        if (pending) return pending;
+        kill(child);
+        pending = (async () => {
+            let timeoutHandle;
+            const timeout = new Promise(resolve => {
+                timeoutHandle = setTimeoutFn(resolve, timeoutMs);
+            });
+            try {
+                await Promise.race([
+                    Promise.resolve().then(() => devServer.stop()).catch(() => {}),
+                    timeout,
+                ]);
+            } finally {
+                clearTimeoutFn(timeoutHandle);
+                exitProcess(exitCode);
+            }
+        })();
+        return pending;
+    };
+}
+
+function registerShutdownSignals(shutdown, processLike = process) {
+    processLike.on('SIGINT', () => shutdown(130));
+    processLike.on('SIGTERM', () => shutdown(143));
+}
+
 module.exports = {
     name: 'dev:app',
     description: '启动 Electron 三进程开发环境（main+preload 一次性编译，renderer HMR）',
@@ -86,13 +123,11 @@ module.exports = {
         child.stdout.on('data', (chunk) => process.stdout.write(chunk.toString('utf8')));
         child.stderr.on('data', (chunk) => process.stderr.write(chunk.toString('utf8')));
 
-        const shutdown = async (exitCode = 0) => {
-            killElectron(child);
-            try { await devServer.stop(); } catch {}
-            process.exit(exitCode);
-        };
+        const shutdown = createShutdown({ child, devServer });
 
         child.on('close', (code) => shutdown(code ?? 0));
-        process.on('SIGINT', () => shutdown(130));
+        registerShutdownSignals(shutdown);
     },
+    createShutdown,
+    registerShutdownSignals,
 };

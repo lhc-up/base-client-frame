@@ -21,4 +21,54 @@ describe('cli/commands/dev-app', () => {
     test('action 是 async function', () => {
         expect(cmd.action.constructor.name).toBe('AsyncFunction');
     });
+
+    test('shutdown 幂等且 dev-server stop 超时后仍按首次退出码结束', async () => {
+        let timeoutCallback;
+        const timeoutHandle = {};
+        const child = { pid: 123, exitCode: null };
+        const devServer = { stop: jest.fn(() => new Promise(() => {})) };
+        const kill = jest.fn();
+        const exitProcess = jest.fn();
+        const clearTimeoutFn = jest.fn();
+
+        expect(typeof cmd.createShutdown).toBe('function');
+        const shutdown = cmd.createShutdown({
+            child,
+            devServer,
+            kill,
+            exitProcess,
+            timeoutMs: 10,
+            setTimeoutFn: (callback) => {
+                timeoutCallback = callback;
+                return timeoutHandle;
+            },
+            clearTimeoutFn,
+        });
+        const first = shutdown(143);
+        const second = shutdown(0);
+        expect(second).toBe(first);
+        timeoutCallback();
+        await first;
+
+        expect(kill).toHaveBeenCalledTimes(1);
+        expect(devServer.stop).toHaveBeenCalledTimes(1);
+        expect(clearTimeoutFn).toHaveBeenCalledWith(timeoutHandle);
+        expect(exitProcess).toHaveBeenCalledWith(143);
+    });
+
+    test('注册 SIGINT 与 SIGTERM 到同一个 shutdown', () => {
+        const handlers = {};
+        const processLike = {
+            on: jest.fn((signal, handler) => { handlers[signal] = handler; }),
+        };
+        const shutdown = jest.fn();
+
+        expect(typeof cmd.registerShutdownSignals).toBe('function');
+        cmd.registerShutdownSignals(shutdown, processLike);
+        handlers.SIGINT();
+        handlers.SIGTERM();
+
+        expect(processLike.on.mock.calls.map(call => call[0])).toEqual(['SIGINT', 'SIGTERM']);
+        expect(shutdown.mock.calls).toEqual([[130], [143]]);
+    });
 });
