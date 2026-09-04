@@ -38,6 +38,7 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
             expect(fs.existsSync(path.join(fixtureDir, 'app/main/index.js'))).toBe(true);
             expect(fs.existsSync(path.join(fixtureDir, 'app/preload/index.js'))).toBe(true);
             expect(fs.existsSync(path.join(fixtureDir, 'app/renderer/index.js'))).toBe(true);
+            expect(fs.existsSync(path.join(fixtureDir, 'app/update/update.js'))).toBe(true);
 
             expect(fs.existsSync(path.join(fixtureDir, 'dist/shell/win-installer.nsh'))).toBe(true);
             expect(fs.existsSync(path.join(fixtureDir, 'dist/shell/deb-preinstall.sh'))).toBe(true);

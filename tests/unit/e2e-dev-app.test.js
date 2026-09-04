@@ -60,6 +60,7 @@ describe('E2E: dev:app 编排链路（mock spawn）', () => {
 
             expect(fs.existsSync(path.join(fixtureDir, 'app/main/index.js'))).toBe(true);
             expect(fs.existsSync(path.join(fixtureDir, 'app/preload/index.js'))).toBe(true);
+            expect(fs.existsSync(path.join(fixtureDir, 'app/update/update.js'))).toBe(true);
 
             expect(cp.spawn).toHaveBeenCalledTimes(1);
             const [exe, args, opts] = cp.spawn.mock.calls[0];

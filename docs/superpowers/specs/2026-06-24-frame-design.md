@@ -329,6 +329,12 @@ module.exports = (ctx) => ({
         /* 其它 webpack 字段 */
     },
 
+    // 需要不同 output.path 时也可使用数组；每项分别与 renderer 预设合并
+    // renderer: [
+    //     { name: 'update', entry: ..., output: { path: ... } },
+    //     { name: 'renderer', entry: ..., output: { path: ... }, devServer: {...} },
+    // ],
+
     // web target
     web: {
         entry: 'src/renderer/index.js',     // 默认即此（同构）
@@ -348,9 +354,9 @@ module.exports = (ctx) => ({
 
 | 字段 | 默认 | 说明 |
 |---|---|---|
-| `main / preload / renderer` | — | app target 三进程 webpack 覆盖 |
+| `main / preload / renderer` | — | app target 三进程 webpack 覆盖；`renderer` 可为单对象或对象数组 |
 | `renderer.entry` | `{ renderer: 'src/renderer/index.js' }` | 字符串或对象（多入口） |
-| `renderer.devServer` | — | 仅 `dev:app` 消费；其余命令忽略 |
+| `renderer.devServer` | — | 单对象时由 `dev:app` 消费；数组时必须恰有一项提供对象式 `devServer`，该项由 dev server 托管，其余 renderer 一次性编译；`pack`/`child` 忽略所有 `devServer` 元数据 |
 | `web` | — | web target 整体配置 |
 | `web.entry` | `'src/renderer/index.js'` | 同构默认 |
 | `web.devServer` | — | 仅 `dev:web` 消费 |

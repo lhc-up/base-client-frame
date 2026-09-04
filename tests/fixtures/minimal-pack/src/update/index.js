@@ -1,0 +1,1 @@
+globalThis.MINIMAL_UPDATE_RENDERER = true;

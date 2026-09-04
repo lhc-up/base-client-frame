@@ -5,6 +5,10 @@ const { MODES } = require('../../core/mode');
 const { TARGETS } = require('../../core/target');
 const { deriveBuildInfo } = require('../../core/build-info');
 const { resolveBuildConfig } = require('../../config/bc-config');
+const {
+    selectDevRendererConfigs,
+    withoutDevServer,
+} = require('../../config/build-config-list');
 const { resolveDevServerOptions, runDevServer } = require('../../webpack-runner/run-dev-server');
 const { resolveElectron } = require('../../electron/resolve-electron');
 const { resolveMainEntry } = require('../../electron/resolve-main-entry');
@@ -12,9 +16,9 @@ const { killElectron } = require('../../electron/kill-electron');
 const logger = require('../../core/logger');
 const { extractStatsSummary } = require('../../webpack-runner/format-stats');
 
-function compileMainPreload(mainConfig, preloadConfig) {
+function compileOneShotConfigs(configs) {
     return new Promise((resolve, reject) => {
-        const compiler = webpack([mainConfig, preloadConfig], (err, multiStats) => {
+        const compiler = webpack(configs, (err, multiStats) => {
             const finalize = (action) => compiler.close(() => action());
 
             if (err) {
@@ -24,7 +28,7 @@ function compileMainPreload(mainConfig, preloadConfig) {
             const stats = multiStats.stats;
             let failed = false;
             for (let i = 0; i < stats.length; i += 1) {
-                const sum = extractStatsSummary(stats[i], i === 0 ? 'main' : 'preload');
+                const sum = extractStatsSummary(stats[i], configs[i]?.name || `webpack-${i + 1}`);
                 if (sum.errorCount > 0) {
                     logger.compileFailure(sum.name);
                     console.error(stats[i].toString({ colors: true }));
@@ -58,12 +62,14 @@ module.exports = {
 
         const { main, preload, renderer } = resolveBuildConfig(ctx, pkgJson, buildInfo);
 
-        const { devServer: userDev = {}, ...rendererWebpack } = renderer;
+        const { served, oneShot } = selectDevRendererConfigs(renderer);
+        const { devServer: userDev = {} } = served;
+        const rendererWebpack = withoutDevServer(served);
         const devServerOptions = resolveDevServerOptions(ctx, userDev, { defaultPort: 8023 });
         const devUrl = `http://${devServerOptions.host}:${devServerOptions.port}/`;
 
         const [, devServer] = await Promise.all([
-            compileMainPreload(main, preload),
+            compileOneShotConfigs([main, preload, ...oneShot.map(withoutDevServer)]),
             runDevServer(rendererWebpack, devServerOptions, 'renderer', ctx),
         ]);
 

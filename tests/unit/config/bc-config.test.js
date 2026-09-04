@@ -107,13 +107,14 @@ describe('config/bc-config (app target)', () => {
     });
     afterAll(() => { fs.rmSync(fixtureDir, { recursive: true, force: true }); });
 
-    const appCtx = () => ({
+    const appCtx = (over = {}) => ({
         command: 'dev:app',
         target: 'app',
         mode: 'development',
         isDev: true, isProd: false, isApp: true, isWeb: false,
         cliOptions: { config: path.join(fixtureDir, 'bc.config.js') },
         env: { BC_ENV: 'prod' },
+        ...over,
     });
 
     test('target=app 时返回 { main, preload, renderer }', () => {
@@ -135,6 +136,41 @@ describe('config/bc-config (app target)', () => {
             { target: 'app' },
         );
         expect(renderer.devServer).toEqual({ port: 8023 });
+    });
+
+    test('renderer 数组逐项合并预设并保留独立输出目录', () => {
+        const configPath = path.join(fixtureDir, 'bc.multi-renderer.config.js');
+        const updateDir = path.join(fixtureDir, 'app/update');
+        const rendererDir = path.join(fixtureDir, 'app/renderer');
+        fs.writeFileSync(configPath, `
+            const renderer = [
+                { name: 'update', entry: { update: 'src/update/index.js' }, output: { path: ${JSON.stringify(updateDir)} } },
+                { name: 'renderer', entry: { main: 'src/electron.js' }, output: { path: ${JSON.stringify(rendererDir)} }, devServer: { port: 8023 } },
+            ];
+            module.exports = { main: {}, preload: {}, renderer };
+            module.exports.rendererInput = renderer;
+        `);
+        try {
+            const loaded = require(configPath);
+            const before = JSON.stringify(loaded.rendererInput);
+            const { renderer } = resolveBuildConfig(
+                appCtx({ cliOptions: { config: configPath } }),
+                { name: 'demo', version: '1.0.0' },
+                { target: 'app' },
+            );
+
+            expect(renderer).toHaveLength(2);
+            expect(renderer[0].target).toBe('web');
+            expect(renderer[0].name).toBe('update');
+            expect(renderer[0].output.path).toBe(updateDir);
+            expect(renderer[1].name).toBe('renderer');
+            expect(renderer[1].output.path).toBe(rendererDir);
+            expect(renderer[1].devServer).toEqual({ port: 8023 });
+            expect(JSON.stringify(loaded.rendererInput)).toBe(before);
+        } finally {
+            delete require.cache[configPath];
+            fs.rmSync(configPath, { force: true });
+        }
     });
 
     test('main.plugins 用户值 + 预设值合并（追加）', () => {

@@ -94,6 +94,7 @@ describe('E2E: child 命令独立（独立 fixture 避免 asar 文件句柄锁�
             expect(fs.existsSync(path.join(extractDir, 'main/index.js'))).toBe(true);
             expect(fs.existsSync(path.join(extractDir, 'preload/index.js'))).toBe(true);
             expect(fs.existsSync(path.join(extractDir, 'renderer/index.js'))).toBe(true);
+            expect(fs.existsSync(path.join(extractDir, 'update/update.js'))).toBe(true);
 
             const pkg = JSON.parse(fs.readFileSync(path.join(extractDir, 'package.json'), 'utf8'));
             expect(pkg.name).toBe('minimal-pack-child');

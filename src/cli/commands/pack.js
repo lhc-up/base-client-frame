@@ -4,6 +4,7 @@ const { MODES } = require('../../core/mode');
 const { TARGETS } = require('../../core/target');
 const { deriveBuildInfo } = require('../../core/build-info');
 const { resolveBuildConfig } = require('../../config/bc-config');
+const { collectProductionConfigs } = require('../../config/build-config-list');
 const { resolveBuilderConfig } = require('../../config/builder-config');
 const { runProductionBuild } = require('../../webpack-runner/run-build');
 const { adaptIcon } = require('../../pack/icon');
@@ -59,8 +60,7 @@ module.exports = {
         // 阶段 B · 代码构建
         fse.emptyDirSync(appDir);
         const { main, preload, renderer } = resolveBuildConfig(ctx, pkgJson, buildInfo);
-        const { devServer: _r, ...rendererWebpack } = renderer;
-        await runProductionBuild([main, preload, rendererWebpack], ctx);
+        await runProductionBuild(collectProductionConfigs({ main, preload, renderer }), ctx);
 
         // ⑩ AES 加密渲染层
         if (cryptoState.encrypted) {

@@ -6,6 +6,7 @@ const { getWebPreset } = require('./presets/web');
 const { getMainPreset } = require('./presets/main');
 const { getPreloadPreset } = require('./presets/preload');
 const { getRendererPreset } = require('./presets/renderer');
+const { mergeConfigList } = require('./build-config-list');
 const logger = require('../core/logger');
 
 const CONFIG_NAMES = ['bc.config.js', 'bc.config.cjs'];
@@ -54,7 +55,7 @@ function resolveBuildConfig(ctx, pkgJson, buildInfo) {
         return {
             main: webpackMerge(mainPreset, userConfig.main || {}),
             preload: webpackMerge(preloadPreset, userConfig.preload || {}),
-            renderer: webpackMerge(rendererPreset, userConfig.renderer || {}),
+            renderer: mergeConfigList(rendererPreset, userConfig.renderer),
         };
     }
 
