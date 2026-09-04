@@ -928,8 +928,8 @@ bc-frame installer --platform win --arch x64 --env prod
 **算法约定**（frame 与解密方契约）：
 
 - 算法：`aes-256-cbc`
-- 密钥：`build/encrypt.key` 文件内容（去除尾部换行），按 UTF-8 字符串处理；推荐 32 字符
-- IV：密钥字符串的前 16 字符
+- 密钥：`build/encrypt.key` 文件内容（去除尾部换行），必须恰好为 32 个 ASCII 字节
+- IV：默认取密钥前 16 字节；`bc.config.encrypt.iv` 可为 legacy 兼容显式提供 16 个 ASCII 字节
 - 数据：以二进制流式加密，输出二进制覆盖原文件
 
 **流程**（pack 阶段 B ⑩；child 阶段 B ⑥）：
