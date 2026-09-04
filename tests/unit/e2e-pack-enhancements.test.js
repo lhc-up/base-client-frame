@@ -9,6 +9,7 @@ const fixtureDir = path.join(__dirname, '../fixtures/minimal-pack-full');
 describe('E2E: pack 完整能力（encrypt + bytenode + incremental + 多入口）', () => {
     let oldCwd;
     const KEY = '0123456789abcdef0123456789abcdef';
+    const IV = 'fedcba9876543210';
 
     beforeAll(() => {
         oldCwd = process.cwd();
@@ -51,7 +52,7 @@ describe('E2E: pack 完整能力（encrypt + bytenode + incremental + 多入口�
         // 3. 渲染层加密
         const rendererJsPath = path.join(fixtureDir, 'app/renderer/index.js');
         const rendererBuf = fs.readFileSync(rendererJsPath);
-        const iv = Buffer.from(KEY.slice(0, 16), 'utf8');
+        const iv = Buffer.from(IV, 'utf8');
         const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(KEY, 'utf8'), iv);
         const decrypted = Buffer.concat([decipher.update(rendererBuf), decipher.final()]);
         expect(decrypted.length).toBeGreaterThan(0);
@@ -76,6 +77,7 @@ describe('E2E: pack 完整能力（encrypt + bytenode + incremental + 多入口�
         // 6. .asax 内 package.json 不含 encryptKey
         const pkgDescriptor = JSON.parse(fs.readFileSync(path.join(extractDir, 'package.json'), 'utf8'));
         expect(pkgDescriptor.encryptKey).toBeUndefined();
+        expect(pkgDescriptor.encryptIv).toBeUndefined();
         expect(pkgDescriptor.encrypted).toBe(true);
     }, 120000);
 
@@ -101,7 +103,7 @@ describe('E2E: pack 关闭加密 + 关闭 bytenode（独立 fixture）', () => {
         const cfgPath = path.join(offFixtureDir, 'bc.config.js');
         const original = fs.readFileSync(cfgPath, 'utf8');
         fs.writeFileSync(cfgPath, original
-            .replace('encrypt: true', 'encrypt: false')
+            .replace("encrypt: { iv: 'fedcba9876543210' }", 'encrypt: false')
             .replace('bytenode: true', 'bytenode: false'));
         // package.json 改名避免 require 缓存歧义
         const pkgPath = path.join(offFixtureDir, 'package.json');

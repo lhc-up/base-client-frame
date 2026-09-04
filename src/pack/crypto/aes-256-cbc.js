@@ -19,22 +19,40 @@ function normalizeKey(value) {
     };
 }
 
+function normalizeIv(value) {
+    const iv = Buffer.isBuffer(value) ? Buffer.from(value) : Buffer.from(String(value), 'utf8');
+    const isAscii = [...iv].every(byte => byte <= 0x7f);
+    if (!isAscii) {
+        throw new Error('AES-256-CBC IV 必须为 ASCII 字符');
+    }
+    if (iv.length !== IV_BYTES) {
+        throw new Error(`AES-256-CBC IV 必须恰好为 ${IV_BYTES} 字节，收到 ${iv.length} 字节`);
+    }
+    return iv;
+}
+
+function resolveKeyAndIv(keyValue, ivValue) {
+    const normalized = normalizeKey(keyValue);
+    if (ivValue !== undefined) normalized.iv = normalizeIv(ivValue);
+    return normalized;
+}
+
 function assertBuffer(value, name) {
     if (!Buffer.isBuffer(value)) {
         throw new TypeError(`${name} 必须是 Buffer`);
     }
 }
 
-function encryptBuffer(plain, keyValue) {
+function encryptBuffer(plain, keyValue, ivValue) {
     assertBuffer(plain, 'plain');
-    const { key, iv } = normalizeKey(keyValue);
+    const { key, iv } = resolveKeyAndIv(keyValue, ivValue);
     const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
     return Buffer.concat([cipher.update(plain), cipher.final()]);
 }
 
-function decryptBuffer(encrypted, keyValue) {
+function decryptBuffer(encrypted, keyValue, ivValue) {
     assertBuffer(encrypted, 'encrypted');
-    const { key, iv } = normalizeKey(keyValue);
+    const { key, iv } = resolveKeyAndIv(keyValue, ivValue);
     const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
     return Buffer.concat([decipher.update(encrypted), decipher.final()]);
 }
@@ -44,6 +62,7 @@ module.exports = {
     KEY_BYTES,
     IV_BYTES,
     normalizeKey,
+    normalizeIv,
     encryptBuffer,
     decryptBuffer,
 };

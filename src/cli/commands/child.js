@@ -37,7 +37,11 @@ module.exports = {
         await runProductionBuild(collectProductionConfigs({ main, preload, renderer }), ctx);
 
         if (cryptoState.encrypted) {
-            await encryptRenderer({ appDir, encryptKey: cryptoState.encryptKey });
+            await encryptRenderer({
+                appDir,
+                encryptKey: cryptoState.encryptKey,
+                encryptIv: cryptoState.encryptIv,
+            });
             logger.info('AES 加密完成');
         }
 

@@ -6,6 +6,7 @@ const { computeCryptoState, encryptRenderer } = require('../../../src/pack/encry
 
 const tmpRoot = path.join(__dirname, '../../tmp/encrypt');
 const KEY = '0123456789abcdef0123456789abcdef';
+const LEGACY_IV = 'fedcba9876543210';
 
 beforeEach(() => { fse.ensureDirSync(tmpRoot); });
 afterEach(() => { fse.removeSync(tmpRoot); });
@@ -57,6 +58,21 @@ describe('pack/encrypt.computeCryptoState', () => {
         fs.writeFileSync(path.join(tmpRoot, 'build/encrypt.key'), KEY + 'x');
         expect(() => computeCryptoState({ rootDir: tmpRoot, userConfig: {} })).toThrow(/32/);
     });
+
+    test('encrypt.iv 校验并只在内存 crypto state 中返回', () => {
+        fse.ensureDirSync(path.join(tmpRoot, 'build'));
+        fs.writeFileSync(path.join(tmpRoot, 'build/encrypt.key'), KEY);
+        const state = computeCryptoState({
+            rootDir: tmpRoot,
+            userConfig: { encrypt: { iv: LEGACY_IV } },
+        });
+        expect(state).toEqual({ encrypted: true, encryptKey: KEY, encryptIv: LEGACY_IV });
+
+        expect(() => computeCryptoState({
+            rootDir: tmpRoot,
+            userConfig: { encrypt: { iv: 'short' } },
+        })).toThrow(/16/);
+    });
 });
 
 describe('pack/encrypt.encryptRenderer', () => {
@@ -97,6 +113,23 @@ describe('pack/encrypt.encryptRenderer', () => {
         const iv = Buffer.from(KEY.slice(0, 16), 'utf8');
         const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(KEY, 'utf8'), iv);
         const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
+        expect(decrypted).toBe(original);
+    });
+
+    test('显式 legacy IV 加密后可由相同 IV 解密', async () => {
+        const appDir = path.join(tmpRoot, 'app');
+        fse.ensureDirSync(path.join(appDir, 'renderer'));
+        const original = 'console.log("legacy iv");';
+        const filePath = path.join(appDir, 'renderer/index.js');
+        fs.writeFileSync(filePath, original);
+
+        await encryptRenderer({ appDir, encryptKey: KEY, encryptIv: LEGACY_IV });
+
+        const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(KEY), Buffer.from(LEGACY_IV));
+        const decrypted = Buffer.concat([
+            decipher.update(fs.readFileSync(filePath)),
+            decipher.final(),
+        ]).toString('utf8');
         expect(decrypted).toBe(original);
     });
 

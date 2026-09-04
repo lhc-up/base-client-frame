@@ -344,7 +344,7 @@ module.exports = (ctx) => ({
     },
 
     // pack 能力开关（顶层布尔；缺省即默认全开）
-    encrypt:     true,
+    encrypt:     true, // 或 { iv: '16 个 ASCII 字节' } 兼容既有独立 IV
     bytenode:    true,
     incremental: true,
 });
@@ -360,7 +360,7 @@ module.exports = (ctx) => ({
 | `web` | — | web target 整体配置 |
 | `web.entry` | `'src/renderer/index.js'` | 同构默认 |
 | `web.devServer` | — | 仅 `dev:web` 消费 |
-| `encrypt` | `true` | false 跳过加密 + 不注入 encryptKey；true 时 `build/encrypt.key` 缺失抛错 |
+| `encrypt` | `true` | false 跳过加密 + 不注入 encryptKey；true 时使用 key 前 16 字节作 IV；`{ iv }` 可显式提供 16 个 ASCII 字节；`build/encrypt.key` 缺失抛错 |
 | `bytenode` | `true` | false 跳过主进程字节码 |
 | `incremental` | `true` | false 跳过 .asax 产出；`child` 命令下此字段被忽略 |
 

@@ -65,7 +65,11 @@ module.exports = {
         // ⑩ AES 加密渲染层
         if (cryptoState.encrypted) {
             const { encryptRenderer } = require('../../pack/encrypt');
-            await encryptRenderer({ appDir, encryptKey: cryptoState.encryptKey });
+            await encryptRenderer({
+                appDir,
+                encryptKey: cryptoState.encryptKey,
+                encryptIv: cryptoState.encryptIv,
+            });
             logger.info('AES 加密完成');
         }
 

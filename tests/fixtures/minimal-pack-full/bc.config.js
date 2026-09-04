@@ -11,7 +11,7 @@ module.exports = (ctx) => ({
             new HtmlWebpackPlugin({ template: 'src/renderer/index.html', filename: 'update.html', chunks: ['update'] }),
         ],
     },
-    encrypt: true,
+    encrypt: { iv: 'fedcba9876543210' },
     bytenode: true,
     incremental: true,
 });
