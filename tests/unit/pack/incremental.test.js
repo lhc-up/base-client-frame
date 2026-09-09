@@ -18,6 +18,7 @@ describe('pack/incremental', () => {
         fse.ensureDirSync(path.join(appDir, 'renderer'));
         fse.ensureDirSync(path.join(appDir, 'preload'));
         fs.writeFileSync(path.join(appDir, 'main/index.js'), 'main');
+        fs.writeFileSync(path.join(appDir, 'communication-contract.json'), JSON.stringify({ contract: 'service-notice-v1', version: 1 }));
         fs.writeFileSync(path.join(appDir, 'renderer/index.js'), 'renderer');
         fs.writeFileSync(path.join(appDir, 'preload/index.js'), 'preload');
 
@@ -38,6 +39,8 @@ describe('pack/incremental', () => {
         expect(fs.existsSync(path.join(extractDir, 'renderer/index.js'))).toBe(true);
         expect(fs.existsSync(path.join(extractDir, 'preload/index.js'))).toBe(true);
         expect(fs.existsSync(path.join(extractDir, 'main'))).toBe(false);
+        expect(JSON.parse(fs.readFileSync(path.join(extractDir, 'communication-contract.json'), 'utf8')))
+            .toEqual({ contract: 'service-notice-v1', version: 1 });
         const pkg = JSON.parse(fs.readFileSync(path.join(extractDir, 'package.json'), 'utf8'));
         expect(pkg.name).toBe('demo');
         expect(pkg.version).toBe('1.2.3');

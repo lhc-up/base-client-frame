@@ -13,6 +13,11 @@ async function buildIncrementalAsax({ appDir, distDir, buildInfo }) {
             await fse.copy(path.join(appDir, ent.name), path.join(tmpDir, ent.name));
         }
 
+        const communicationContract = path.join(appDir, 'communication-contract.json');
+        if (fse.existsSync(communicationContract)) {
+            await fse.copy(communicationContract, path.join(tmpDir, 'communication-contract.json'));
+        }
+
         const descriptor = derivePackageDescriptor(buildInfo);
         fse.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify(descriptor, null, 2));
 
