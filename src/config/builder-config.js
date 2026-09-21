@@ -41,7 +41,7 @@ function preloadBuilderConfig(ctx) {
 function enforceDistOutput(mergedConfig) {
     const cur = mergedConfig.directories?.output;
     if (cur && cur !== 'dist') {
-        logger.warn(`electron-builder.config.directories.output 被显式配置为 "${cur}"，但 frame 强制使用 "dist"（设计约定，见 frame-design.md §1.3）；已覆盖回 "dist"。`);
+        logger.warn(`electron-builder.config.directories.output 被显式配置为 "${cur}"，但 frame 强制使用 "dist"（设计约定，见 docs/design/architecture.md）；已覆盖回 "dist"。`);
     }
     mergedConfig.directories = { ...(mergedConfig.directories || {}), output: 'dist' };
 }
