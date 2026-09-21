@@ -1,14 +1,19 @@
 {
     "name": "@base-client/frame",
     "version": "0.0.1",
-    "description": "Base Client Framework",
+    "description": "Electron 客户端工程化构建框架",
     "type": "commonjs",
     "main": "src/index.js",
+    "exports": {
+        ".": "./src/index.js",
+        "./package.json": "./package.json"
+    },
     "bin": {
         "base-client": "./bin/base-client.js"
     },
     "private": false,
     "author": "lhc-up",
+    "license": "ISC",
     "engines": {
         "node": ">=18.12.0"
     },
