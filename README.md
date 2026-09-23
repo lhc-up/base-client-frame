@@ -55,6 +55,7 @@ const {
 ## 构建产物契约
 
 - [加密构建产物契约](docs/crypto-artifact-contract.md)
+- [证书文件契约](docs/certificate-artifact-contract.md)
 - [bytenode 构建产物契约](docs/bytenode-artifact-contract.md)
 - [构建目标解析契约](docs/build-target-resolution-contract.md)
 
