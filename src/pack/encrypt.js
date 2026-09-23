@@ -2,25 +2,21 @@ const path = require('path');
 const fse = require('fs-extra');
 const { normalizeKey, normalizeIv, encryptBuffer } = require('./crypto/aes-256-cbc');
 
-function computeCryptoState({ rootDir, userConfig }) {
+function computeCryptoState({ userConfig }) {
     if (userConfig.encrypt === false) return { encrypted: false };
 
-    const keyPath = path.join(rootDir, 'build/encrypt.key');
-    if (!fse.existsSync(keyPath)) {
-        throw new Error(`[base-client] 启用了 encrypt 但未找到 build/encrypt.key，请提供密钥文件或在 bc.config.js 设 encrypt: false`);
+    const encryptConfig = userConfig.encrypt;
+    if (!encryptConfig || typeof encryptConfig !== 'object' || !encryptConfig.key) {
+        throw new Error('[base-client] encrypt.key is required when encryption is enabled');
     }
 
-    const encryptKey = fse.readFileSync(keyPath, 'utf8').replace(/\r?\n$/, '');
-    const encryptIv = (
-        userConfig.encrypt && typeof userConfig.encrypt === 'object'
-            ? userConfig.encrypt.iv
-            : undefined
-    );
+    const encryptKey = String(encryptConfig.key).replace(/\r?\n$/, '');
+    const encryptIv = encryptConfig.iv;
     try {
         normalizeKey(encryptKey);
         if (encryptIv !== undefined) normalizeIv(encryptIv);
     } catch (err) {
-        throw new Error(`[base-client] encrypt 配置无效：${err.message}`);
+        throw new Error(`[base-client] encrypt config invalid: ${err.message}`);
     }
     return {
         encrypted: true,

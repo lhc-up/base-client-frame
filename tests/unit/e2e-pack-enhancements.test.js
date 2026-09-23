@@ -103,7 +103,7 @@ describe('E2E: pack 关闭加密 + 关闭 bytenode（独立 fixture）', () => {
         const cfgPath = path.join(offFixtureDir, 'bc.config.js');
         const original = fs.readFileSync(cfgPath, 'utf8');
         fs.writeFileSync(cfgPath, original
-            .replace("encrypt: { iv: 'fedcba9876543210' }", 'encrypt: false')
+            .replace("encrypt: { key: '0123456789abcdef0123456789abcdef', iv: 'fedcba9876543210' }", 'encrypt: false')
             .replace('bytenode: true', 'bytenode: false'));
         // package.json 改名避免 require 缓存歧义
         const pkgPath = path.join(offFixtureDir, 'package.json');

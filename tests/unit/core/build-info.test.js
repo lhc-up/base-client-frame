@@ -10,7 +10,7 @@ const baseCtx = (over = {}) => ({
 });
 
 describe('core/build-info', () => {
-    test('web 命令派生：app-only 字段取缺省值', () => {
+    test('web command emits app-only fields as defaults', () => {
         const info = deriveBuildInfo(baseCtx(), pkgJson);
         expect(info.target).toBe('web');
         expect(info.name).toBe('demo');
@@ -28,17 +28,17 @@ describe('core/build-info', () => {
         expect(info.encryptKey).toBeUndefined();
     });
 
-    test('productName 缺失时回退 name', () => {
+    test('falls back to name when productName is missing', () => {
         const info = deriveBuildInfo(baseCtx(), { name: 'demo', version: '1.0.0' });
         expect(info.productName).toBe('demo');
     });
 
-    test('envName 来自 BC_ENV_NAME', () => {
-        const info = deriveBuildInfo(baseCtx({ env: { BC_ENV: 'prod', BC_ENV_NAME: '生产' } }), pkgJson);
-        expect(info.envName).toBe('生产');
+    test('reads envName from BC_ENV_NAME', () => {
+        const info = deriveBuildInfo(baseCtx({ env: { BC_ENV: 'prod', BC_ENV_NAME: 'production' } }), pkgJson);
+        expect(info.envName).toBe('production');
     });
 
-    test('pack 命令派生：app-only 字段从 cliOptions 取', () => {
+    test('pack command derives app-only fields from cliOptions', () => {
         const info = deriveBuildInfo(
             baseCtx({
                 target: 'app',
@@ -55,7 +55,7 @@ describe('core/build-info', () => {
         expect(info.child).toBe(false);
     });
 
-    test('child 命令派生：child=true，platform/arch=undefined，dir/sign=false', () => {
+    test('child command sets child=true and leaves platform/arch unset', () => {
         const info = deriveBuildInfo(
             baseCtx({ target: 'app', command: 'child', cliOptions: {} }),
             pkgJson,
@@ -67,7 +67,7 @@ describe('core/build-info', () => {
         expect(info.sign).toBe(false);
     });
 
-    test('encrypted/encryptKey 由外部传入（来自 bc.config + build/encrypt.key）', () => {
+    test('accepts encrypted state supplied by the frame config pipeline', () => {
         const info = deriveBuildInfo(
             baseCtx({ target: 'app', command: 'pack' }),
             pkgJson,
@@ -77,7 +77,7 @@ describe('core/build-info', () => {
         expect(info.encryptKey).toBe('0123456789abcdef0123456789abcdef');
     });
 
-    test('encrypted=false 时 encryptKey 不出现于结果（即使被传入）', () => {
+    test('does not expose encryptKey when encryption is disabled', () => {
         const info = deriveBuildInfo(
             baseCtx({ target: 'app', command: 'pack' }),
             pkgJson,
