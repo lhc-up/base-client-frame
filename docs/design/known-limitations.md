@@ -25,6 +25,23 @@
   - 是否调整（例如把 `buildTime` 从整体对象定义中排除，或在文档中提示）属 frame 的设计选择。
   - 提出方：`questionnaire-answer-v3.0` 迁移项目（2026-09-29）。
 
+- **`dev:app` 用 `RENDERER_DEV_URL` 环境变量把 dev-server 地址传给主进程，但该契约未文档化**：
+  `dev:app` 在 spawn Electron 时注入 `RENDERER_DEV_URL`（`src/cli/commands/dev-app.js:120`，
+  值形如 `http://localhost:8023/`），主进程必须读它才知道该加载哪个地址。
+  但 `docs/` 下对此**零记载**（`grep -rn "RENDERER_DEV_URL" docs/` 无命中），
+  业务只能靠读 frame 源码才能让 `dev:app` 跑起来——而这是该命令可用的必要条件。
+  - 复现：按文档接入 frame 的客户端项目，实现 `BaseWindow` 子类的 `getPageUrl()` 时
+    无从得知 dev 地址来源；若改读 `BC_*` 形式的变量则永远取不到值
+    （`userEnvPlugin` 只替换 `BC_` 前缀，`src/config/presets/user-env-plugin.js:6`）。
+  - **补文档是底线，但更建议换提供方式**：环境变量这种形态迫使业务主进程直接读
+    `process.env`，与"构建信息统一经 `__BC_BUILD__` 出口"的既有设计不一致——
+    消费方为此要专门写注释解释这个例外。建议把 devUrl 加进 `deriveBuildInfo`、
+    注入为 `__BC_BUILD__.rendererDevUrl`，业务即可与其他构建信息同一出口取值。
+    可行性已查：`deriveBuildInfo` 目前在 `resolveBuildConfig` 之前调用、
+    `devServerOptions` 在之后，两者无依赖关系，重排 `dev-app.js` 的顺序即可。
+  - 采用哪种方式属 frame 的设计选择，此处只记录缺口。
+  - 提出方：`questionnaire-answer-v3.0` 迁移项目（2026-10-04）。
+
 ## 演进事项（非缺陷）
 
 - **webpack 预设规整**：main 不处理资源、共用配置抽取等结构性优化尚未排期。
