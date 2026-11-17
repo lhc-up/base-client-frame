@@ -1,7 +1,7 @@
 const { derivePackageDescriptor } = require('../../../src/pack/package-descriptor');
 
 describe('pack/package-descriptor', () => {
-    test('取 12 字段（含 child / encrypted），不含 encryptKey', () => {
+    test('取 11 字段（含 encrypted），不含 encryptKey / target / child', () => {
         const buildInfo = {
             target: 'app',
             name: 'demo',
@@ -14,7 +14,6 @@ describe('pack/package-descriptor', () => {
             arch: 'x64',
             dir: false,
             sign: true,
-            child: false,
             encrypted: true,
             encryptKey: 'SECRET_KEY_THIS_SHOULD_NOT_LEAK',
         };
@@ -30,33 +29,17 @@ describe('pack/package-descriptor', () => {
             arch: 'x64',
             dir: false,
             sign: true,
-            child: false,
             encrypted: true,
         });
         expect('encryptKey' in d).toBe(false);
         expect('target' in d).toBe(false);
+        expect('child' in d).toBe(false);
     });
 
-    test('child 命令产物：child=true，platform/arch 为 undefined（保留键）', () => {
-        const buildInfo = {
-            target: 'app',
-            name: 'child-app',
-            productName: 'Child App',
-            version: '2.0.0',
-            env: 'prod',
-            envName: undefined,
-            buildTime: 1700000000000,
-            platform: undefined,
-            arch: undefined,
-            dir: false,
-            sign: false,
-            child: true,
-            encrypted: false,
-        };
-        const d = derivePackageDescriptor(buildInfo);
-        expect(d.child).toBe(true);
-        expect(d.platform).toBeUndefined();
-        expect(d.arch).toBeUndefined();
+    test('platform/arch 为 undefined 时保留键', () => {
+        const d = derivePackageDescriptor({
+            name: 'demo', version: '2.0.0', env: 'prod', platform: undefined, arch: undefined,
+        });
         expect('platform' in d).toBe(true);
         expect('arch' in d).toBe(true);
     });

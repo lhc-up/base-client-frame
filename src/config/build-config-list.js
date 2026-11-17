@@ -14,8 +14,13 @@ function withoutDevServer(config) {
     return webpackConfig;
 }
 
+/**
+ * 汇总一次生产构建的 webpack 配置。未传入的分段（如 --pkg-only 下的 preload）跳过。
+ */
 function collectProductionConfigs({ main, preload, renderer }) {
-    return [main, preload, ...toConfigList(renderer)].map(withoutDevServer);
+    return [main, preload, ...(renderer ? toConfigList(renderer) : [])]
+        .filter(Boolean)
+        .map(withoutDevServer);
 }
 
 function selectDevRendererConfigs(renderer) {

@@ -6,7 +6,7 @@ const asar = require('@electron/asar');
 
 const fixtureDir = path.join(__dirname, '../fixtures/minimal-pack-full');
 
-describe('E2E: pack 完整能力（encrypt + bytenode + incremental + 多入口）', () => {
+describe('E2E: pack 完整能力（encrypt + bytenode + 更新包 + 多入口）', () => {
     let oldCwd;
     const KEY = '0123456789abcdef0123456789abcdef';
     const IV = 'fedcba9876543210';
@@ -30,7 +30,7 @@ describe('E2E: pack 完整能力（encrypt + bytenode + incremental + 多入口�
         delete require.cache[path.join(fixtureDir, 'node_modules/electron-builder/out/index.js')];
     });
 
-    test('pack 全开：渲染层加密 + bytenode loader + .asax 含 update 入口', async () => {
+    test('pack 全开：渲染层加密 + bytenode loader + 更新包含 update 入口', async () => {
         const cmd = require('../../src/cli/commands/pack');
         const { runCommand } = require('../../src/cli/index');
 
@@ -64,31 +64,34 @@ describe('E2E: pack 完整能力（encrypt + bytenode + incremental + 多入口�
         const decipher2 = crypto.createDecipheriv('aes-256-cbc', Buffer.from(KEY, 'utf8'), iv);
         Buffer.concat([decipher2.update(updateBuf), decipher2.final()]);
 
-        // 5. .asax 产出
-        const asaxPath = path.join(fixtureDir, 'dist/prod-v1.0.0.asax');
-        expect(fs.existsSync(asaxPath)).toBe(true);
+        // 5. 更新包产出：描述文件 + main/pkg.js + renderer/，不含宿主主进程与 preload
+        const pkgName = JSON.parse(fs.readFileSync(path.join(fixtureDir, 'package.json'), 'utf8')).name;
+        const pkgPath = path.join(fixtureDir, `dist/${pkgName}-prod-v1.0.0.asar`);
+        expect(fs.existsSync(pkgPath)).toBe(true);
         const extractDir = path.join(fixtureDir, 'dist/_extract');
-        asar.extractAll(asaxPath, extractDir);
+        asar.extractAll(pkgPath, extractDir);
         expect(fs.existsSync(path.join(extractDir, 'renderer/index.js'))).toBe(true);
         expect(fs.existsSync(path.join(extractDir, 'renderer/update.js'))).toBe(true);
-        expect(fs.existsSync(path.join(extractDir, 'preload/index.js'))).toBe(true);
-        expect(fs.existsSync(path.join(extractDir, 'main'))).toBe(false);
+        expect(fs.existsSync(path.join(extractDir, 'main/pkg.js'))).toBe(true);
+        expect(fs.existsSync(path.join(extractDir, 'main/index.jsc'))).toBe(false);
+        expect(fs.existsSync(path.join(extractDir, 'preload'))).toBe(false);
 
-        // 6. .asax 内 package.json 不含 encryptKey
+        // 6. 更新包内 package.json 不含 encryptKey
         const pkgDescriptor = JSON.parse(fs.readFileSync(path.join(extractDir, 'package.json'), 'utf8'));
         expect(pkgDescriptor.encryptKey).toBeUndefined();
         expect(pkgDescriptor.encryptIv).toBeUndefined();
         expect(pkgDescriptor.encrypted).toBe(true);
     }, 120000);
 
-    test('pack --dir：不产 .asax', async () => {
+    test('pack --dir：仍产出更新包（作为内置包）', async () => {
         const cmd = require('../../src/cli/commands/pack');
         const { runCommand } = require('../../src/cli/index');
 
         await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64', dir: true });
 
-        const asaxPath = path.join(fixtureDir, 'dist/prod-v1.0.0.asax');
-        expect(fs.existsSync(asaxPath)).toBe(false);
+        const pkgName = JSON.parse(fs.readFileSync(path.join(fixtureDir, 'package.json'), 'utf8')).name;
+        expect(fs.existsSync(path.join(fixtureDir, `dist/${pkgName}-prod-v1.0.0.asar`))).toBe(true);
+        expect(fs.existsSync(path.join(fixtureDir, 'dist/prod-v1.0.0.asax'))).toBe(false);
     }, 120000);
 
 });

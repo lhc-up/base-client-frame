@@ -12,7 +12,6 @@ const COMMANDS = [
     require('./commands/dev-app'),
     require('./commands/pack'),
     require('./commands/installer'),
-    require('./commands/child'),
 ];
 
 function applyBcEnvFallback(env, cliOptions) {

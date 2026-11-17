@@ -13,5 +13,4 @@ module.exports = (ctx) => ({
     },
     encrypt: { key: '0123456789abcdef0123456789abcdef', iv: 'fedcba9876543210' },
     bytenode: true,
-    incremental: true,
 });

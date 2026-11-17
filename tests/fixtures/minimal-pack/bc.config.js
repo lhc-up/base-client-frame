@@ -14,5 +14,4 @@ module.exports = (ctx) => ({
     ],
     encrypt: false,
     bytenode: false,
-    incremental: false,
 });

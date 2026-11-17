@@ -104,8 +104,16 @@ describe('config/bc-config (app target)', () => {
                 renderer: { devServer: { port: 8023 } },
             });
         `);
+        fs.mkdirSync(path.join(fixtureDir, 'src/main'), { recursive: true });
+        fs.writeFileSync(path.join(fixtureDir, 'src/main/pkg.js'), 'module.exports = {};\n');
+        oldCwd = process.cwd();
+        process.chdir(fixtureDir);
     });
-    afterAll(() => { fs.rmSync(fixtureDir, { recursive: true, force: true }); });
+    afterAll(() => {
+        process.chdir(oldCwd);
+        fs.rmSync(fixtureDir, { recursive: true, force: true });
+    });
+    let oldCwd;
 
     const appCtx = (over = {}) => ({
         command: 'dev:app',
@@ -115,6 +123,30 @@ describe('config/bc-config (app target)', () => {
         cliOptions: { config: path.join(fixtureDir, 'bc.config.js') },
         env: { BC_ENV: 'prod' },
         ...over,
+    });
+
+    test('缺少 src/main/pkg.js 时报错', () => {
+        const pkgEntry = path.join(fixtureDir, 'src/main/pkg.js');
+        fs.renameSync(pkgEntry, pkgEntry + '.bak');
+        try {
+            expect(() => resolveBuildConfig(
+                appCtx(),
+                { name: 'demo', version: '1.0.0' },
+                { target: 'app', name: 'demo', version: '1.0.0', env: 'prod', encrypted: false },
+            )).toThrow(/src\/main\/pkg\.js/);
+        } finally {
+            fs.renameSync(pkgEntry + '.bak', pkgEntry);
+        }
+    });
+
+    test('main 一份配置含宿主与包两个入口', () => {
+        const all = resolveBuildConfig(
+            appCtx(),
+            { name: 'demo', version: '1.0.0' },
+            { target: 'app', name: 'demo', version: '1.0.0', env: 'prod', encrypted: false },
+        );
+        expect(Object.keys(all.main.entry)).toEqual(['index', 'pkg']);
+        expect(all.pkgMain).toBeUndefined();
     });
 
     test('target=app 时返回 { main, preload, renderer }', () => {

@@ -56,7 +56,8 @@ function createShutdown({
     let pending;
     return function shutdown(exitCode = 0) {
         if (pending) return pending;
-        kill(child);
+        // --pkg-only 不启动 electron，没有子进程
+        if (child) kill(child);
         pending = (async () => {
             let timeoutHandle;
             const timeout = new Promise(resolve => {
@@ -91,6 +92,7 @@ module.exports = {
     options: [
         ['--port <n>', 'renderer dev-server 端口（默认 8023，与 dev:web 的 9000 错开避免冲突）'],
         ['--host <host>', 'renderer dev-server host（默认 localhost）'],
+        ['--pkg-only', '只编译包主进程并启动页面 dev server，不启动 electron（供其他宿主联调加载）'],
     ],
     action: async (ctx) => {
         const rootDir = process.cwd();
@@ -98,6 +100,7 @@ module.exports = {
         const buildInfo = deriveBuildInfo(ctx, pkgJson);
 
         const { main, preload, renderer } = resolveBuildConfig(ctx, pkgJson, buildInfo);
+        const pkgOnly = !!ctx.cliOptions.pkgOnly;
 
         const { served, oneShot } = selectDevRendererConfigs(renderer);
         const { devServer: userDev = {} } = served;
@@ -105,10 +108,23 @@ module.exports = {
         const devServerOptions = resolveDevServerOptions(ctx, userDev, { defaultPort: 8023 });
         const devUrl = `http://${devServerOptions.host}:${devServerOptions.port}/`;
 
+        // --pkg-only 时 main 预设只保留 pkg 入口，且不编译 preload
+        const oneShotConfigs = pkgOnly
+            ? [main, ...oneShot.map(withoutDevServer)]
+            : [main, preload, ...oneShot.map(withoutDevServer)];
         const [, devServer] = await Promise.all([
-            compileOneShotConfigs([main, preload, ...oneShot.map(withoutDevServer)]),
+            compileOneShotConfigs(oneShotConfigs),
             runDevServer(rendererWebpack, devServerOptions, 'renderer', ctx),
         ]);
+
+        if (pkgOnly) {
+            logger.info(`包主进程：${path.join(rootDir, 'app/main/pkg.js')}`);
+            logger.info(`页面 dev server：${devUrl}`);
+            logger.info('由宿主按开发覆盖项加载；主进程改动需重新执行本命令并重启宿主');
+            const shutdown = createShutdown({ child: null, devServer });
+            registerShutdownSignals(shutdown);
+            return;
+        }
 
         const electronExe = await resolveElectron(rootDir);
         const mainEntry = resolveMainEntry(rootDir);

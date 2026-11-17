@@ -56,6 +56,21 @@ describe('cli/commands/dev-app', () => {
         expect(exitProcess).toHaveBeenCalledWith(143);
     });
 
+    test('--pkg-only 无子进程：shutdown 不调用 kill，只停 dev-server 并退出', async () => {
+        const devServer = { stop: jest.fn(async () => {}) };
+        const kill = jest.fn();
+        const exitProcess = jest.fn();
+        const shutdown = cmd.createShutdown({ child: null, devServer, kill, exitProcess });
+        await shutdown(130);
+        expect(kill).not.toHaveBeenCalled();
+        expect(devServer.stop).toHaveBeenCalledTimes(1);
+        expect(exitProcess).toHaveBeenCalledWith(130);
+    });
+
+    test('options 含 --pkg-only', () => {
+        expect(cmd.options.map(o => o[0])).toContain('--pkg-only');
+    });
+
     test('注册 SIGINT 与 SIGTERM 到同一个 shutdown', () => {
         const handlers = {};
         const processLike = {

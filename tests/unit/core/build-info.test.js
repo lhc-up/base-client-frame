@@ -23,7 +23,7 @@ describe('core/build-info', () => {
         expect(info.arch).toBeUndefined();
         expect(info.dir).toBe(false);
         expect(info.sign).toBe(false);
-        expect(info.child).toBe(false);
+        expect('child' in info).toBe(false);
         expect(info.encrypted).toBe(false);
         expect(info.encryptKey).toBeUndefined();
     });
@@ -52,19 +52,6 @@ describe('core/build-info', () => {
         expect(info.arch).toBe('x64');
         expect(info.dir).toBe(true);
         expect(info.sign).toBe(true);
-        expect(info.child).toBe(false);
-    });
-
-    test('child command sets child=true and leaves platform/arch unset', () => {
-        const info = deriveBuildInfo(
-            baseCtx({ target: 'app', command: 'child', cliOptions: {} }),
-            pkgJson,
-        );
-        expect(info.child).toBe(true);
-        expect(info.platform).toBeUndefined();
-        expect(info.arch).toBeUndefined();
-        expect(info.dir).toBe(false);
-        expect(info.sign).toBe(false);
     });
 
     test('accepts encrypted state supplied by the frame config pipeline', () => {

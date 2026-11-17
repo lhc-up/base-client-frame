@@ -6,7 +6,6 @@ function deriveBuildInfo(ctx, pkgJson, cryptoState = {}) {
 
     const isApp = target === TARGETS.APP;
     const isPack = command === 'pack';
-    const isChild = command === 'child';
 
     return {
         target,
@@ -20,7 +19,6 @@ function deriveBuildInfo(ctx, pkgJson, cryptoState = {}) {
         arch: isPack ? cliOptions.arch : undefined,
         dir: isPack ? !!cliOptions.dir : false,
         sign: isPack ? !!cliOptions.sign : false,
-        child: isChild,
         encrypted: isApp ? !!encrypted : false,
         encryptKey: (isApp && encrypted) ? encryptKey : undefined,
     };

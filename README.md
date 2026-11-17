@@ -10,9 +10,8 @@ Electron 客户端工程化构建框架。业务项目主要提供 `bc.config.js
 | `dev:web` | web / development | 启动 webpack-dev-server |
 | `build` | web / production | 产出 Web 发布包 |
 | `dev:app` | app / development | 编译 main/preload/renderer 并启动 Electron |
-| `pack` | app / production | 编译、加密/增量/bytenode，并调用 electron-builder |
+| `pack` | app / production | 编译、加密/更新包/bytenode，并调用 electron-builder；`--pkg-only` 只产出更新包 |
 | `installer` | app / production | 复用 `pack --dir` 产出的 unpacked 目录生成安装器 |
-| `child` | app / production | 产出子进程 asar 和 descriptor |
 
 全局选项：`--env <name>`、`--config <path>`、`--pack-config <path>`、`--debug`。
 
@@ -31,9 +30,11 @@ module.exports = () => ({
         iv: 'fedcba9876543210',                  // 可选，16 个 ASCII 字节
     },
     bytenode: false,
-    incremental: false,
 });
 ```
+
+客户端由宿主与包组成，项目必须提供 `src/main/pkg.js`（包主进程入口）。`main` 片段同时作用于
+宿主（`src/main/index.js`）与包（`src/main/pkg.js`）两个入口（一次编译）。产物契约见 `docs/pkg-contract.md`。
 
 加密 key 只从 `bc.config.js` 的 `encrypt.key` 读取，不读取环境变量，也不读取
 `build/encrypt.key`。启用加密但缺少 key 时构建直接失败；`encrypt: false` 可显式关闭加密。

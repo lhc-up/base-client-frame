@@ -10,7 +10,6 @@ function derivePackageDescriptor(buildInfo) {
         arch: buildInfo.arch,
         dir: buildInfo.dir,
         sign: buildInfo.sign,
-        child: buildInfo.child,
         encrypted: buildInfo.encrypted,
     };
 }

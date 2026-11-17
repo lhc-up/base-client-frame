@@ -28,7 +28,7 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
         delete require.cache[ebPath];
     });
 
-    test('pack 跑通：app/ 三进程产物 + dist/shell/* + 调 electron-builder.build', async () => {
+    test('pack 跑通：app/ 宿主 + 包产物 + dist/shell/* + 调 electron-builder.build', async () => {
         const cmd = require('../../src/cli/commands/pack');
         const { runCommand } = require('../../src/cli/index');
         const infoSpy = jest.spyOn(require('../../src/core/logger'), 'info').mockImplementation(() => {});

@@ -18,15 +18,21 @@ describe('config/presets/main', () => {
     test('target=electron-main, entry/output 正确', () => {
         const p = getMainPreset(baseCtx(), pkgJson, buildInfo);
         expect(p.target).toBe('electron-main');
-        expect(p.entry).toContain(path.join('src', 'main', 'index.js'));
+        expect(p.entry.index).toContain(path.join('src', 'main', 'index.js'));
+        expect(p.entry.pkg).toContain(path.join('src', 'main', 'pkg.js'));
         expect(p.output.path).toContain(path.join('app', 'main'));
-        expect(p.output.filename).toBe('index.js');
+        expect(p.output.filename).toBe('[name].js');
         expect(p.output.libraryTarget).toBe('commonjs2');
     });
 
-    test('externals 含 electron commonjs', () => {
+    test('externals 为数组，含 electron commonjs（业务追加项按数组拼接）', () => {
         const p = getMainPreset(baseCtx(), pkgJson, buildInfo);
-        expect(p.externals).toEqual({ electron: 'commonjs electron' });
+        expect(p.externals).toEqual([{ electron: 'commonjs electron' }]);
+    });
+
+    test('--pkg-only 只保留 pkg 入口', () => {
+        const p = getMainPreset(baseCtx({ cliOptions: { pkgOnly: true } }), pkgJson, buildInfo);
+        expect(Object.keys(p.entry)).toEqual(['pkg']);
     });
 
     test('devtool dev=source-map prod=false', () => {

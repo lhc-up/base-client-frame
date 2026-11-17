@@ -3,7 +3,7 @@ const fse = require('fs-extra');
 const { merge: webpackMerge } = require('webpack-merge');
 const { TARGETS } = require('../core/target');
 const { getWebPreset } = require('./presets/web');
-const { getMainPreset } = require('./presets/main');
+const { getMainPreset, assertPkgEntry } = require('./presets/main');
 const { getPreloadPreset } = require('./presets/preload');
 const { getRendererPreset } = require('./presets/renderer');
 const { mergeConfigList } = require('./build-config-list');
@@ -52,6 +52,7 @@ function resolveBuildConfig(ctx, pkgJson, buildInfo) {
         const mainPreset = getMainPreset(ctx, pkgJson, buildInfo);
         const preloadPreset = getPreloadPreset(ctx, pkgJson, buildInfo);
         const rendererPreset = getRendererPreset(ctx, pkgJson, buildInfo);
+        assertPkgEntry();
         return {
             main: webpackMerge(mainPreset, userConfig.main || {}),
             preload: webpackMerge(preloadPreset, userConfig.preload || {}),
