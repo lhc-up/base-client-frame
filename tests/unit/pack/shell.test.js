@@ -30,7 +30,8 @@ describe('pack/shell', () => {
         const nsh = fs.readFileSync(path.join(shellDir, 'win-installer.nsh'), 'utf8');
         const pre = fs.readFileSync(path.join(shellDir, 'deb-preinstall.sh'), 'utf8');
         const post = fs.readFileSync(path.join(shellDir, 'deb-postinstall.sh'), 'utf8');
-        expect(nsh).toContain('${APP_GUID}');
+        expect(nsh).toContain('Page Custom OsCheckFail OsCheckFailLeave');
+        expect(nsh).not.toContain('customInit');
         expect(nsh).not.toMatch(/\{\{[A-Z_]+\}\}/);
         expect(pre).toContain('APP_NAME=demo');
         expect(post).toContain('APP_DIR_NAME=Demo App');
