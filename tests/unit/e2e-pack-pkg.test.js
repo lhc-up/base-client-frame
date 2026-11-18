@@ -17,7 +17,7 @@ function setupFixture(name) {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
     pkg.name = name;
     fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 4));
-    fs.writeFileSync(path.join(dir, 'src/main/pkg.js'), 'module.exports = { name: "demo" };\n');
+    fs.writeFileSync(path.join(dir, 'src/main/pkg.js'), 'module.exports = { name: "demo", dev: __BC_BUILD__.dev, devUrl: __BC_BUILD__.devUrl };\n');
     return dir;
 }
 
@@ -52,6 +52,11 @@ describe('E2E: pack（宿主 + 包模型）', () => {
 
         expect(fs.existsSync(path.join(dir, 'app/main/index.js'))).toBe(true);
         expect(fs.existsSync(path.join(dir, 'app/main/pkg.js'))).toBe(true);
+        // 打包不是本地调试：dev 为 false、devUrl 为 undefined，均替换为字面量
+        const pkgOut = fs.readFileSync(path.join(dir, 'app/main/pkg.js'), 'utf8');
+        expect(pkgOut).toMatch(/dev:\s*(false|!1)/);
+        expect(pkgOut).toMatch(/devUrl:\s*(undefined|void 0)/);
+        expect(pkgOut).not.toContain('__BC_BUILD__');
 
         const pkgFile = path.join(dir, 'dist/minimal-pack-pkg-prod-v1.0.0.asax');
         expect(fs.existsSync(pkgFile)).toBe(true);
