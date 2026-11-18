@@ -21,8 +21,8 @@ const buildInfo = {
 };
 
 describe('pack/pkg', () => {
-    test('pkgFileName：<name>-<env>-v<version>.asar', () => {
-        expect(pkgFileName(buildInfo)).toBe('demo-prod-v1.2.3.asar');
+    test('pkgFileName：<name>-<env>-v<version>.asax', () => {
+        expect(pkgFileName(buildInfo)).toBe('demo-prod-v1.2.3.asax');
     });
 
     test('buildPkgAsar：只含描述文件、main/pkg.js、renderer/', async () => {
@@ -34,7 +34,7 @@ describe('pack/pkg', () => {
         fse.outputFileSync(path.join(appDir, 'renderer/index.html'), '<html>');
 
         const out = await buildPkgAsar({ appDir, distDir, buildInfo });
-        expect(out).toBe(path.join(distDir, 'demo-prod-v1.2.3.asar'));
+        expect(out).toBe(path.join(distDir, 'demo-prod-v1.2.3.asax'));
 
         const extractDir = path.join(tmpRoot, 'extract');
         asar.extractAll(out, extractDir);
@@ -63,14 +63,14 @@ describe('pack/pkg', () => {
             extraResources: [{ from: 'addons', to: 'addons' }],
             appId: 'x',
         };
-        const result = applyPkgToBuilderConfig(config, '/abs/dist/demo-prod-v1.2.3.asar');
+        const result = applyPkgToBuilderConfig(config, '/abs/dist/demo-prod-v1.2.3.asax');
         expect(result.files[0]).toEqual({
             from: 'app', to: '.', filter: ['main/**', '!main/pkg.js', '!main/pkg.js.map', 'preload/**'],
         });
         expect(result.files.slice(1)).toEqual(['package.json', '!**/node_modules/**']);
         expect(result.extraResources).toEqual([
             { from: 'addons', to: 'addons' },
-            { from: '/abs/dist/demo-prod-v1.2.3.asar', to: 'packages/demo-prod-v1.2.3.asar' },
+            { from: '/abs/dist/demo-prod-v1.2.3.asax', to: 'packages/demo-prod-v1.2.3.asar' },
         ]);
         expect(result.appId).toBe('x');
         expect(config.files[0].filter).toBeUndefined();

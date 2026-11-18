@@ -12,13 +12,16 @@ const PKG_RENDERER = 'renderer/';
 const BUILTIN_PKG_DIR = 'packages';
 
 /**
- * 更新包文件名：`<name>-<env>-v<version>.asar`。
+ * 更新包文件名（分发名）：`<name>-<env>-v<version>.asax`。
+ *
+ * 分发用 `.asax`：任何 Electron 程序（包括 VS Code）碰到 `.asar` 都会当作归档打开并持有句柄，
+ * Windows 下随后无法删除、覆盖 dist/。落到客户端时（下载晋升、内置包）改名为 `.asar`。
  *
  * @param {{ name: string, env: string, version: string }} buildInfo
  * @returns {string}
  */
 function pkgFileName(buildInfo) {
-    return `${buildInfo.name}-${buildInfo.env}-v${buildInfo.version}.asar`;
+    return `${buildInfo.name}-${buildInfo.env}-v${buildInfo.version}.asax`;
 }
 
 /**
@@ -83,7 +86,8 @@ function applyPkgToBuilderConfig(builderConfig, pkgPath) {
     ));
     const extraResources = [
         ...(builderConfig.extraResources || []),
-        { from: pkgPath, to: `${BUILTIN_PKG_DIR}/${path.basename(pkgPath)}` },
+        // 内置包落盘名为 .asar（Electron 只有路径中出现 .asar 才能读取包内文件）
+        { from: pkgPath, to: `${BUILTIN_PKG_DIR}/${path.basename(pkgPath).replace(/\.asax$/i, '.asar')}` },
     ];
     return { ...builderConfig, files, extraResources };
 }

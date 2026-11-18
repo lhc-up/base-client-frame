@@ -45,19 +45,21 @@ app/
 ### 4.1 更新包
 
 ```text
-dist/<name>-<env>-v<version>.asar
+dist/<name>-<env>-v<version>.asax
 ├── package.json      # 描述文件（§5）
 ├── main/pkg.js
 └── renderer/
 ```
 
 - `name` 即项目 `package.json` 的 `name`（经 `__BC_BUILD__.name`）。同一宿主可能使用多个包，文件名必须带 `name`。
-- 分发与落盘统一使用 `.asar`。下载过程中的文件操作规则由 toolkit update 能力负责（见 toolkit 文档 §9.1）。
+- **分发名 `.asax`，落盘名 `.asar`**：dist 产物、上传、下载地址用 `.asax`；客户端下载后由 toolkit update 能力
+  晋升为 `.asar`，内置包打进安装包时改名为 `.asar`。任何 Electron 程序（包括 VS Code）碰到 `.asar` 都会当作归档
+  打开并持有句柄，Windows 下随后无法删除、覆盖 dist/；而 Electron 只有路径中出现 `.asar` 才能读取包内文件。
 
 ### 4.2 安装包
 
 - `files`：`app/main/index.js`、`app/preload/**`；`extraMetadata.main` 不变（`main/index.js`）。
-- 内置包：更新包以 `.asar` 形式放入 `resources/packages/`，宿主从这里读取内置包。业务额外内置的包（如其他客户端的包）也放入该目录，由业务的 electron-builder 配置追加。
+- 内置包：更新包改名为 `.asar` 放入 `resources/packages/`，宿主从这里读取内置包。业务额外内置的包（如其他客户端的包）也放入该目录，由业务的 electron-builder 配置追加。
 
 ## 5. 描述文件 `package.json`
 

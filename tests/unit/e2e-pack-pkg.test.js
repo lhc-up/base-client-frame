@@ -53,9 +53,8 @@ describe('E2E: pack（宿主 + 包模型）', () => {
         expect(fs.existsSync(path.join(dir, 'app/main/index.js'))).toBe(true);
         expect(fs.existsSync(path.join(dir, 'app/main/pkg.js'))).toBe(true);
 
-        const pkgFile = path.join(dir, 'dist/minimal-pack-pkg-prod-v1.0.0.asar');
+        const pkgFile = path.join(dir, 'dist/minimal-pack-pkg-prod-v1.0.0.asax');
         expect(fs.existsSync(pkgFile)).toBe(true);
-        expect(fs.existsSync(path.join(dir, 'dist/prod-v1.0.0.asax'))).toBe(false);
 
         const out = extract(pkgFile, dir);
         expect(fs.existsSync(path.join(out, 'main/pkg.js'))).toBe(true);
@@ -89,7 +88,7 @@ describe('E2E: pack（宿主 + 包模型）', () => {
         const { runCommand } = require('../../src/cli/index');
         await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64', pkgOnly: true });
 
-        expect(fs.existsSync(path.join(dir, 'dist/minimal-pack-pkg-only-prod-v1.0.0.asar'))).toBe(true);
+        expect(fs.existsSync(path.join(dir, 'dist/minimal-pack-pkg-only-prod-v1.0.0.asax'))).toBe(true);
         expect(fs.existsSync(path.join(dir, 'app/main/pkg.js'))).toBe(true);
         expect(fs.existsSync(path.join(dir, 'app/main/index.js'))).toBe(false);
         expect(fs.existsSync(path.join(dir, 'app/preload'))).toBe(false);

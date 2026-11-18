@@ -66,7 +66,7 @@ describe('E2E: pack 完整能力（encrypt + bytenode + 更新包 + 多入口）
 
         // 5. 更新包产出：描述文件 + main/pkg.js + renderer/，不含宿主主进程与 preload
         const pkgName = JSON.parse(fs.readFileSync(path.join(fixtureDir, 'package.json'), 'utf8')).name;
-        const pkgPath = path.join(fixtureDir, `dist/${pkgName}-prod-v1.0.0.asar`);
+        const pkgPath = path.join(fixtureDir, `dist/${pkgName}-prod-v1.0.0.asax`);
         expect(fs.existsSync(pkgPath)).toBe(true);
         const extractDir = path.join(fixtureDir, 'dist/_extract');
         asar.extractAll(pkgPath, extractDir);
@@ -90,8 +90,7 @@ describe('E2E: pack 完整能力（encrypt + bytenode + 更新包 + 多入口）
         await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64', dir: true });
 
         const pkgName = JSON.parse(fs.readFileSync(path.join(fixtureDir, 'package.json'), 'utf8')).name;
-        expect(fs.existsSync(path.join(fixtureDir, `dist/${pkgName}-prod-v1.0.0.asar`))).toBe(true);
-        expect(fs.existsSync(path.join(fixtureDir, 'dist/prod-v1.0.0.asax'))).toBe(false);
+        expect(fs.existsSync(path.join(fixtureDir, `dist/${pkgName}-prod-v1.0.0.asax`))).toBe(true);
     }, 120000);
 
 });

@@ -29,7 +29,7 @@ describe('E2E: pack --dir → installer 链路（独立 fixture）', () => {
         delete require.cache[ebPath];
     });
 
-    test('pack --dir：产出 dist/<platform>-unpacked/ 与更新包，不产 .asax', async () => {
+    test('pack --dir：产出 dist/<platform>-unpacked/ 与更新包', async () => {
         const cmd = require('../../src/cli/commands/pack');
         const { runCommand } = require('../../src/cli/index');
 
@@ -37,9 +37,7 @@ describe('E2E: pack --dir → installer 链路（独立 fixture）', () => {
 
         expect(fs.existsSync(path.join(installerFixtureDir, 'dist/win-unpacked'))).toBe(true);
 
-        const asaxPath = path.join(installerFixtureDir, 'dist/prod-v1.0.0.asax');
-        expect(fs.existsSync(asaxPath)).toBe(false);
-        expect(fs.existsSync(path.join(installerFixtureDir, 'dist/minimal-pack-installer-prod-v1.0.0.asar'))).toBe(true);
+        expect(fs.existsSync(path.join(installerFixtureDir, 'dist/minimal-pack-installer-prod-v1.0.0.asax'))).toBe(true);
     }, 120000);
 
     test('installer：按 CLI 的 platform/arch 推导 unpacked 路径，作 prepackaged 透传', async () => {
