@@ -28,6 +28,15 @@ describe('core/build-info', () => {
         expect(info.encryptKey).toBeUndefined();
     });
 
+    test('dev：dev 命令为 true，其他命令为 false；devUrl 由 dev 命令稍后写入，初始为 undefined', () => {
+        const dev = deriveBuildInfo(baseCtx({ isDev: true }), pkgJson);
+        expect(dev.dev).toBe(true);
+        expect(dev.devUrl).toBeUndefined();
+        const prod = deriveBuildInfo(baseCtx({ command: 'build', isDev: false }), pkgJson);
+        expect(prod.dev).toBe(false);
+        expect(prod.devUrl).toBeUndefined();
+    });
+
     test('falls back to name when productName is missing', () => {
         const info = deriveBuildInfo(baseCtx(), { name: 'demo', version: '1.0.0' });
         expect(info.productName).toBe('demo');

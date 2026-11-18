@@ -37,32 +37,6 @@ describe('core/env', () => {
         }
     });
 
-    test('loadEnv：.env 文件声明 frame 生成的变量时报错', () => {
-        const dir = path.join(__dirname, '../../fixtures/env-reserved');
-        const fs = require('fs');
-        fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(path.join(dir, '.env'), 'BC_DEV=true\n');
-        try {
-            expect(() => loadEnv('dev', { cwd: dir })).toThrow(/\.env 不能声明 BC_DEV/);
-        } finally {
-            fs.rmSync(dir, { recursive: true, force: true });
-        }
-    });
-
-    test('setRuntimeEnv 同时写入 ctx.env 与 process.env，只接受 frame 生成的变量', () => {
-        const { setRuntimeEnv } = require('../../../src/core/env');
-        const ctx = { env: {} };
-        const before = process.env.BC_DEV_URL;
-        try {
-            setRuntimeEnv(ctx, 'BC_DEV_URL', 'http://localhost:1/');
-            expect(ctx.env.BC_DEV_URL).toBe('http://localhost:1/');
-            expect(process.env.BC_DEV_URL).toBe('http://localhost:1/');
-            expect(() => setRuntimeEnv(ctx, 'BC_API', 'x')).toThrow(/不是 frame 生成的变量/);
-        } finally {
-            if (before === undefined) delete process.env.BC_DEV_URL; else process.env.BC_DEV_URL = before;
-        }
-    });
-
     test('loadEnv 不修改 process.env', () => {
         const before = process.env.BC_API_BASE;
         loadEnv('prod', { cwd: fixtureDir });

@@ -48,7 +48,7 @@ describe('E2E: dev:app 编排链路（mock spawn）', () => {
         process.chdir(oldCwd);
     });
 
-    test('编译 main+preload + 起 dev-server + spawn Electron；BC_DEV / BC_DEV_URL 静态替换进产物，不经子进程环境变量', async () => {
+    test('编译 main+preload + 起 dev-server + spawn Electron；本地调试状态与地址经 __BC_BUILD__ 静态替换进产物', async () => {
         const cmd = require('../../src/cli/commands/dev-app');
         const { runCommand } = require('../../src/cli/index');
 
@@ -68,9 +68,8 @@ describe('E2E: dev:app 编排链路（mock spawn）', () => {
             expect(args[0]).toContain(path.join('app', 'main', 'index.js'));
             expect(opts.env.NODE_ENV).toBe('development');
             expect(opts.env.RENDERER_DEV_URL).toBeUndefined();
-            expect(opts.env.BC_DEV_URL).toBeUndefined();
             const mainOut = fs.readFileSync(path.join(fixtureDir, 'app/main/index.js'), 'utf8');
-            expect(mainOut).toContain('"true"');
+            expect(mainOut).toMatch(/dev:\s*(true|!0)/);
             expect(mainOut).toContain('"http://localhost:19023/"');
             expect(opts.stdio).toEqual(['inherit', 'pipe', 'pipe']);
 

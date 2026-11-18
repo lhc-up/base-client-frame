@@ -15,34 +15,36 @@ Electron 客户端工程化构建框架。业务项目主要提供 `bc.config.js
 
 全局选项：`--env <name>`、`--config <path>`、`--pack-config <path>`、`--debug`。
 
-## 环境变量
+## 变量
 
 `--env <name>` 指代码对接的**后台环境**（如 dev / test / prod），与是否本地调试无关。是否本地调试只由命令决定：
 `dev:web`、`dev:app` 即本地调试；两者可任意组合，例如 `pack --env test` 打出对接测试后台的安装包。
 
-变量有两个来源，都挂在 `ctx.env` 上：
+变量分三层，命名空间不交叉：
 
-| 来源 | 变量 |
-|---|---|
-| `.env`（所有环境共用）与 `.env.<name>`（同名变量后者覆盖） | 项目自定义 |
-| frame 在命令启动后生成（无法提前写进 `.env`，`.env` 中声明会报错） | 见下表 |
+| 层 | 来源 | 业务代码写法 | 构建配置（`bc.config.js` 等） | 进产物 |
+|---|---|---|---|---|
+| `__BC_BUILD__` 构建信息 | frame 产生（`package.json`、命令、命令行参数等） | `__BC_BUILD__.version` | 读不到 | ✓ |
+| `BC_` 开头的变量 | `.env`（所有环境共用）与 `.env.<name>`（同名后者覆盖） | `process.env.BC_xxx` | `ctx.env.BC_xxx` | ✓ |
+| 其他变量 | 同上 | 读不到 | `ctx.env.XXX` | ✗ |
 
-| frame 生成的变量 | 值 |
-|---|---|
-| `BC_DEV` | 本地调试状态：dev 命令下为 `'true'`，其他命令下为 `undefined` |
-| `BC_DEV_URL` | 本地调试时的页面地址（由 host、port 拼出，如 `http://localhost:8023/`），其他命令下为 `undefined`。端口可能来自 `bc.config.js`，因此 `bc.config.js` 中读不到 |
-| `BC_ENV` | `.env` 未声明时取 `--env` 的值 |
-
-访问规则：
-
-| 变量 | 可访问范围 | 写法 |
-|---|---|---|
-| `BC_` 开头 | 构建期 + 业务代码整个生命周期（main / preload / renderer / web） | 只能静态写 `process.env.BC_xxx`，构建期替换为字面量写进产物 |
-| 其他 | 只在构建期（`bc.config.js`、`electron-builder.config.js` 经 `ctx.env`） | — |
-
-- 不支持动态写法（`process.env[name]`、解构、整体引用 `process.env`）：不会被替换，运行时也读不到——
-  `dev:app` 启动 Electron 时去掉了全部 `BC_*` 变量，与打包后的行为一致。
+- 两种写法都是**静态引用**，构建期逐个替换为字面量。不支持动态写法（`process.env[name]`、解构、整体引用
+  `process.env` 或 `__BC_BUILD__`）：`process.env` 的动态写法不会被替换，运行时也读不到——`dev:app` 启动 Electron
+  时去掉了全部 `BC_*` 变量，与打包后的行为一致；整体引用 `__BC_BUILD__` 会把全部字段（含 `buildTime`）带进产物。
 - `BC_` 变量会写进产物，不要放密钥等不能随客户端分发的值。
+
+`__BC_BUILD__` 字段：
+
+| 字段 | 说明 |
+|---|---|
+| `target` | `'app'` / `'web'` |
+| `name`、`productName`、`version` | `package.json` |
+| `env`、`envName` | `.env` 的 `BC_ENV`（未声明时取 `--env`）、`BC_ENV_NAME` |
+| `buildTime` | 构建时间戳 |
+| `platform`、`arch`、`dir`、`sign` | `pack` 的命令行参数，其他命令下为 `undefined` / `false` |
+| `encrypted`、`encryptKey` | 加密状态；`encryptKey` 只注入 app 宿主主进程 |
+| `dev` | 本地调试：dev 命令下为 `true`，其他命令下为 `false` |
+| `devUrl` | 本地调试时的页面地址（由 host、port 拼出，如 `http://localhost:8023/`），其他命令下为 `undefined` |
 
 ## bc.config.js
 

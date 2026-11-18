@@ -17,6 +17,14 @@ describe('config/presets/build-info-plugin', () => {
         });
     });
 
+    test('构造之后写入 buildInfo 的字段也会生效（devUrl 在构建配置求值之后写入）', () => {
+        const buildInfo = { target: 'app', dev: true, devUrl: undefined };
+        const plugin = buildInfoPlugin(buildInfo);
+        buildInfo.devUrl = 'http://localhost:8023/';
+        expect(plugin.definitions['__BC_BUILD__.dev']).toBe('true');
+        expect(plugin.definitions['__BC_BUILD__.devUrl']).toBe('"http://localhost:8023/"');
+    });
+
     test('默认不包含 encryptKey 字段', () => {
         const plugin = buildInfoPlugin({ target: 'app', encryptKey: 'secret' });
         expect(plugin.definitions).not.toHaveProperty('__BC_BUILD__.encryptKey');

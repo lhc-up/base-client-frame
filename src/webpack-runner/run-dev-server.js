@@ -24,11 +24,6 @@ function resolveDevServerOptions(ctx, userDev, { defaultPort }) {
     };
 }
 
-/** dev server 的页面地址，带尾部斜杠 */
-function devServerUrl({ host, port }) {
-    return `http://${host}:${port}/`;
-}
-
 async function runDevServer(webpackConfig, devServerOptions, name, ctx) {
     const compiler = webpack(webpackConfig);
     const spinner = createCompileSpinner('编译中...', 1);
@@ -55,4 +50,4 @@ async function runDevServer(webpackConfig, devServerOptions, name, ctx) {
     return server;
 }
 
-module.exports = { devServerUrl, resolveDevServerOptions, runDevServer };
+module.exports = { resolveDevServerOptions, runDevServer };

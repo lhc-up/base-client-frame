@@ -9,12 +9,11 @@ const {
     selectDevRendererConfigs,
     withoutDevServer,
 } = require('../../config/build-config-list');
-const { resolveDevServerOptions, runDevServer, devServerUrl } = require('../../webpack-runner/run-dev-server');
+const { resolveDevServerOptions, runDevServer } = require('../../webpack-runner/run-dev-server');
 const { resolveElectron } = require('../../electron/resolve-electron');
 const { resolveMainEntry } = require('../../electron/resolve-main-entry');
 const { killElectron } = require('../../electron/kill-electron');
 const logger = require('../../core/logger');
-const { setRuntimeEnv } = require('../../core/env');
 const { extractStatsSummary } = require('../../webpack-runner/format-stats');
 
 function compileOneShotConfigs(configs) {
@@ -88,7 +87,7 @@ function registerShutdownSignals(shutdown, processLike = process) {
  *
  * 去掉全部 BC_* 变量：业务代码只能以 `process.env.BC_xxx` 静态写法引用，由构建期替换为字面量；
  * 若子进程仍能读到 BC_*，`process.env[name]` 之类的动态写法在 dev:app 下可用、打包后失效，
- * 两种运行方式的行为就不一致了。本地调试状态与地址同样经 BC_DEV / BC_DEV_URL 静态引用，不再另行注入。
+ * 两种运行方式的行为就不一致了。本地调试状态与地址经 `__BC_BUILD__.dev` / `__BC_BUILD__.devUrl` 静态引用，不另行注入。
  *
  * @param {NodeJS.ProcessEnv} baseEnv
  * @returns {NodeJS.ProcessEnv}
@@ -126,9 +125,9 @@ module.exports = {
         const { devServer: userDev = {} } = served;
         const rendererWebpack = withoutDevServer(served);
         const devServerOptions = resolveDevServerOptions(ctx, userDev, { defaultPort: 8023 });
-        const devUrl = devServerUrl(devServerOptions);
-        // 必须在创建 webpack compiler 之前写入：userEnvPlugin 在 apply 时才读取 ctx.env
-        setRuntimeEnv(ctx, 'BC_DEV_URL', devUrl);
+        const devUrl = `http://${devServerOptions.host}:${devServerOptions.port}/`;
+        // 必须在创建 webpack compiler 之前写入：buildInfoPlugin 在 apply 时才读取 buildInfo
+        buildInfo.devUrl = devUrl;
 
         // --pkg-only 时 main 预设只保留 pkg 入口，且不编译 preload
         const oneShotConfigs = pkgOnly

@@ -1,1 +1,1 @@
-module.exports = { dev: process.env.BC_DEV, devUrl: process.env.BC_DEV_URL };
+module.exports = { dev: __BC_BUILD__.dev, devUrl: __BC_BUILD__.devUrl };
