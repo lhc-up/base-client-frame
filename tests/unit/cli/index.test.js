@@ -81,6 +81,15 @@ describe('cli/index', () => {
             expect(ctx.cliOptions).toEqual({ env: 'prod', platform: 'win', arch: 'x64' });
         });
 
+        test('dev 命令写入 BC_DEV=true，其他命令不写', async () => {
+            await runCommand(fakeCmd, { env: 'prod' });
+            expect(fakeCmd.action.mock.calls[0][0].env.BC_DEV).toBe('true');
+
+            const prodCmd = { ...fakeCmd, mode: 'production', action: jest.fn().mockResolvedValue(undefined) };
+            await runCommand(prodCmd, { env: 'prod' });
+            expect(prodCmd.action.mock.calls[0][0].env.BC_DEV).toBeUndefined();
+        });
+
         test('BC_ENV 未声明时用 cliOptions.env 兜底', async () => {
             const fs = require('fs');
             fs.writeFileSync(path.join(fixtureDir, '.env.staging'), 'BC_API_BASE=https://api\n');

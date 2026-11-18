@@ -9,11 +9,12 @@ const {
     selectDevRendererConfigs,
     withoutDevServer,
 } = require('../../config/build-config-list');
-const { resolveDevServerOptions, runDevServer } = require('../../webpack-runner/run-dev-server');
+const { resolveDevServerOptions, runDevServer, devServerUrl } = require('../../webpack-runner/run-dev-server');
 const { resolveElectron } = require('../../electron/resolve-electron');
 const { resolveMainEntry } = require('../../electron/resolve-main-entry');
 const { killElectron } = require('../../electron/kill-electron');
 const logger = require('../../core/logger');
+const { setRuntimeEnv } = require('../../core/env');
 const { extractStatsSummary } = require('../../webpack-runner/format-stats');
 
 function compileOneShotConfigs(configs) {
@@ -87,19 +88,17 @@ function registerShutdownSignals(shutdown, processLike = process) {
  *
  * 去掉全部 BC_* 变量：业务代码只能以 `process.env.BC_xxx` 静态写法引用，由构建期替换为字面量；
  * 若子进程仍能读到 BC_*，`process.env[name]` 之类的动态写法在 dev:app 下可用、打包后失效，
- * 两种运行方式的行为就不一致了。
+ * 两种运行方式的行为就不一致了。本地调试状态与地址同样经 BC_DEV / BC_DEV_URL 静态引用，不再另行注入。
  *
  * @param {NodeJS.ProcessEnv} baseEnv
- * @param {string} devUrl renderer dev server 地址
  * @returns {NodeJS.ProcessEnv}
  */
-function electronChildEnv(baseEnv, devUrl) {
+function electronChildEnv(baseEnv) {
     const env = {};
     for (const [k, v] of Object.entries(baseEnv)) {
         if (!k.startsWith('BC_')) env[k] = v;
     }
     env.NODE_ENV = 'development';
-    env.RENDERER_DEV_URL = devUrl;
     return env;
 }
 
@@ -127,7 +126,9 @@ module.exports = {
         const { devServer: userDev = {} } = served;
         const rendererWebpack = withoutDevServer(served);
         const devServerOptions = resolveDevServerOptions(ctx, userDev, { defaultPort: 8023 });
-        const devUrl = `http://${devServerOptions.host}:${devServerOptions.port}/`;
+        const devUrl = devServerUrl(devServerOptions);
+        // 必须在创建 webpack compiler 之前写入：userEnvPlugin 在 apply 时才读取 ctx.env
+        setRuntimeEnv(ctx, 'BC_DEV_URL', devUrl);
 
         // --pkg-only 时 main 预设只保留 pkg 入口，且不编译 preload
         const oneShotConfigs = pkgOnly
@@ -151,7 +152,7 @@ module.exports = {
         const mainEntry = resolveMainEntry(rootDir);
         const child = cp.spawn(electronExe, [mainEntry], {
             stdio: ['inherit', 'pipe', 'pipe'],
-            env: electronChildEnv(process.env, devUrl),
+            env: electronChildEnv(process.env),
         });
         child.stdout.on('data', (chunk) => process.stdout.write(chunk.toString('utf8')));
         child.stderr.on('data', (chunk) => process.stderr.write(chunk.toString('utf8')));

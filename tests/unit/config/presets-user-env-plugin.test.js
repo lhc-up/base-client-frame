@@ -21,8 +21,19 @@ describe('config/presets/user-env-plugin', () => {
         expect(defs['process.env.HOME']).toBeUndefined();
     });
 
-    test('env 为 undefined / 空对象时返回空 DefinePlugin', () => {
+    test('env 为 undefined 时只定义 frame 生成的变量，均为 undefined', () => {
         const plugin = userEnvPlugin(undefined);
-        expect(plugin.definitions).toEqual({});
+        expect(plugin.definitions).toEqual({
+            'process.env.BC_DEV': 'undefined',
+            'process.env.BC_DEV_URL': 'undefined',
+        });
+    });
+
+    test('构造之后写入 env 的变量也会生效（BC_DEV_URL 在构建配置求值之后写入）', () => {
+        const env = { BC_DEV: 'true' };
+        const plugin = userEnvPlugin(env);
+        env.BC_DEV_URL = 'http://localhost:8023/';
+        expect(plugin.definitions['process.env.BC_DEV']).toBe('"true"');
+        expect(plugin.definitions['process.env.BC_DEV_URL']).toBe('"http://localhost:8023/"');
     });
 });
