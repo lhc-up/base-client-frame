@@ -28,6 +28,8 @@ Electron 客户端工程化构建框架。业务项目主要提供 `bc.config.js
 | `BC_` 开头的变量 | `.env`（所有环境共用）与 `.env.<name>`（同名后者覆盖） | `process.env.BC_xxx` | `ctx.env.BC_xxx` | ✓ |
 | 其他变量 | 同上 | 读不到 | `ctx.env.XXX` | ✗ |
 
+- `process.env.BC_xxx` 中**未声明**的变量（各环境文件都没写）同样在构建期替换为 `undefined`，并输出构建警告，
+  列出变量名与位置：变量名写错、某个环境文件漏写时在构建期就能发现。可选的变量在 `.env` 中声明为空值（`BC_xxx=`）。
 - 两种写法都是**静态引用**，构建期逐个替换为字面量。不支持动态写法（`process.env[name]`、解构、整体引用
   `process.env` 或 `__BC_BUILD__`）：`process.env` 的动态写法不会被替换，运行时也读不到——`dev:app` 启动 Electron
   时去掉了全部 `BC_*` 变量，与打包后的行为一致；整体引用 `__BC_BUILD__` 会把全部字段（含 `buildTime`）带进产物。
