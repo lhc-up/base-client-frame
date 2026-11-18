@@ -15,6 +15,22 @@ Electron 客户端工程化构建框架。业务项目主要提供 `bc.config.js
 
 全局选项：`--env <name>`、`--config <path>`、`--pack-config <path>`、`--debug`。
 
+## 环境变量
+
+`--env <name>` 指代码对接的**后台环境**（如 dev / test / prod），不是调试 / 打包模式。调试还是打包由命令区分，
+两者可任意组合，例如 `pack --env test` 打出对接测试后台的安装包。
+
+frame 读取 `.env`（所有环境共用）与 `.env.<name>`（同名变量后者覆盖）：
+
+| 变量 | 可访问范围 | 写法 |
+|---|---|---|
+| `BC_` 开头 | 构建期 + 业务代码整个生命周期（main / preload / renderer / web） | 只能静态写 `process.env.BC_xxx`，构建期替换为字面量写进产物 |
+| 其他 | 只在构建期（`bc.config.js`、`electron-builder.config.js` 经 `ctx.env`） | — |
+
+- 不支持动态写法（`process.env[name]`、解构、整体引用 `process.env`）：不会被替换，运行时也读不到——
+  `dev:app` 启动 Electron 时去掉了全部 `BC_*` 变量，与打包后的行为一致。
+- `BC_` 变量会写进产物，不要放密钥等不能随客户端分发的值。
+
 ## bc.config.js
 
 `bc.config.js` 可以导出配置对象，也可以导出 `(ctx) => config`：

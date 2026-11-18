@@ -87,3 +87,17 @@ describe('cli/commands/dev-app', () => {
         expect(shutdown.mock.calls).toEqual([[130], [143]]);
     });
 });
+
+describe('dev:app electronChildEnv', () => {
+    test('去掉 BC_* 变量，只保留静态替换这一种取值方式；注入开发标志', () => {
+        const env = cmd.electronChildEnv(
+            { PATH: '/bin', BC_API_SERVER: 'http://x', BC_DEV_PKGS: '{}', NODE_ENV: 'production' },
+            'http://localhost:8080/',
+        );
+        expect(env).toEqual({
+            PATH: '/bin',
+            NODE_ENV: 'development',
+            RENDERER_DEV_URL: 'http://localhost:8080/',
+        });
+    });
+});

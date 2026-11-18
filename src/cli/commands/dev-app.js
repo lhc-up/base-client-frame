@@ -82,6 +82,27 @@ function registerShutdownSignals(shutdown, processLike = process) {
     processLike.on('SIGTERM', () => shutdown(143));
 }
 
+/**
+ * dev:app 启动 Electron 时的环境变量。
+ *
+ * 去掉全部 BC_* 变量：业务代码只能以 `process.env.BC_xxx` 静态写法引用，由构建期替换为字面量；
+ * 若子进程仍能读到 BC_*，`process.env[name]` 之类的动态写法在 dev:app 下可用、打包后失效，
+ * 两种运行方式的行为就不一致了。
+ *
+ * @param {NodeJS.ProcessEnv} baseEnv
+ * @param {string} devUrl renderer dev server 地址
+ * @returns {NodeJS.ProcessEnv}
+ */
+function electronChildEnv(baseEnv, devUrl) {
+    const env = {};
+    for (const [k, v] of Object.entries(baseEnv)) {
+        if (!k.startsWith('BC_')) env[k] = v;
+    }
+    env.NODE_ENV = 'development';
+    env.RENDERER_DEV_URL = devUrl;
+    return env;
+}
+
 module.exports = {
     name: 'dev:app',
     description: '启动 Electron 三进程开发环境（main+preload 一次性编译，renderer HMR）',
@@ -130,11 +151,7 @@ module.exports = {
         const mainEntry = resolveMainEntry(rootDir);
         const child = cp.spawn(electronExe, [mainEntry], {
             stdio: ['inherit', 'pipe', 'pipe'],
-            env: {
-                ...process.env,
-                NODE_ENV: 'development',
-                RENDERER_DEV_URL: devUrl,
-            },
+            env: electronChildEnv(process.env, devUrl),
         });
         child.stdout.on('data', (chunk) => process.stdout.write(chunk.toString('utf8')));
         child.stderr.on('data', (chunk) => process.stderr.write(chunk.toString('utf8')));
@@ -146,4 +163,5 @@ module.exports = {
     },
     createShutdown,
     registerShutdownSignals,
+    electronChildEnv,
 };
