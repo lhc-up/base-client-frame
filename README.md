@@ -114,7 +114,12 @@ const {
 
 ## 环境与依赖
 
-- Node `>=18.12.0`
+- **构建环境 Node：`^20.19.0 || ^22.13.0 || >=24`**（见 `engines`，`.nvmrc` 为 22.15.1）。
+  这是运行 frame 命令、跑 lint / 测试的 Node 版本，也是 `css-minimizer-webpack-plugin` 8 等构建工具的硬要求；
+  低于它的 Node（如 16.x）上 CSS 压缩的 worker 会因缺少全局 `crypto` 失败。
+- **产物运行时的 Node 是另一回事**：客户端运行在 Electron 主进程 / 渲染进程里，API 上限由 Electron 内置的 Node 决定
+  （例如 Electron 22 内置 Node 16.17），**不由上面的 `engines` 表达**。业务与 toolkit 的运行时代码不得使用高于
+  该版本的 API；toolkit 用 `eslint-plugin-n` 按 `peerDependencies.electron` 自动约束，见其 README「环境要求」。
 - 必需 peer：`webpack@^5`、`webpack-dev-server@^5`
 - 可选 peer：`electron`、`electron-builder`、`bytenode`
 

@@ -15,7 +15,7 @@
     "author": "lhc-up",
     "license": "ISC",
     "engines": {
-        "node": ">=18.12.0"
+        "node": "^20.19.0 || ^22.13.0 || >=24"
     },
     "keywords": ["electron", "electron-builder", "bytenode", "webpack", "build", "packager", "cli"],
     "scripts": {
