@@ -2,6 +2,8 @@
 
 本文档只记录当前仍成立的限制与演进事项，已解决的问题不在此列。
 
+> 跨仓库基线的**状态与排期**见 `base-client-toolkit/docs/design/baseline-checklist.md`（唯一跟踪表）；本文只保留详细依据。
+
 ## 已知限制
 
 - **龙芯（loong64）打包需自备 Electron 镜像源**：frame 不内置镜像配置，构建节点需通过环境变量（如 `ELECTRON_MIRROR`）自行解决。
