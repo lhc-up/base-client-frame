@@ -25,6 +25,19 @@ describe('config/presets/build-info-plugin', () => {
         expect(plugin.definitions['__BC_BUILD__.devUrl']).toBe('"http://localhost:8023/"');
     });
 
+    test('buildTime 不进 __BC_BUILD__，单独注入为 __BC_BUILD_TIME__', () => {
+        const plugin = buildInfoPlugin({ target: 'app', version: '1.0.0', buildTime: 1700000000000 });
+        expect(plugin.definitions['__BC_BUILD__.buildTime']).toBeUndefined();
+        expect(plugin.definitions['__BC_BUILD_TIME__']).toBe('1700000000000');
+        expect(JSON.parse(plugin.definitions['__BC_BUILD__'])).toEqual({ target: 'app', version: '1.0.0' });
+    });
+
+    test('buildTime 不同、其余字段相同时，整体对象定义完全相同（产物可复现）', () => {
+        const a = buildInfoPlugin({ target: 'app', version: '1.0.0', buildTime: 1 }).definitions['__BC_BUILD__'];
+        const b = buildInfoPlugin({ target: 'app', version: '1.0.0', buildTime: 999 }).definitions['__BC_BUILD__'];
+        expect(a).toBe(b);
+    });
+
     test('默认不包含 encryptKey 字段', () => {
         const plugin = buildInfoPlugin({ target: 'app', encryptKey: 'secret' });
         expect(plugin.definitions).not.toHaveProperty('__BC_BUILD__.encryptKey');

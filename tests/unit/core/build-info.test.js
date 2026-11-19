@@ -1,4 +1,5 @@
 const { deriveBuildInfo } = require('../../../src/core/build-info');
+const logger = require('../../../src/core/logger');
 
 const pkgJson = { name: 'demo', productName: 'Demo App', version: '1.2.3' };
 const baseCtx = (over = {}) => ({
@@ -17,7 +18,8 @@ describe('core/build-info', () => {
         expect(info.productName).toBe('Demo App');
         expect(info.version).toBe('1.2.3');
         expect(info.env).toBe('prod');
-        expect(info.envName).toBeUndefined();
+        // BC_ENV_NAME 缺失时回退为 env，不再静默留空
+        expect(info.envName).toBe('prod');
         expect(typeof info.buildTime).toBe('number');
         expect(info.platform).toBeUndefined();
         expect(info.arch).toBeUndefined();
@@ -45,6 +47,21 @@ describe('core/build-info', () => {
     test('reads envName from BC_ENV_NAME', () => {
         const info = deriveBuildInfo(baseCtx({ env: { BC_ENV: 'prod', BC_ENV_NAME: 'production' } }), pkgJson);
         expect(info.envName).toBe('production');
+    });
+
+    test('BC_ENV_NAME 缺失：envName 回退为 env，并输出构建警告', () => {
+        const warn = jest.spyOn(logger, 'warn').mockImplementation(() => {});
+        try {
+            const info = deriveBuildInfo(baseCtx(), pkgJson);
+            expect(info.envName).toBe('prod');
+            expect(warn).toHaveBeenCalledWith(expect.stringMatching(/未声明 BC_ENV_NAME，envName 回退为 env/));
+
+            warn.mockClear();
+            deriveBuildInfo(baseCtx({ env: { BC_ENV: 'prod', BC_ENV_NAME: '正式版' } }), pkgJson);
+            expect(warn).not.toHaveBeenCalled();
+        } finally {
+            warn.mockRestore();
+        }
     });
 
     test('pack command derives app-only fields from cliOptions', () => {

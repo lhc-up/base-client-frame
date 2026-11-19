@@ -32,7 +32,7 @@ Electron 客户端工程化构建框架。业务项目主要提供 `bc.config.js
   列出变量名与位置：变量名写错、某个环境文件漏写时在构建期就能发现。可选的变量在 `.env` 中声明为空值（`BC_xxx=`）。
 - 两种写法都是**静态引用**，构建期逐个替换为字面量。不支持动态写法（`process.env[name]`、解构、整体引用
   `process.env` 或 `__BC_BUILD__`）：`process.env` 的动态写法不会被替换，运行时也读不到——`dev:app` 启动 Electron
-  时去掉了全部 `BC_*` 变量，与打包后的行为一致；整体引用 `__BC_BUILD__` 会把全部字段（含 `buildTime`）带进产物。
+  时去掉了全部 `BC_*` 变量，与打包后的行为一致；整体引用 `__BC_BUILD__` 会把全部确定性字段带进产物。
 - `BC_` 变量会写进产物，不要放密钥等不能随客户端分发的值。
 
 `__BC_BUILD__` 字段：
@@ -41,12 +41,15 @@ Electron 客户端工程化构建框架。业务项目主要提供 `bc.config.js
 |---|---|
 | `target` | `'app'` / `'web'` |
 | `name`、`productName`、`version` | `package.json` |
-| `env`、`envName` | `.env` 的 `BC_ENV`（未声明时取 `--env`）、`BC_ENV_NAME` |
-| `buildTime` | 构建时间戳 |
+| `env`、`envName` | `.env` 的 `BC_ENV`（未声明时取 `--env`）、`BC_ENV_NAME`（未声明时回退为 `env` 并输出构建警告） |
 | `platform`、`arch`、`dir`、`sign` | `pack` 的命令行参数，其他命令下为 `undefined` / `false` |
 | `encrypted`、`encryptKey` | 加密状态；`encryptKey` 只注入 app 宿主主进程 |
 | `isPkgDev` | 本产物是否本地调试构建：dev 命令下为 `true`，其他命令下为 `false`（宿主据此设置宿主运行时 `isHostDev`，见 toolkit `docs/design/pkg-source.md`） |
 | `devUrl` | 本地调试时的页面地址（由 host、port 拼出，如 `http://localhost:8023/`），其他命令下为 `undefined` |
+
+构建时间戳单独注入为 **`__BC_BUILD_TIME__`**（毫秒时间戳），**不属于 `__BC_BUILD__`**：它每次构建都不同，
+放进整体对象会让「整体引用 `__BC_BUILD__`」的产物每次都不一样（`contenthash` 失效、构建不可复现）。
+需要构建时间时逐字段读 `__BC_BUILD_TIME__`。
 
 ## 资源目录
 

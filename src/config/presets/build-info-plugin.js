@@ -3,11 +3,16 @@ const webpack = require('webpack');
 function toDefinitions(buildInfo, includeEncryptKey) {
     const defs = {};
     const baseObj = {};
-    for (const [k, v] of Object.entries(buildInfo)) {
+    // 构建时间是非确定性字段，与构建身份分开：单独注入为 __BC_BUILD_TIME__，
+    // 不进 __BC_BUILD__ —— 整体引用 __BC_BUILD__ 才可能是确定性的，产物 hash 才稳定。
+    // 包描述文件仍用 buildInfo.buildTime，不受影响
+    const { buildTime, ...identity } = buildInfo;
+    for (const [k, v] of Object.entries(identity)) {
         if (k === 'encryptKey' && !includeEncryptKey) continue;
         defs[`__BC_BUILD__.${k}`] = JSON.stringify(v);
         baseObj[k] = v;
     }
+    defs['__BC_BUILD_TIME__'] = JSON.stringify(buildTime);
     // 基对象定义：支撑用户 `typeof __BC_BUILD__ !== 'undefined'` 判断
     defs['__BC_BUILD__'] = JSON.stringify(baseObj);
     return defs;
