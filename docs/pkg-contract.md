@@ -59,7 +59,13 @@ dist/<name>-<env>-v<version>.asax
 ### 4.2 安装包
 
 - `files`：`app/main/index.js`、`app/preload/**`；`extraMetadata.main` 不变（`main/index.js`）。
-- 内置包：更新包改名为 `.asar` 放入 `resources/packages/`，宿主从这里读取内置包。业务额外内置的包（如其他客户端的包）也放入该目录，由业务的 electron-builder 配置追加。
+- 内置包：自身的更新包改名为 `.asar` 放入 `resources/packages/`，宿主从这里读取内置包。
+- 项目资源：项目根目录的 `resources/` 是安装包 `resources/` 的镜像，打包时整体复制：
+  - `resources/packages/` 放其他内置包（分发名 `.asax`），复制时改名为 `.asar`；与自身包、或 `.asax` 与 `.asar` 落盘名冲突时构建报错；
+  - 其余（如 `addons/`、`icons/`）原样复制；
+  - 业务不再在 electron-builder 配置里写 `extraResources`。
+  运行时由 toolkit `main/libs/resourceRoot` 计算资源根目录（本地调试为项目的 `resources/`，打包运行为 `process.resourcesPath`），
+  见 toolkit `docs/design/pkg-source.md`。
 
 ## 5. 描述文件 `package.json`
 
@@ -127,8 +133,10 @@ module.exports = () => ({
 | 场景 | 做法 |
 |---|---|
 | 日常开发（主路径） | 包在自己的宿主中开发：`dev:app` |
-| 在其他宿主中联调 | 包侧 `dev:app --pkg-only`（watch 编译 `app/main/pkg.js` + 页面 dev server）；宿主侧通过开发环境覆盖项指定该包的目录与 dev server 地址（宿主业务实现）。页面改动热更新，主进程改动需重启宿主 |
-| 兜底 | `pack --pkg-only` 打出更新包，放入宿主的下载目录 |
+| 在其他宿主中联调 | 包侧 `dev:app --pkg-only`（watch 编译 `app/main/pkg.js` + 页面 dev server）；宿主 `.env` 的 `BC_DEV_PKG_SOURCES` 将该包指定为 `devServer`（`main` + `url`）。页面改动热更新，主进程改动需重启宿主 |
+| 加载指定的包文件 | 宿主 `.env` 的 `BC_DEV_PKG_SOURCES` 将该包指定为 `file`（`.asax` / `.asar` 路径），例如排查线上下载的包 |
+
+包来源的完整规则（默认来源、`semver` 选包流程、日志）见 toolkit `docs/design/pkg-source.md`。
 
 ## 10. 发版
 

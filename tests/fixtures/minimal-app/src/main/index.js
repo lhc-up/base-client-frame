@@ -1,1 +1,1 @@
-module.exports = { dev: __BC_BUILD__.dev, devUrl: __BC_BUILD__.devUrl };
+module.exports = { dev: __BC_BUILD__.isPkgDev, devUrl: __BC_BUILD__.devUrl };

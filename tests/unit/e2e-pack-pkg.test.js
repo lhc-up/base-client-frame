@@ -17,7 +17,7 @@ function setupFixture(name) {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
     pkg.name = name;
     fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 4));
-    fs.writeFileSync(path.join(dir, 'src/main/pkg.js'), 'module.exports = { name: "demo", dev: __BC_BUILD__.dev, devUrl: __BC_BUILD__.devUrl };\n');
+    fs.writeFileSync(path.join(dir, 'src/main/pkg.js'), 'module.exports = { name: "demo", dev: __BC_BUILD__.isPkgDev, devUrl: __BC_BUILD__.devUrl };\n');
     return dir;
 }
 

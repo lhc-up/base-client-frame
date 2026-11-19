@@ -87,7 +87,7 @@ function registerShutdownSignals(shutdown, processLike = process) {
  *
  * 去掉全部 BC_* 变量：业务代码只能以 `process.env.BC_xxx` 静态写法引用，由构建期替换为字面量；
  * 若子进程仍能读到 BC_*，`process.env[name]` 之类的动态写法在 dev:app 下可用、打包后失效，
- * 两种运行方式的行为就不一致了。本地调试状态与地址经 `__BC_BUILD__.dev` / `__BC_BUILD__.devUrl` 静态引用，不另行注入。
+ * 两种运行方式的行为就不一致了。本地调试状态与地址经 `__BC_BUILD__.isPkgDev` / `__BC_BUILD__.devUrl` 静态引用，不另行注入。
  *
  * @param {NodeJS.ProcessEnv} baseEnv
  * @returns {NodeJS.ProcessEnv}

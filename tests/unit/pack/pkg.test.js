@@ -75,4 +75,37 @@ describe('pack/pkg', () => {
         expect(result.appId).toBe('x');
         expect(config.files[0].filter).toBeUndefined();
     });
+
+    test('applyPkgToBuilderConfig：项目 resources/ 整体复制，packages/ 中 .asax 改名为 .asar', () => {
+        const rootDir = path.join(tmpRoot, 'proj');
+        fse.outputFileSync(path.join(rootDir, 'resources/addons/a.node'), 'x');
+        fse.outputFileSync(path.join(rootDir, 'resources/icons/512x512.png'), 'x');
+        fse.outputFileSync(path.join(rootDir, 'resources/packages/child-prod-v1.0.0.asax'), 'x');
+        fse.outputFileSync(path.join(rootDir, 'resources/packages/other-prod-v2.0.0.asar'), 'x');
+        fse.outputFileSync(path.join(rootDir, 'resources/packages/.gitkeep'), '');
+        const result = applyPkgToBuilderConfig({ files: [] }, '/abs/dist/demo-prod-v1.2.3.asax', rootDir);
+        expect(result.extraResources).toEqual([
+            { from: 'resources', to: '.', filter: ['**/*', '!packages/**'] },
+            { from: 'resources/packages/child-prod-v1.0.0.asax', to: 'packages/child-prod-v1.0.0.asar' },
+            { from: 'resources/packages/other-prod-v2.0.0.asar', to: 'packages/other-prod-v2.0.0.asar' },
+            { from: '/abs/dist/demo-prod-v1.2.3.asax', to: 'packages/demo-prod-v1.2.3.asar' },
+        ]);
+    });
+
+    test('applyPkgToBuilderConfig：没有 resources/ 时只追加自身包', () => {
+        const result = applyPkgToBuilderConfig({ files: [] }, '/abs/dist/demo-prod-v1.2.3.asax', path.join(tmpRoot, 'none'));
+        expect(result.extraResources).toEqual([{ from: '/abs/dist/demo-prod-v1.2.3.asax', to: 'packages/demo-prod-v1.2.3.asar' }]);
+    });
+
+    test('applyPkgToBuilderConfig：内置包与自身包、或 .asax 与 .asar 落盘名冲突时报错', () => {
+        const rootDir = path.join(tmpRoot, 'proj');
+        fse.outputFileSync(path.join(rootDir, 'resources/packages/demo-prod-v1.2.3.asax'), 'x');
+        expect(() => applyPkgToBuilderConfig({ files: [] }, '/abs/dist/demo-prod-v1.2.3.asax', rootDir))
+            .toThrow(/与自身包落盘名冲突/);
+        fse.removeSync(path.join(rootDir, 'resources/packages/demo-prod-v1.2.3.asax'));
+        fse.outputFileSync(path.join(rootDir, 'resources/packages/child-prod-v1.0.0.asar'), 'x');
+        fse.outputFileSync(path.join(rootDir, 'resources/packages/child-prod-v1.0.0.asax'), 'x');
+        expect(() => applyPkgToBuilderConfig({ files: [] }, '/abs/dist/demo-prod-v1.2.3.asax', rootDir))
+            .toThrow(/落盘名冲突：packages\/child-prod-v1\.0\.0\.asar/);
+    });
 });

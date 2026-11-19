@@ -45,8 +45,22 @@ Electron 客户端工程化构建框架。业务项目主要提供 `bc.config.js
 | `buildTime` | 构建时间戳 |
 | `platform`、`arch`、`dir`、`sign` | `pack` 的命令行参数，其他命令下为 `undefined` / `false` |
 | `encrypted`、`encryptKey` | 加密状态；`encryptKey` 只注入 app 宿主主进程 |
-| `dev` | 本地调试：dev 命令下为 `true`，其他命令下为 `false` |
+| `isPkgDev` | 本产物是否本地调试构建：dev 命令下为 `true`，其他命令下为 `false`（宿主据此设置宿主运行时 `isHostDev`，见 toolkit `docs/design/pkg-source.md`） |
 | `devUrl` | 本地调试时的页面地址（由 host、port 拼出，如 `http://localhost:8023/`），其他命令下为 `undefined` |
+
+## 资源目录
+
+项目根目录的 `resources/` 是安装包 `resources/` 的镜像，凡是随安装包分发、运行时读取的资源都放这里，打包时 frame 整体复制：
+
+| 源码 | 安装包 |
+|---|---|
+| `resources/packages/*.asax`（内置的其他包） | `resources/packages/*.asar` |
+| —（自身的包，frame 构建） | `resources/packages/<name>-<env>-v<版本>.asar` |
+| `resources/` 下其他内容（如 `addons/`、`icons/`） | 原样复制 |
+
+- 落盘名冲突（内置包与自身包同名、同一个包同时有 `.asax` 与 `.asar`）时构建报错。
+- 业务不要再在 `electron-builder.config.js` 里为这些资源写 `extraResources`。
+- 运行时取资源根目录用 toolkit `main/libs/resourceRoot`。`build/icon.png` 是生成安装包图标的构建输入，留在 `build/`。
 
 ## bc.config.js
 

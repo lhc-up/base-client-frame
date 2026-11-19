@@ -107,7 +107,7 @@ module.exports = {
         // 阶段 C · 安装包打包
         const targets = buildTargets(ctx.cliOptions);
         const builder = await resolveElectronBuilder(rootDir);
-        await builder.build({ ...targets, config: applyPkgToBuilderConfig(mergedBuilderConfig, pkgPath) });
+        await builder.build({ ...targets, config: applyPkgToBuilderConfig(mergedBuilderConfig, pkgPath, rootDir) });
 
         // --dir 场景校验：unpacked 目录名由 electron-builder 命名约定决定；installer 会用相同 platform/arch 现算路径
         if (ctx.cliOptions.dir) {
