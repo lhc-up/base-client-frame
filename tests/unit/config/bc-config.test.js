@@ -170,6 +170,34 @@ describe('config/bc-config (app target)', () => {
         expect(renderer.devServer).toEqual({ port: 8023 });
     });
 
+    test('业务覆盖 main 的 output 时构建直接报错（布局不可覆盖）', () => {
+        const configPath = path.join(fixtureDir, 'bc.override-output.config.js');
+        fs.writeFileSync(configPath, `module.exports = { main: { output: { path: ${JSON.stringify(path.join(fixtureDir, 'elsewhere'))} } } };`);
+        try {
+            expect(() => resolveBuildConfig(
+                appCtx({ cliOptions: { config: configPath } }),
+                { name: 'demo', version: '1.0.0' },
+                { target: 'app' },
+            )).toThrow(/产物布局由 frame 固定[\s\S]*main\.output\.path/);
+        } finally {
+            fs.rmSync(configPath, { force: true });
+        }
+    });
+
+    test('renderer 输出落在产物根目录之外时构建报错', () => {
+        const configPath = path.join(fixtureDir, 'bc.renderer-outside.config.js');
+        fs.writeFileSync(configPath, `module.exports = { renderer: [{ name: 'r', output: { path: ${JSON.stringify(path.join(fixtureDir, 'outside'))} } }] };`);
+        try {
+            expect(() => resolveBuildConfig(
+                appCtx({ cliOptions: { config: configPath } }),
+                { name: 'demo', version: '1.0.0' },
+                { target: 'app' },
+            )).toThrow(/renderer.output.path 必须位于/);
+        } finally {
+            fs.rmSync(configPath, { force: true });
+        }
+    });
+
     test('renderer 数组逐项合并预设并保留独立输出目录', () => {
         const configPath = path.join(fixtureDir, 'bc.multi-renderer.config.js');
         const updateDir = path.join(fixtureDir, 'app/update');

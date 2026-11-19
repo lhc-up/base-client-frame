@@ -101,7 +101,24 @@ const {
     replace, customMerge,
     logger,
 } = require('@base-client/frame');
+
+// 产物布局常量（运行时 preload 定位等）
+const { createLayout, toOutputRelative, resolvePreload } = require('@base-client/frame/paths');
 ```
+
+## 产物布局
+
+布局由 frame 固定，业务**不得在 `bc.config.js` 中覆盖 `output`**（构建期会校验并报错）：
+
+| 产物 | 源码 | 编译产物 | 说明 |
+|---|---|---|---|
+| main | `src/main/index.js`、`src/main/pkg.js` | `app/main/index.js`、`app/main/pkg.js` | 一次编译、两个入口 |
+| preload | `src/preload/index.js` | `app/preload/index.js` | 随宿主发布 |
+| renderer | 业务定义 | `app/renderer/**`（可多入口，须落在 `app/` 内） | 更新包只带 `renderer/` |
+
+代码里取路径统一用 `@base-client/frame/paths`：`createLayout(rootDir)` 返回 `src` / `out` 两组绝对路径，
+`toOutputRelative` 转成 electron-builder / 描述文件用的相对写法，`resolvePreload(__dirname)` 供窗口定位 preload。
+改布局只改 `src/paths.js`。
 
 ## 构建产物契约
 

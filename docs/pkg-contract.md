@@ -59,6 +59,7 @@ dist/<name>-<env>-v<version>.asax
 ### 4.2 安装包
 
 - `files`：`app/main/index.js`、`app/preload/**`；`extraMetadata.main` 不变（`main/index.js`）。
+- 产物布局由 frame 固定（`src/paths.js`），业务覆盖 `bc.config.js` 的 `output` 时构建直接报错。
 - 内置包：自身的更新包改名为 `.asar` 放入 `resources/packages/`，宿主从这里读取内置包。
 - 项目资源：项目根目录的 `resources/` 是安装包 `resources/` 的镜像，打包时整体复制：
   - `resources/packages/` 放其他内置包（分发名 `.asax`），复制时改名为 `.asar`；与自身包、或 `.asax` 与 `.asar` 落盘名冲突时构建报错；

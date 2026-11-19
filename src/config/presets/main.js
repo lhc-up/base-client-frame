@@ -2,9 +2,7 @@ const path = require('path');
 const fse = require('fs-extra');
 const { buildInfoPlugin } = require('./build-info-plugin');
 const { userEnvPlugin } = require('./user-env-plugin');
-
-/** 包主进程入口（相对项目根），「宿主 + 包」架构必需 */
-const PKG_MAIN_ENTRY = 'src/main/pkg.js';
+const { createLayout } = require('../../paths');
 
 /**
  * 校验项目提供了包主进程入口。
@@ -13,8 +11,10 @@ const PKG_MAIN_ENTRY = 'src/main/pkg.js';
  * @throws {Error} 缺少 `src/main/pkg.js`
  */
 function assertPkgEntry(rootDir = process.cwd()) {
-    if (!fse.existsSync(path.resolve(rootDir, PKG_MAIN_ENTRY))) {
-        throw new Error(`[base-client] 未找到 ${PKG_MAIN_ENTRY}：客户端由宿主与包组成，包主进程入口必需`);
+    const { src } = createLayout(rootDir);
+    if (!fse.existsSync(src.pkg)) {
+        const rel = path.relative(rootDir, src.pkg).split(path.sep).join('/');
+        throw new Error(`[base-client] 未找到 ${rel}：客户端由宿主与包组成，包主进程入口必需`);
     }
 }
 
@@ -30,10 +30,11 @@ function assertPkgEntry(rootDir = process.cwd()) {
 function getMainPreset(ctx, pkgJson, buildInfo) {
     const { mode, isDev, env, cliOptions = {} } = ctx;
     const rootDir = process.cwd();
-    const pkgEntry = path.resolve(rootDir, PKG_MAIN_ENTRY);
+    const layout = createLayout(rootDir);
+    const pkgEntry = layout.src.pkg;
     const entry = cliOptions.pkgOnly
         ? { pkg: pkgEntry }
-        : { index: path.resolve(rootDir, 'src/main/index.js'), pkg: pkgEntry };
+        : { index: layout.src.main, pkg: pkgEntry };
 
     return {
         name: 'main',
@@ -41,7 +42,7 @@ function getMainPreset(ctx, pkgJson, buildInfo) {
         mode,
         entry,
         output: {
-            path: path.resolve(rootDir, 'app/main'),
+            path: path.dirname(layout.out.main),
             filename: '[name].js',
             libraryTarget: 'commonjs2',
         },
@@ -58,4 +59,4 @@ function getMainPreset(ctx, pkgJson, buildInfo) {
     };
 }
 
-module.exports = { getMainPreset, assertPkgEntry, PKG_MAIN_ENTRY };
+module.exports = { getMainPreset, assertPkgEntry };

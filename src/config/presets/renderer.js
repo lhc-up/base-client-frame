@@ -1,10 +1,12 @@
 const path = require('path');
 const { buildInfoPlugin } = require('./build-info-plugin');
 const { userEnvPlugin } = require('./user-env-plugin');
+const { createLayout } = require('../../paths');
 
 function getRendererPreset(ctx, pkgJson, buildInfo) {
     const { mode, isDev, env } = ctx;
     const rootDir = process.cwd();
+    const layout = createLayout(rootDir);
 
     return {
         name: 'renderer',
@@ -12,7 +14,7 @@ function getRendererPreset(ctx, pkgJson, buildInfo) {
         mode,
         entry: { index: path.resolve(rootDir, 'src/renderer/index.js') },
         output: {
-            path: path.resolve(rootDir, 'app', 'renderer'),
+            path: layout.out.renderer,
             filename: '[name].js',
             publicPath: isDev ? '/' : './',
         },

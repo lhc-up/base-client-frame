@@ -3,10 +3,9 @@ const fse = require('fs-extra');
 const os = require('os');
 const asar = require('@electron/asar');
 const { derivePackageDescriptor } = require('./package-descriptor');
+const { createLayout, toOutputRelative } = require('../paths');
 
-/** 包内主进程入口与页面目录（相对包根），写入描述文件 */
-const PKG_MAIN = 'main/pkg.js';
-const PKG_RENDERER = 'renderer/';
+
 
 /** 安装包中内置包的目录（相对 resources/） */
 const BUILTIN_PKG_DIR = 'packages';
@@ -71,14 +70,17 @@ function pkgFileName(buildInfo) {
  * @throws {Error} `app/main/pkg.js` 不存在
  */
 async function buildPkgAsar({ appDir, distDir, buildInfo }) {
-    const mainFile = path.join(appDir, PKG_MAIN);
+    const layout = createLayout(process.cwd());
+    const pkgMain = toOutputRelative(layout, layout.out.pkg);
+    const pkgRenderer = `${toOutputRelative(layout, layout.out.renderer)}/`;
+    const mainFile = path.join(appDir, pkgMain);
     if (!fse.existsSync(mainFile)) {
-        throw new Error(`[base-client] 未找到包主进程产物 ${PKG_MAIN}（需提供 src/main/pkg.js）`);
+        throw new Error(`[base-client] 未找到包主进程产物 ${pkgMain}（需提供 src/main/pkg.js）`);
     }
 
     const tmpDir = fse.mkdtempSync(path.join(os.tmpdir(), 'bc-frame-pkg-'));
     try {
-        await fse.copy(mainFile, path.join(tmpDir, PKG_MAIN));
+        await fse.copy(mainFile, path.join(tmpDir, pkgMain));
         const rendererDir = path.join(appDir, 'renderer');
         if (fse.existsSync(rendererDir)) {
             await fse.copy(rendererDir, path.join(tmpDir, 'renderer'));
@@ -90,8 +92,8 @@ async function buildPkgAsar({ appDir, distDir, buildInfo }) {
 
         const descriptor = {
             ...derivePackageDescriptor(buildInfo),
-            main: PKG_MAIN,
-            renderer: PKG_RENDERER,
+            main: pkgMain,
+            renderer: pkgRenderer,
         };
         fse.writeFileSync(path.join(tmpDir, 'package.json'), JSON.stringify(descriptor, null, 2));
 
@@ -136,8 +138,7 @@ module.exports = {
     buildPkgAsar,
     applyPkgToBuilderConfig,
     pkgFileName,
-    PKG_MAIN,
-    PKG_RENDERER,
+
     BUILTIN_PKG_DIR,
     RESOURCES_DIR,
 };

@@ -50,12 +50,14 @@ async function bytenodeMain({ rootDir, appDir, mergedBuilderConfig, targetPlatfo
         resolveElectron(rootDir),
     ]);
 
-    const src = path.join(appDir, 'main/index.js');
-    const out = path.join(appDir, 'main/index.jsc');
-    const loaderPath = path.join(appDir, 'main/loader.js');
+    const { createLayout } = require('../paths');
+    const layout = createLayout(rootDir);
+    const src = layout.out.main;
+    const out = src.replace(/\.js$/, '.jsc');
+    const loaderPath = path.join(path.dirname(src), 'loader.js');
     const bytenodeEntry = require.resolve('bytenode', { paths: [rootDir] });
     const bytenodePackageRoot = findPackageRoot(bytenodeEntry, 'bytenode');
-    const runtimeDir = path.join(appDir, 'main/vendor/bytenode');
+    const runtimeDir = path.join(path.dirname(src), 'vendor/bytenode');
 
     await bytenode.compileFile({ filename: src, output: out, electronPath });
 

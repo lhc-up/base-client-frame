@@ -8,6 +8,7 @@ describe('frame 包边界', () => {
     test('显式导出根聚合入口与 package.json，不暴露内部模块', () => {
         expect(packageJson.exports).toEqual({
             '.': './src/index.js',
+            './paths': './src/paths.js',
             './package.json': './package.json',
         });
         expect(packageJson.main).toBe('src/index.js');

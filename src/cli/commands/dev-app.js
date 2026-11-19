@@ -139,7 +139,7 @@ module.exports = {
         ]);
 
         if (pkgOnly) {
-            logger.info(`包主进程：${path.join(rootDir, 'app/main/pkg.js')}`);
+            logger.info(`包主进程：${createLayout(rootDir).out.pkg}`);
             logger.info(`页面 dev server：${devUrl}`);
             logger.info('由宿主按开发覆盖项加载；主进程改动需重新执行本命令并重启宿主');
             const shutdown = createShutdown({ child: null, devServer });

@@ -1,4 +1,6 @@
 function getPackPreset(ctx, pkgJson) {
+    const { createLayout, toOutputRelative } = require('../../paths');
+    const layout = createLayout(process.cwd());
     const year = new Date().getFullYear();
     const author = pkgJson.author ?? '';
     const productName = pkgJson.productName ?? pkgJson.name;
@@ -10,7 +12,7 @@ function getPackPreset(ctx, pkgJson) {
             'package.json',
             '!**/node_modules/**',
         ],
-        extraMetadata: { main: 'main/index.js' },
+        extraMetadata: { main: toOutputRelative(layout, layout.out.main) },
 
         productName,
         copyright: `Copyright © ${year} ${author}`.trim(),
