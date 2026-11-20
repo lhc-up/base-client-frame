@@ -1,5 +1,5 @@
 const path = require('path');
-const { DESCRIPTOR_FILE, createLayout, resolveLayout, toOutputRelative } = require('../../src/paths');
+const { DESCRIPTOR_FILE, RESOURCES_DIR, BUILTIN_PKG_DIR, createLayout, resolveLayout, toOutputRelative } = require('../../src/paths');
 
 describe('paths', () => {
     const root = path.resolve('/proj');
@@ -42,7 +42,9 @@ describe('paths', () => {
         expect(resolveLayout(path.dirname(layout.out.main))).toEqual(expectedOut);
     });
 
-    test('DESCRIPTOR_FILE：包描述文件名', () => {
+    test('与 toolkit 的约定（toolkit src/main/frameContract.js 断言相同的值，改动须两边同时改）', () => {
         expect(DESCRIPTOR_FILE).toBe('package.json');
+        expect(RESOURCES_DIR).toBe('resources');
+        expect(BUILTIN_PKG_DIR).toBe('packages');
     });
 });

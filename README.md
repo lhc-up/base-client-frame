@@ -141,6 +141,17 @@ const { DESCRIPTOR_FILE, createLayout, resolveLayout, toOutputRelative } = requi
 （`http://localhost:<端口>/package.json`），入口为可直接使用的值：`main` 为磁盘绝对路径，`renderer` / `update` 为 dev server 地址。
 宿主据此把 dev server 当作一个包加载（toolkit `libs/pkg`，来源 `devServer` 只需配置 `url`）。
 
+### 与 toolkit 的约定
+
+frame 打包时按下面的名字放置文件，toolkit 运行时按同样的名字读取。两个包互不依赖、无法共享代码，
+名字定义在 `src/paths.js`（toolkit 侧为 `src/main/frameContract.js`），两边的单测都断言这些值；**改动时两边必须同时改**。
+
+| 常量 | 值 | 含义 |
+|---|---|---|
+| `DESCRIPTOR_FILE` | `package.json` | 包描述文件（包根目录下、dev server 根地址下） |
+| `RESOURCES_DIR` | `resources` | 项目资源目录，打包时整体复制为安装包的 `resources/` |
+| `BUILTIN_PKG_DIR` | `packages` | 资源目录下放内置包的子目录 |
+
 ## 构建产物契约
 
 - [加密构建产物契约](docs/crypto-artifact-contract.md)

@@ -3,13 +3,7 @@ const fse = require('fs-extra');
 const os = require('os');
 const asar = require('@electron/asar');
 const { derivePackageDescriptor } = require('./package-descriptor');
-const { DESCRIPTOR_FILE, createLayout, toOutputRelative } = require('../paths');
-
-/** 安装包中内置包的目录（相对 resources/） */
-const BUILTIN_PKG_DIR = 'packages';
-
-/** 项目根目录下的资源目录：打包后 resources/ 的镜像，整体复制进安装包 */
-const RESOURCES_DIR = 'resources';
+const { DESCRIPTOR_FILE, RESOURCES_DIR, BUILTIN_PKG_DIR, createLayout, toOutputRelative } = require('../paths');
 
 const toInstalledName = name => name.replace(/\.asax$/i, '.asar');
 
