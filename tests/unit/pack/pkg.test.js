@@ -25,13 +25,14 @@ describe('pack/pkg', () => {
         expect(pkgFileName(buildInfo)).toBe('demo-prod-v1.2.3.asax');
     });
 
-    test('buildPkgAsar：只含描述文件、main/pkg.js、renderer/', async () => {
+    test('buildPkgAsar：只含描述文件、main/pkg.js、renderer/；描述文件记录包内入口', async () => {
         const appDir = path.join(tmpRoot, 'app');
         const distDir = path.join(tmpRoot, 'dist');
         fse.outputFileSync(path.join(appDir, 'main/index.js'), 'host');
         fse.outputFileSync(path.join(appDir, 'main/pkg.js'), 'pkg');
         fse.outputFileSync(path.join(appDir, 'preload/index.js'), 'preload');
         fse.outputFileSync(path.join(appDir, 'renderer/index.html'), '<html>');
+        fse.outputFileSync(path.join(appDir, 'renderer/update.html'), '<html>');
 
         const out = await buildPkgAsar({ appDir, distDir, buildInfo });
         expect(out).toBe(path.join(distDir, 'demo-prod-v1.2.3.asax'));
@@ -45,16 +46,35 @@ describe('pack/pkg', () => {
 
         const descriptor = JSON.parse(fs.readFileSync(path.join(extractDir, 'package.json'), 'utf8'));
         expect(descriptor).toMatchObject({
-            name: 'demo', version: '1.2.3', env: 'prod', main: 'main/pkg.js', renderer: 'renderer/',
+            name: 'demo', version: '1.2.3', env: 'prod',
+            main: 'main/pkg.js', renderer: 'renderer/index.html', update: 'renderer/update.html',
         });
         expect(descriptor.encryptKey).toBeUndefined();
     });
 
-    test('buildPkgAsar：缺 main/pkg.js 时明确报错', async () => {
+    test('buildPkgAsar：没有启动页时描述文件不写 update', async () => {
+        const appDir = path.join(tmpRoot, 'app');
+        // @electron/asar 按路径缓存归档头，换一个输出目录避免读到上一个用例的缓存
+        const distDir = path.join(tmpRoot, 'dist-no-update');
+        fse.outputFileSync(path.join(appDir, 'main/pkg.js'), 'pkg');
+        fse.outputFileSync(path.join(appDir, 'renderer/index.html'), '<html>');
+
+        const out = await buildPkgAsar({ appDir, distDir, buildInfo });
+        const extractDir = path.join(tmpRoot, 'extract');
+        asar.extractAll(out, extractDir);
+        const descriptor = JSON.parse(fs.readFileSync(path.join(extractDir, 'package.json'), 'utf8'));
+        expect(descriptor.renderer).toBe('renderer/index.html');
+        expect('update' in descriptor).toBe(false);
+    });
+
+    test('buildPkgAsar：缺包主进程或主页面时明确报错', async () => {
         const appDir = path.join(tmpRoot, 'app');
         fse.ensureDirSync(appDir);
         await expect(buildPkgAsar({ appDir, distDir: path.join(tmpRoot, 'dist'), buildInfo }))
-            .rejects.toThrow(/src\/main\/pkg\.js/);
+            .rejects.toThrow(/未找到包产物 main\/pkg\.js/);
+        fse.outputFileSync(path.join(appDir, 'main/pkg.js'), 'pkg');
+        await expect(buildPkgAsar({ appDir, distDir: path.join(tmpRoot, 'dist'), buildInfo }))
+            .rejects.toThrow(/未找到包产物 renderer\/index\.html/);
     });
 
     test('applyPkgToBuilderConfig：只改写 app→. 项，追加内置包，保留业务配置', () => {
@@ -63,7 +83,7 @@ describe('pack/pkg', () => {
             extraResources: [{ from: 'addons', to: 'addons' }],
             appId: 'x',
         };
-        const result = applyPkgToBuilderConfig(config, '/abs/dist/demo-prod-v1.2.3.asax');
+        const result = applyPkgToBuilderConfig(config, '/abs/dist/demo-prod-v1.2.3.asax', path.join(tmpRoot, 'none'));
         expect(result.files[0]).toEqual({
             from: 'app', to: '.', filter: ['main/**', '!main/pkg.js', '!main/pkg.js.map', 'preload/**'],
         });

@@ -18,6 +18,7 @@ const {
     computeUnpackedDir,
 } = require('../../electron/build-targets');
 const logger = require('../../core/logger');
+const { createLayout } = require('../../paths');
 
 module.exports = {
     name: 'pack',
@@ -37,7 +38,7 @@ module.exports = {
     action: async (ctx) => {
         const rootDir = process.cwd();
         const distDir = path.join(rootDir, 'dist');
-        const appDir = path.join(rootDir, 'app');
+        const appDir = createLayout(rootDir).out.root;
         const pkgJson = require(path.resolve(rootDir, 'package.json'));
         const pkgOnly = !!ctx.cliOptions.pkgOnly;
 

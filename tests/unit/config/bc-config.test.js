@@ -184,7 +184,7 @@ describe('config/bc-config (app target)', () => {
         }
     });
 
-    test('renderer 输出落在产物根目录之外时构建报错', () => {
+    test('renderer 输出不在页面产物目录时构建报错', () => {
         const configPath = path.join(fixtureDir, 'bc.renderer-outside.config.js');
         fs.writeFileSync(configPath, `module.exports = { renderer: [{ name: 'r', output: { path: ${JSON.stringify(path.join(fixtureDir, 'outside'))} } }] };`);
         try {
@@ -192,24 +192,27 @@ describe('config/bc-config (app target)', () => {
                 appCtx({ cliOptions: { config: configPath } }),
                 { name: 'demo', version: '1.0.0' },
                 { target: 'app' },
-            )).toThrow(/renderer.output.path 必须位于/);
+            )).toThrow(/renderer.output.path 期望 .*app\/renderer/);
         } finally {
             fs.rmSync(configPath, { force: true });
         }
     });
 
-    test('renderer 数组逐项合并预设并保留独立输出目录', () => {
+    test('renderer 数组逐项合并预设，都输出到页面产物目录；启动页加入提供 devServer 的配置', () => {
         const configPath = path.join(fixtureDir, 'bc.multi-renderer.config.js');
-        const updateDir = path.join(fixtureDir, 'app/update');
         const rendererDir = path.join(fixtureDir, 'app/renderer');
         fs.writeFileSync(configPath, `
             const renderer = [
-                { name: 'update', entry: { update: 'src/update/index.js' }, output: { path: ${JSON.stringify(updateDir)} } },
-                { name: 'renderer', entry: { main: 'src/electron.js' }, output: { path: ${JSON.stringify(rendererDir)} }, devServer: { port: 8023 } },
+                { name: 'extra', entry: { extra: 'src/extra.js' } },
+                { name: 'renderer', devServer: { port: 8023 } },
             ];
             module.exports = { main: {}, preload: {}, renderer };
             module.exports.rendererInput = renderer;
         `);
+        const updateDir = path.join(fixtureDir, 'src/renderer/update');
+        fs.mkdirSync(updateDir, { recursive: true });
+        fs.writeFileSync(path.join(updateDir, 'index.js'), '');
+        fs.writeFileSync(path.join(updateDir, 'index.ejs'), '');
         try {
             const loaded = require(configPath);
             const before = JSON.stringify(loaded.rendererInput);
@@ -221,15 +224,73 @@ describe('config/bc-config (app target)', () => {
 
             expect(renderer).toHaveLength(2);
             expect(renderer[0].target).toBe('web');
-            expect(renderer[0].name).toBe('update');
-            expect(renderer[0].output.path).toBe(updateDir);
+            expect(renderer[0].name).toBe('extra');
+            expect(renderer[0].output.path).toBe(rendererDir);
+            expect(renderer[0].entry.update).toBeUndefined();
             expect(renderer[1].name).toBe('renderer');
             expect(renderer[1].output.path).toBe(rendererDir);
             expect(renderer[1].devServer).toEqual({ port: 8023 });
+            expect(renderer[1].entry.update).toBe(path.join(fixtureDir, 'src/renderer/update/index.js'));
             expect(JSON.stringify(loaded.rendererInput)).toBe(before);
         } finally {
             delete require.cache[configPath];
             fs.rmSync(configPath, { force: true });
+            fs.rmSync(path.join(fixtureDir, 'src/renderer'), { recursive: true, force: true });
+        }
+    });
+
+    test('启动页：frame 加入入口与页面，业务页面排除启动页 chunk；业务自己再写启动页时报错', () => {
+        const HtmlWebpackPlugin = require('html-webpack-plugin');
+        const updateDir = path.join(fixtureDir, 'src/renderer/update');
+        fs.mkdirSync(updateDir, { recursive: true });
+        fs.writeFileSync(path.join(updateDir, 'index.js'), '');
+        fs.writeFileSync(path.join(updateDir, 'index.ejs'), '');
+        const write = (name, body) => {
+            const file = path.join(fixtureDir, name);
+            fs.writeFileSync(file, body);
+            return file;
+        };
+        const build = configPath => resolveBuildConfig(
+            appCtx({ cliOptions: { config: configPath } }),
+            { name: 'demo', version: '1.0.0' },
+            { target: 'app', name: 'demo', productName: 'Demo' },
+        );
+        const okPath = write('bc.update-ok.config.js', `
+            const HtmlWebpackPlugin = require('html-webpack-plugin');
+            module.exports = { main: {}, preload: {}, renderer: {
+                plugins: [new HtmlWebpackPlugin({ filename: 'index.html', chunks: ['index'] })],
+            } };
+        `);
+        const dupEntryPath = write('bc.update-dup-entry.config.js', `
+            module.exports = { main: {}, preload: {}, renderer: { entry: { update: './x.js' } } };
+        `);
+        const dupPagePath = write('bc.update-dup-page.config.js', `
+            const HtmlWebpackPlugin = require('html-webpack-plugin');
+            module.exports = { main: {}, preload: {}, renderer: {
+                plugins: [new HtmlWebpackPlugin({ filename: 'update.html', chunks: ['update'] })],
+            } };
+        `);
+        try {
+            const { renderer } = build(okPath);
+            expect(renderer.entry.update).toBe(path.join(updateDir, 'index.js'));
+            const pages = renderer.plugins.filter(p => p instanceof HtmlWebpackPlugin);
+            expect(pages).toHaveLength(2);
+            expect(pages[0].options.excludeChunks).toEqual(['update']);
+            expect(pages[1].options).toMatchObject({
+                template: path.join(updateDir, 'index.ejs'),
+                filename: 'update.html',
+                chunks: ['update'],
+                title: 'Demo',
+            });
+
+            expect(() => build(dupEntryPath)).toThrow(/启动页由 frame 构建.*renderer\.entry/);
+            expect(() => build(dupPagePath)).toThrow(/启动页由 frame 构建.*update\.html/);
+        } finally {
+            for (const file of [okPath, dupEntryPath, dupPagePath]) {
+                delete require.cache[file];
+                fs.rmSync(file, { force: true });
+            }
+            fs.rmSync(path.join(fixtureDir, 'src/renderer'), { recursive: true, force: true });
         }
     });
 

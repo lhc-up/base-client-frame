@@ -7,6 +7,7 @@ const { getMainPreset, assertPkgEntry } = require('./presets/main');
 const { getPreloadPreset } = require('./presets/preload');
 const { getRendererPreset } = require('./presets/renderer');
 const { mergeConfigList } = require('./build-config-list');
+const { applyUpdatePage } = require('./update-page');
 const logger = require('../core/logger');
 const { createLayout } = require('../paths');
 
@@ -61,13 +62,12 @@ function assertOutputLayout(configs, rootDir) {
     const problems = [];
     for (const [name, config, expectedPath, expectedFilename] of expected) {
         if (name === 'renderer') {
-            // renderer 允许多个配置（如更新页单独一个入口），但输出必须落在产物根目录内
+            // renderer 允许多个配置，但都必须输出到页面产物目录：只有它整体进入包
             const list = Array.isArray(config) ? config : [config];
             for (const item of list) {
                 const target = path.resolve(String((item && item.output && item.output.path) || ''));
-                const rel = path.relative(out.root, target);
-                if (rel.startsWith('..') || path.isAbsolute(rel)) {
-                    problems.push(`renderer.output.path 必须位于 ${display(out.root)} 内，实际 ${display(target)}`);
+                if (target !== path.resolve(expectedPath)) {
+                    problems.push(`renderer.output.path 期望 ${display(expectedPath)}，实际 ${display(target)}`);
                 }
             }
             continue;
@@ -107,6 +107,7 @@ function resolveBuildConfig(ctx, pkgJson, buildInfo) {
             preload: webpackMerge(preloadPreset, userConfig.preload || {}),
             renderer: mergeConfigList(rendererPreset, userConfig.renderer),
         };
+        applyUpdatePage(configs.renderer, { rootDir: process.cwd(), buildInfo });
         assertOutputLayout(configs, process.cwd());
         return configs;
     }

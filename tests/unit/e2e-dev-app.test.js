@@ -60,7 +60,16 @@ describe('E2E: dev:app 编排链路（mock spawn）', () => {
 
             expect(fs.existsSync(path.join(fixtureDir, 'app/main/index.js'))).toBe(true);
             expect(fs.existsSync(path.join(fixtureDir, 'app/preload/index.js'))).toBe(true);
-            expect(fs.existsSync(path.join(fixtureDir, 'app/update/update.js'))).toBe(true);
+            // dev server 根地址下提供描述文件：入口为可直接使用的值，启动页按规范加入
+            const res = await fetch('http://localhost:19023/package.json');
+            const devDescriptor = await res.json();
+            expect(devDescriptor).toMatchObject({
+                main: path.join(fixtureDir, 'app/main/pkg.js'),
+                renderer: 'http://localhost:19023/index.html',
+                update: 'http://localhost:19023/update.html',
+            });
+            const updatePage = await (await fetch(devDescriptor.update)).text();
+            expect(updatePage).toContain('update.js');
 
             expect(cp.spawn).toHaveBeenCalledTimes(1);
             const [exe, args, opts] = cp.spawn.mock.calls[0];

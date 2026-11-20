@@ -102,8 +102,8 @@ const {
     logger,
 } = require('@base-client/frame');
 
-// 产物布局常量（运行时 preload 定位等）
-const { createLayout, toOutputRelative, resolvePreload } = require('@base-client/frame/paths');
+// 产物布局（构建期 createLayout，运行期 resolveLayout）
+const { DESCRIPTOR_FILE, createLayout, resolveLayout, toOutputRelative } = require('@base-client/frame/paths');
 ```
 
 ## 产物布局
@@ -112,13 +112,34 @@ const { createLayout, toOutputRelative, resolvePreload } = require('@base-client
 
 | 产物 | 源码 | 编译产物 | 说明 |
 |---|---|---|---|
-| main | `src/main/index.js`、`src/main/pkg.js` | `app/main/index.js`、`app/main/pkg.js` | 一次编译、两个入口 |
+| main | `src/main/index.js`、`src/main/pkg.js` | `app/main/index.js`、`app/main/pkg.js` | 一次编译、两个入口；`index` 随宿主，`pkg` 随包 |
 | preload | `src/preload/index.js` | `app/preload/index.js` | 随宿主发布 |
-| renderer | 业务定义 | `app/renderer/**`（可多入口，须落在 `app/` 内） | 更新包只带 `renderer/` |
+| renderer | `src/renderer/index.js`（入口 chunk 为 `index`） | `app/renderer/**`，主页面 `app/renderer/index.html` | 整体随包发布 |
+| 启动页 | `src/renderer/update/index.js` + `index.ejs`（可选） | `app/renderer/update.html` | 由 frame 构建，随包发布 |
 
-代码里取路径统一用 `@base-client/frame/paths`：`createLayout(rootDir)` 返回 `src` / `out` 两组绝对路径，
-`toOutputRelative` 转成 electron-builder / 描述文件用的相对写法，`resolvePreload(__dirname)` 供窗口定位 preload。
+代码里取路径统一用 `@base-client/frame/paths`：构建期 `createLayout(rootDir)` 返回 `src` / `out` 两组绝对路径，
+运行期 `resolveLayout(__dirname)`（主进程产物目录）返回 `out` 那一组（如 `preload`），
+`toOutputRelative` 转成 electron-builder / 描述文件用的相对写法。
 改布局只改 `src/paths.js`。
+
+### 启动页
+
+项目有 `src/renderer/update/index.js` 时，frame 在渲染进程配置中自动加入启动页：沿用业务配置的 loader、别名等，
+入口 chunk 为 `update`，模板为 `src/renderer/update/index.ejs`（`htmlWebpackPlugin.options.title` 为产品名），
+产物为 `app/renderer/update.html`；业务的其他 HtmlWebpackPlugin 自动排除 `update` chunk。
+业务配置中**不要**再写启动页的入口与 HtmlWebpackPlugin（构建期会报错）。`renderer` 为数组时，启动页加入提供 devServer 的那一份配置。
+
+### 包描述文件
+
+包根目录下的 `package.json`（`DESCRIPTOR_FILE`）记录包信息与三个入口，入口为包内相对路径：
+
+```json
+{ "name": "...", "env": "...", "version": "...", "main": "main/pkg.js", "renderer": "renderer/index.html", "update": "renderer/update.html" }
+```
+
+没有启动页时不写 `update`。`dev:app`（含 `--pkg-only`）在 dev server 根地址下提供同格式的描述文件
+（`http://localhost:<端口>/package.json`），入口为可直接使用的值：`main` 为磁盘绝对路径，`renderer` / `update` 为 dev server 地址。
+宿主据此把 dev server 当作一个包加载（toolkit `libs/pkg`，来源 `devServer` 只需配置 `url`）。
 
 ## 构建产物契约
 

@@ -1,6 +1,7 @@
 const path = require('path');
 const fse = require('fs-extra');
 const { normalizeKey, normalizeIv, encryptBuffer } = require('./crypto/aes-256-cbc');
+const { createLayout } = require('../paths');
 
 function computeCryptoState({ userConfig }) {
     if (userConfig.encrypt === false) return { encrypted: false };
@@ -29,10 +30,13 @@ async function encryptRenderer({ appDir, encryptKey, encryptIv }) {
     normalizeKey(encryptKey);
     if (encryptIv !== undefined) normalizeIv(encryptIv);
 
+    // 主进程产物目录不加密（由 Electron 直接加载）
+    const { out } = createLayout('');
+    const mainDirName = path.relative(out.root, path.dirname(out.main));
     const entries = fse.readdirSync(appDir, { withFileTypes: true });
     for (const ent of entries) {
         if (!ent.isDirectory()) continue;
-        if (ent.name === 'main') continue;
+        if (ent.name === mainDirName) continue;
         await encryptDirRecursive(path.join(appDir, ent.name), encryptKey, encryptIv);
     }
 }

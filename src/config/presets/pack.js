@@ -1,6 +1,8 @@
 function getPackPreset(ctx, pkgJson) {
     const { createLayout, toOutputRelative } = require('../../paths');
-    const layout = createLayout(process.cwd());
+    const { outputFrom } = require('../../pack/pkg');
+    const rootDir = process.cwd();
+    const layout = createLayout(rootDir);
     const year = new Date().getFullYear();
     const author = pkgJson.author ?? '';
     const productName = pkgJson.productName ?? pkgJson.name;
@@ -8,7 +10,7 @@ function getPackPreset(ctx, pkgJson) {
     return {
         directories: { output: 'dist' },
         files: [
-            { from: 'app', to: '.' },
+            { from: outputFrom(layout, rootDir), to: '.' },
             'package.json',
             '!**/node_modules/**',
         ],

@@ -1,6 +1,7 @@
 const path = require('path');
 const { buildInfoPlugin } = require('./build-info-plugin');
 const { userEnvPlugin } = require('./user-env-plugin');
+const { createLayout } = require('../../paths');
 
 function getWebPreset(ctx, pkgJson, buildInfo) {
     const { mode, isDev, env } = ctx;
@@ -9,7 +10,7 @@ function getWebPreset(ctx, pkgJson, buildInfo) {
     return {
         target: 'web',
         mode,
-        entry: path.resolve(rootDir, 'src/renderer/index.js'),
+        entry: createLayout(rootDir).src.renderer,
         output: {
             path: path.resolve(rootDir, 'dist'),
             filename: 'index.js',

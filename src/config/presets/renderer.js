@@ -1,4 +1,3 @@
-const path = require('path');
 const { buildInfoPlugin } = require('./build-info-plugin');
 const { userEnvPlugin } = require('./user-env-plugin');
 const { createLayout } = require('../../paths');
@@ -12,7 +11,7 @@ function getRendererPreset(ctx, pkgJson, buildInfo) {
         name: 'renderer',
         target: 'web',
         mode,
-        entry: { index: path.resolve(rootDir, 'src/renderer/index.js') },
+        entry: { index: layout.src.renderer },
         output: {
             path: layout.out.renderer,
             filename: '[name].js',

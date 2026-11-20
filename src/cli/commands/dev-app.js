@@ -10,6 +10,8 @@ const {
     withoutDevServer,
 } = require('../../config/build-config-list');
 const { resolveDevServerOptions, runDevServer } = require('../../webpack-runner/run-dev-server');
+const { createDevDescriptor, withDescriptorRoute } = require('../../webpack-runner/dev-descriptor');
+const { DESCRIPTOR_FILE } = require('../../paths');
 const { resolveElectron } = require('../../electron/resolve-electron');
 const { resolveMainEntry } = require('../../electron/resolve-main-entry');
 const { killElectron } = require('../../electron/kill-electron');
@@ -124,10 +126,13 @@ module.exports = {
         const { served, oneShot } = selectDevRendererConfigs(renderer);
         const { devServer: userDev = {} } = served;
         const rendererWebpack = withoutDevServer(served);
-        const devServerOptions = resolveDevServerOptions(ctx, userDev, { defaultPort: 8023 });
-        const devUrl = `http://${devServerOptions.host}:${devServerOptions.port}/`;
+        const resolvedDevServer = resolveDevServerOptions(ctx, userDev, { defaultPort: 8023 });
+        const devUrl = `http://${resolvedDevServer.host}:${resolvedDevServer.port}/`;
         // 必须在创建 webpack compiler 之前写入：buildInfoPlugin 在 apply 时才读取 buildInfo
         buildInfo.devUrl = devUrl;
+        // dev server 根地址下提供描述文件，宿主据此把 dev server 当作一个包加载
+        const devDescriptor = createDevDescriptor({ rootDir, buildInfo, devUrl });
+        const devServerOptions = withDescriptorRoute(resolvedDevServer, devDescriptor);
 
         // --pkg-only 时 main 预设只保留 pkg 入口，且不编译 preload
         const oneShotConfigs = pkgOnly
@@ -139,9 +144,9 @@ module.exports = {
         ]);
 
         if (pkgOnly) {
-            logger.info(`包主进程：${createLayout(rootDir).out.pkg}`);
-            logger.info(`页面 dev server：${devUrl}`);
-            logger.info('由宿主按开发覆盖项加载；主进程改动需重新执行本命令并重启宿主');
+            logger.info(`包描述文件：${devUrl}${DESCRIPTOR_FILE}`);
+            logger.info(`宿主 .env 的 BC_DEV_PKG_SOURCES 中配置：{ "${buildInfo.name}": { "type": "devServer", "url": "${devUrl}" } }`);
+            logger.info('主进程改动需重新执行本命令并重启宿主');
             const shutdown = createShutdown({ child: null, devServer });
             registerShutdownSignals(shutdown);
             return;

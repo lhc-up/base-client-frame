@@ -69,7 +69,7 @@ describe('E2E: pack（宿主 + 包模型）', () => {
         const descriptor = JSON.parse(fs.readFileSync(path.join(out, 'package.json'), 'utf8'));
         expect(descriptor).toMatchObject({
             name: 'minimal-pack-pkg', version: '1.0.0', env: 'prod',
-            main: 'main/pkg.js', renderer: 'renderer/',
+            main: 'main/pkg.js', renderer: 'renderer/index.html', update: 'renderer/update.html',
         });
         expect('child' in descriptor).toBe(false);
         expect(descriptor.encryptKey).toBeUndefined();
