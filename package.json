@@ -18,8 +18,17 @@
     "engines": {
         "node": "^20.19.0 || ^22.13.0 || >=24"
     },
-    "keywords": ["electron", "electron-builder", "bytenode", "webpack", "build", "packager", "cli"],
+    "keywords": [
+        "electron",
+        "electron-builder",
+        "bytenode",
+        "webpack",
+        "build",
+        "packager",
+        "cli"
+    ],
     "scripts": {
+        "lint": "eslint bin src/paths.js src/core/node-version.js",
         "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
         "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch"
     },
@@ -31,11 +40,19 @@
         "webpack-dev-server": "^5.0.0"
     },
     "peerDependenciesMeta": {
-        "bytenode": { "optional": true },
-        "electron": { "optional": true },
-        "electron-builder": { "optional": true }
+        "bytenode": {
+            "optional": true
+        },
+        "electron": {
+            "optional": true
+        },
+        "electron-builder": {
+            "optional": true
+        }
     },
     "devDependencies": {
+        "eslint": "^10.15.0",
+        "eslint-plugin-n": "^18.5.0",
         "html-webpack-plugin": "^5.6.3",
         "jest": "^30.4.2",
         "webpack": "^5.107.2",
