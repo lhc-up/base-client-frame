@@ -6,7 +6,8 @@
 
 ## 已知限制
 
-- **龙芯（loong64）打包需自备 Electron 镜像源**：frame 不内置镜像配置，构建节点需通过环境变量（如 `ELECTRON_MIRROR`）自行解决。
+- **龙芯（loong64）打包需要龙芯版 electron-builder**：官方 electron-builder 不支持 loong64，打包前要从龙芯源安装龙芯版，打完再恢复官方版。frame 已内置龙芯 Electron 镜像，并在打包前检查，用错版本时直接报错并输出处理步骤（见 `docs/build-target-resolution-contract.md`「龙芯（loong64）」）。
+
 ## 演进事项（非缺陷）
 
 - **webpack 预设规整**：main 不处理资源、共用配置抽取等结构性优化尚未排期。

@@ -5,6 +5,7 @@ const { resolveBuilderConfig } = require('../../config/builder-config');
 const { adaptIcon } = require('../../pack/icon');
 const { generateShellScripts } = require('../../pack/shell');
 const { resolveElectronBuilder } = require('../../electron/resolve-electron-builder');
+const { assertLoong64Builder } = require('../../electron/loong64');
 const {
     resolveBuildTargetOptions,
     buildTargets,
@@ -29,6 +30,12 @@ module.exports = {
         const rootDir = process.cwd();
         const distDir = path.join(rootDir, 'dist');
         const pkgJson = require(path.resolve(rootDir, 'package.json'));
+
+        assertLoong64Builder({
+            rootDir,
+            arch: ctx.cliOptions.arch,
+            command: `npx base-client ${process.argv.slice(2).join(' ')}`,
+        });
 
         // 阶段 A 子集：不清 dist、不派生 __BC_BUILD__、不读 bc.config
         const mergedBuilderConfig = resolveBuilderConfig(ctx, pkgJson);

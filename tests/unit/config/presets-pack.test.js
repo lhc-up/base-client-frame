@@ -55,9 +55,28 @@ describe('config/presets/pack', () => {
         expect(p.appId).toBeUndefined();
     });
 
-    test('preset 不注入 electronDownload / electronVersion（即使 arch=loong64）', () => {
-        const p = getPackPreset(baseCtx({ cliOptions: { platform: 'linux', arch: 'loong64' } }), pkgJson);
-        expect(p.electronDownload).toBeUndefined();
-        expect(p.electronVersion).toBeUndefined();
+    test('loong64：合并龙芯 Electron 镜像配置；其他架构不带', () => {
+        const loong = getPackPreset(baseCtx({ cliOptions: { platform: 'linux', arch: 'loong64' } }), pkgJson);
+        expect(loong.electronVersion).toBe('22.3.27');
+        expect(loong.electronDownload).toEqual({
+            version: '22.3.27',
+            mirror: 'http://ftp.loongnix.cn/electron/LoongArch/',
+            customDir: 'v22.3.27',
+            platform: 'linux',
+            arch: 'loong64',
+        });
+
+        for (const arch of ['x64', 'arm64', 'ia32']) {
+            const p = getPackPreset(baseCtx({ cliOptions: { platform: 'linux', arch } }), pkgJson);
+            expect(p.electronVersion).toBeUndefined();
+            expect(p.electronDownload).toBeUndefined();
+        }
+    });
+
+    test('loong64：每次返回新的 electronDownload 对象，改动不影响下一次', () => {
+        const ctx = baseCtx({ cliOptions: { platform: 'linux', arch: 'loong64' } });
+        const first = getPackPreset(ctx, pkgJson);
+        first.electronDownload.mirror = 'changed';
+        expect(getPackPreset(ctx, pkgJson).electronDownload.mirror).toBe('http://ftp.loongnix.cn/electron/LoongArch/');
     });
 });

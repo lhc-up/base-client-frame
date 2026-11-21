@@ -12,6 +12,7 @@ const { generateShellScripts } = require('../../pack/shell');
 const { computeCryptoState } = require('../../pack/encrypt');
 const { buildPkgAsar, applyPkgToBuilderConfig } = require('../../pack/pkg');
 const { resolveElectronBuilder } = require('../../electron/resolve-electron-builder');
+const { assertLoong64Builder } = require('../../electron/loong64');
 const {
     resolveBuildTargetOptions,
     buildTargets,
@@ -41,6 +42,15 @@ module.exports = {
         const appDir = createLayout(rootDir).out.root;
         const pkgJson = require(path.resolve(rootDir, 'package.json'));
         const pkgOnly = !!ctx.cliOptions.pkgOnly;
+
+        // 编译要几分钟，龙芯版 electron-builder 的检查放在最前面
+        if (!pkgOnly) {
+            assertLoong64Builder({
+                rootDir,
+                arch: ctx.cliOptions.arch,
+                command: `npx base-client ${process.argv.slice(2).join(' ')}`,
+            });
+        }
 
         // 阶段 A · 资源准备
         logger.info('清空 dist/（frame 约定输出目录，如有重要文件请移出）');
