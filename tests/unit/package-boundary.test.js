@@ -27,6 +27,15 @@ describe('frame 包边界', () => {
         expect(source).toContain('createCli()');
     });
 
+    test('bin 入口为 LF：首行不含回车符（CRLF 时 Linux / mac 报 `node\\r` 找不到，见 .gitattributes）', () => {
+        const firstLine = fs.readFileSync(path.join(root, 'bin/base-client.js'), 'utf8').split('\n')[0];
+        expect(firstLine).toBe('#!/usr/bin/env node');
+    });
+
+    test('发布前先跑测试（prepublishOnly），CRLF 的 bin 发布不出去', () => {
+        expect(packageJson.scripts.prepublishOnly).toBe('npm test');
+    });
+
     test('根聚合入口只装配 core/cli/config 模块，导出公开 API', () => {
         const source = fs.readFileSync(path.join(root, 'src/index.js'), 'utf8');
         const requires = [...source.matchAll(/require\(['"]([^'"]+)['"]\)/g)]

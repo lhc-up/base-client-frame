@@ -30,7 +30,8 @@
     "scripts": {
         "lint": "eslint bin src/paths.js src/core/node-version.js",
         "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
-        "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch"
+        "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch",
+        "prepublishOnly": "npm test"
     },
     "peerDependencies": {
         "bytenode": "^1.4.0",
