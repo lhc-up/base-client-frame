@@ -3,6 +3,14 @@ const fs = require('fs');
 const fse = require('fs-extra');
 const asar = require('@electron/asar');
 
+/** 生产环境的入口 js 带 contenthash（`<name>.<hash8>.js`），按入口名找到唯一的那个文件 */
+function entryJs(dir, name) {
+    const pattern = new RegExp(`^${name}\\.[0-9a-f]{8}\\.js$`);
+    const files = fs.readdirSync(dir).filter(file => pattern.test(file));
+    expect(files).toHaveLength(1);
+    return path.join(dir, files[0]);
+}
+
 const sourceFixtureDir = path.join(__dirname, '../fixtures/minimal-pack');
 
 /**
@@ -65,7 +73,7 @@ describe('E2E: pack（宿主 + 包模型）', () => {
         expect(fs.existsSync(path.join(out, 'main/pkg.js'))).toBe(true);
         expect(fs.existsSync(path.join(out, 'main/index.js'))).toBe(false);
         expect(fs.existsSync(path.join(out, 'preload'))).toBe(false);
-        expect(fs.existsSync(path.join(out, 'renderer/index.js'))).toBe(true);
+        expect(fs.existsSync(entryJs(path.join(out, 'renderer'), 'index'))).toBe(true);
         const descriptor = JSON.parse(fs.readFileSync(path.join(out, 'package.json'), 'utf8'));
         expect(descriptor).toMatchObject({
             name: 'minimal-pack-pkg', version: '1.0.0', env: 'prod',

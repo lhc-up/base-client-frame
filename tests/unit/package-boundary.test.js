@@ -44,11 +44,12 @@ describe('frame 包边界', () => {
         expect(requires).toEqual([
             './cli',
             './config/merge',
+            './config/presets/renderer-defaults',
             './core/logger',
             './core/mode',
             './core/target',
         ]);
-        for (const key of ['MODES', 'TARGETS', 'createCli', 'runCommand', 'replace', 'customMerge', 'logger']) {
+        for (const key of ['MODES', 'TARGETS', 'createCli', 'runCommand', 'replace', 'customMerge', 'logger', 'styleLoader']) {
             expect(source).toContain(key);
         }
     });

@@ -1,6 +1,7 @@
 const { buildInfoPlugin } = require('./build-info-plugin');
 const { userEnvPlugin } = require('./user-env-plugin');
 const { createLayout } = require('../../paths');
+const { pageOutputFilenames } = require('./renderer-defaults');
 
 function getRendererPreset(ctx, pkgJson, buildInfo) {
     const { mode, isDev, env } = ctx;
@@ -14,7 +15,7 @@ function getRendererPreset(ctx, pkgJson, buildInfo) {
         entry: { index: layout.src.renderer },
         output: {
             path: layout.out.renderer,
-            filename: '[name].js',
+            ...pageOutputFilenames(isDev),
             publicPath: isDev ? '/' : './',
         },
         devtool: isDev ? 'source-map' : false,

@@ -52,7 +52,7 @@ describe('frame 运行时导出解析', () => {
         const script = `
             const frame = require('@base-client/frame');
             const keys = Object.keys(frame).sort();
-            const expected = ['MODES', 'TARGETS', 'createCli', 'customMerge', 'logger', 'replace', 'runCommand'].sort();
+            const expected = ['MODES', 'TARGETS', 'createCli', 'customMerge', 'logger', 'replace', 'runCommand', 'styleLoader'].sort();
             if (JSON.stringify(keys) !== JSON.stringify(expected)) {
                 console.error('aggregate keys: ' + keys.join(','));
                 process.exit(1);

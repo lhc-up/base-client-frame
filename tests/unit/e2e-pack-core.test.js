@@ -2,6 +2,14 @@ const path = require('path');
 const fs = require('fs');
 const fse = require('fs-extra');
 
+/** 生产环境的入口 js 带 contenthash（`<name>.<hash8>.js`），按入口名找到唯一的那个文件 */
+function entryJs(dir, name) {
+    const pattern = new RegExp(`^${name}\\.[0-9a-f]{8}\\.js$`);
+    const files = fs.readdirSync(dir).filter(file => pattern.test(file));
+    expect(files).toHaveLength(1);
+    return path.join(dir, files[0]);
+}
+
 const sourceFixtureDir = path.join(__dirname, '../fixtures/minimal-pack');
 const fixtureDir = path.join(__dirname, '../fixtures/minimal-pack-core');
 
@@ -37,8 +45,8 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
 
             expect(fs.existsSync(path.join(fixtureDir, 'app/main/index.js'))).toBe(true);
             expect(fs.existsSync(path.join(fixtureDir, 'app/preload/index.js'))).toBe(true);
-            expect(fs.existsSync(path.join(fixtureDir, 'app/renderer/index.js'))).toBe(true);
-            expect(fs.existsSync(path.join(fixtureDir, 'app/renderer/update.js'))).toBe(true);
+            expect(fs.existsSync(entryJs(path.join(fixtureDir, 'app/renderer'), 'index'))).toBe(true);
+            expect(fs.existsSync(entryJs(path.join(fixtureDir, 'app/renderer'), 'update'))).toBe(true);
             expect(fs.existsSync(path.join(fixtureDir, 'app/renderer/update.html'))).toBe(true);
 
             expect(fs.existsSync(path.join(fixtureDir, 'dist/shell/win-installer.nsh'))).toBe(true);

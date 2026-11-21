@@ -19,6 +19,23 @@ function assertPkgEntry(rootDir = process.cwd()) {
 }
 
 /**
+ * 项目装了 toolkit 时取它的 `toolkitExternals`：主进程（宿主与包）里的 toolkit 引用一律从宿主运行时取，
+ * 包里不能打进自己的一份（否则 Service、Notice、logger 与宿主不是同一个实例）。未安装 toolkit 时返回 null。
+ *
+ * @param {string} rootDir
+ * @returns {Function|null}
+ */
+function loadToolkitExternals(rootDir) {
+    let entry;
+    try {
+        entry = require.resolve('@base-client/toolkit/build', { paths: [rootDir] });
+    } catch {
+        return null;
+    }
+    return require(entry).toolkitExternals || null;
+}
+
+/**
  * 主进程预设：一次编译、两个入口。
  *
  * - `index`：宿主主进程 `src/main/index.js` → `app/main/index.js`
@@ -36,6 +53,10 @@ function getMainPreset(ctx, pkgJson, buildInfo) {
         ? { pkg: pkgEntry }
         : { index: layout.src.main, pkg: pkgEntry };
 
+    const externals = [{ electron: 'commonjs electron' }];
+    const toolkitExternals = loadToolkitExternals(rootDir);
+    if (toolkitExternals) externals.push(toolkitExternals);
+
     return {
         name: 'main',
         target: 'electron-main',
@@ -47,7 +68,7 @@ function getMainPreset(ctx, pkgJson, buildInfo) {
             libraryTarget: 'commonjs2',
         },
         // 数组形式：业务追加的 externals（对象或函数）按合并规则与之拼接，不会覆盖 electron
-        externals: [{ electron: 'commonjs electron' }],
+        externals,
         devtool: isDev ? 'source-map' : false,
         resolve: {
             extensions: ['.js', '.mjs', '.cjs', '.json'],

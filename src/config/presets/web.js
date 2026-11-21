@@ -2,6 +2,7 @@ const path = require('path');
 const { buildInfoPlugin } = require('./build-info-plugin');
 const { userEnvPlugin } = require('./user-env-plugin');
 const { createLayout } = require('../../paths');
+const { pageOutputFilenames } = require('./renderer-defaults');
 
 function getWebPreset(ctx, pkgJson, buildInfo) {
     const { mode, isDev, env } = ctx;
@@ -13,7 +14,7 @@ function getWebPreset(ctx, pkgJson, buildInfo) {
         entry: createLayout(rootDir).src.renderer,
         output: {
             path: path.resolve(rootDir, 'dist'),
-            filename: 'index.js',
+            ...pageOutputFilenames(isDev),
             publicPath: isDev ? '/' : './',
         },
         devtool: isDev ? 'source-map' : false,

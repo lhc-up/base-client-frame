@@ -4,6 +4,14 @@ const fse = require('fs-extra');
 const crypto = require('crypto');
 const asar = require('@electron/asar');
 
+/** 生产环境的入口 js 带 contenthash（`<name>.<hash8>.js`），按入口名找到唯一的那个文件 */
+function entryJs(dir, name) {
+    const pattern = new RegExp(`^${name}\\.[0-9a-f]{8}\\.js$`);
+    const files = fs.readdirSync(dir).filter(file => pattern.test(file));
+    expect(files).toHaveLength(1);
+    return path.join(dir, files[0]);
+}
+
 const fixtureDir = path.join(__dirname, '../fixtures/minimal-pack-full');
 
 describe('E2E: pack 完整能力（encrypt + bytenode + 更新包 + 多入口）', () => {
@@ -50,7 +58,7 @@ describe('E2E: pack 完整能力（encrypt + bytenode + 更新包 + 多入口）
         expect(lastCall.config.extraMetadata.main).toBe('main/loader.js');
 
         // 3. 渲染层加密
-        const rendererJsPath = path.join(fixtureDir, 'app/renderer/index.js');
+        const rendererJsPath = entryJs(path.join(fixtureDir, 'app/renderer'), 'index');
         const rendererBuf = fs.readFileSync(rendererJsPath);
         const iv = Buffer.from(IV, 'utf8');
         const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(KEY, 'utf8'), iv);
@@ -59,8 +67,7 @@ describe('E2E: pack 完整能力（encrypt + bytenode + 更新包 + 多入口）
         expect(decrypted.toString('utf8')).toMatch(/(function|require|module|var|const)/);
 
         // 4. update 入口也产出且加密
-        expect(fs.existsSync(path.join(fixtureDir, 'app/renderer/update.js'))).toBe(true);
-        const updateBuf = fs.readFileSync(path.join(fixtureDir, 'app/renderer/update.js'));
+        const updateBuf = fs.readFileSync(entryJs(path.join(fixtureDir, 'app/renderer'), 'update'));
         const decipher2 = crypto.createDecipheriv('aes-256-cbc', Buffer.from(KEY, 'utf8'), iv);
         Buffer.concat([decipher2.update(updateBuf), decipher2.final()]);
 
@@ -70,8 +77,8 @@ describe('E2E: pack 完整能力（encrypt + bytenode + 更新包 + 多入口）
         expect(fs.existsSync(pkgPath)).toBe(true);
         const extractDir = path.join(fixtureDir, 'dist/_extract');
         asar.extractAll(pkgPath, extractDir);
-        expect(fs.existsSync(path.join(extractDir, 'renderer/index.js'))).toBe(true);
-        expect(fs.existsSync(path.join(extractDir, 'renderer/update.js'))).toBe(true);
+        expect(fs.existsSync(entryJs(path.join(extractDir, 'renderer'), 'index'))).toBe(true);
+        expect(fs.existsSync(entryJs(path.join(extractDir, 'renderer'), 'update'))).toBe(true);
         expect(fs.existsSync(path.join(extractDir, 'main/pkg.js'))).toBe(true);
         expect(fs.existsSync(path.join(extractDir, 'main/index.jsc'))).toBe(false);
         expect(fs.existsSync(path.join(extractDir, 'preload'))).toBe(false);
@@ -132,8 +139,8 @@ describe('E2E: pack 关闭加密 + 关闭 bytenode（独立 fixture）', () => {
 
         await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64' });
 
-        // renderer/index.js 是原 webpack 文本产物（未加密）
-        const rendererJs = fs.readFileSync(path.join(offFixtureDir, 'app/renderer/index.js'), 'utf8');
+        // renderer 入口 js 是原 webpack 文本产物（未加密）
+        const rendererJs = fs.readFileSync(entryJs(path.join(offFixtureDir, 'app/renderer'), 'index'), 'utf8');
         expect(rendererJs).toMatch(/function|require|module|var|const/);
         // main/index.js 仍存在（bytenode 跳过）
         expect(fs.existsSync(path.join(offFixtureDir, 'app/main/index.js'))).toBe(true);

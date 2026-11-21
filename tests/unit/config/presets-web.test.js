@@ -23,7 +23,13 @@ describe('config/presets/web', () => {
         expect(preset.mode).toBe('development');
         expect(preset.entry).toContain(path.join('src', 'renderer', 'index.js'));
         expect(preset.output.path).toContain('dist');
-        expect(preset.output.filename).toBe('index.js');
+        expect(preset.output.filename).toBe('[name].js');
+    });
+
+    test('生产环境 js 文件名带 contenthash', () => {
+        const preset = getWebPreset(baseCtx({ mode: 'production', isDev: false, isProd: true }), pkgJson, buildInfo);
+        expect(preset.output.filename).toBe('[name].[contenthash:8].js');
+        expect(preset.output.chunkFilename).toBe('[name].[contenthash:8].js');
     });
 
     test('publicPath dev=/ prod=./', () => {

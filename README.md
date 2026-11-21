@@ -93,6 +93,39 @@ module.exports = () => ({
 
 配置片段由 frame 使用 `webpack-merge` 合并；`renderer` 支持多入口配置。
 
+### frame 提供的通用配置
+
+与技术栈无关的部分由 frame 统一，项目的 `bc.config.js` 只写 Vue / Less / babel、别名、页面模板、本地调试代理等。
+
+**main**：项目装了 `@base-client/toolkit` 时自动接入 `toolkitExternals`，宿主与包里的 toolkit 引用一律从宿主运行时取，项目不用再写。
+
+**renderer / web**：frame 在合并项目配置**之后**补默认，只补项目没写的部分，项目写了就以项目为准：
+
+| 默认 | 项目怎样覆盖 |
+|---|---|
+| js 文件名：生产环境 `[name].[contenthash:8].js`，开发环境 `[name].js` | 写 `output.filename` / `output.chunkFilename` |
+| 图片规则：`images/`，小于 2KB 内联 | 写一条能匹配 `.png` 的规则 |
+| 字体规则：`fonts/` | 写一条能匹配 `.woff2` 的规则 |
+| 生产环境把 CSS 抽离到 `css/`（需项目安装 `mini-css-extract-plugin`） | 在 `plugins` 里自己 new `MiniCssExtractPlugin` |
+| 生产环境压缩 CSS，保留 webpack 默认的 JS 压缩（需项目安装 `css-minimizer-webpack-plugin`） | 写 `optimization.minimizer` |
+
+样式规则的第一个 loader 用 `styleLoader(ctx)`：开发环境为 `style-loader`，生产环境为 CSS 抽离 loader，
+并带好 `publicPath: '../'`（css 在 `css/` 下，引用的图片、字体在上一级）：
+
+```js
+const { styleLoader } = require('@base-client/frame');
+
+module.exports = (ctx) => ({
+    renderer: {
+        module: {
+            rules: [
+                { test: /\.css$/, use: [styleLoader(ctx), 'css-loader'] },
+            ],
+        },
+    },
+});
+```
+
 ## 库入口
 
 ```js
@@ -101,6 +134,7 @@ const {
     createCli, runCommand,
     replace, customMerge,
     logger,
+    styleLoader,  // 样式规则的第一个 loader，见「frame 提供的通用配置」
 } = require('@base-client/frame');
 
 // 产物布局（构建期 createLayout，运行期 resolveLayout）

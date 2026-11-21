@@ -8,6 +8,7 @@ const { getPreloadPreset } = require('./presets/preload');
 const { getRendererPreset } = require('./presets/renderer');
 const { mergeConfigList } = require('./build-config-list');
 const { applyUpdatePage } = require('./update-page');
+const { applyPageDefaults } = require('./presets/renderer-defaults');
 const logger = require('../core/logger');
 const { createLayout } = require('../paths');
 
@@ -88,13 +89,29 @@ function assertOutputLayout(configs, rootDir) {
     }
 }
 
+/**
+ * renderer 可以是单个配置或数组（与项目的 renderer 一一对应），逐份补页面默认。
+ */
+function applyRendererDefaults(renderer, userRenderer, ctx) {
+    const options = { isDev: ctx.isDev, rootDir: process.cwd() };
+    if (!Array.isArray(renderer)) {
+        applyPageDefaults(renderer, userRenderer || {}, options);
+        return;
+    }
+    renderer.forEach((config, index) => {
+        applyPageDefaults(config, (userRenderer && userRenderer[index]) || {}, options);
+    });
+}
+
 function resolveBuildConfig(ctx, pkgJson, buildInfo) {
     const userConfig = ctx.userConfig ?? loadUserConfig(locateBcConfig(process.cwd(), ctx.cliOptions.config), ctx);
 
     if (ctx.target === TARGETS.WEB) {
         const preset = getWebPreset(ctx, pkgJson, buildInfo);
         const userWeb = userConfig.web || {};
-        return { web: webpackMerge(preset, userWeb) };
+        const web = webpackMerge(preset, userWeb);
+        applyPageDefaults(web, userWeb, { isDev: ctx.isDev, rootDir: process.cwd() });
+        return { web };
     }
 
     if (ctx.target === TARGETS.APP) {
@@ -107,6 +124,7 @@ function resolveBuildConfig(ctx, pkgJson, buildInfo) {
             preload: webpackMerge(preloadPreset, userConfig.preload || {}),
             renderer: mergeConfigList(rendererPreset, userConfig.renderer),
         };
+        applyRendererDefaults(configs.renderer, userConfig.renderer, ctx);
         applyUpdatePage(configs.renderer, { rootDir: process.cwd(), buildInfo });
         assertOutputLayout(configs, process.cwd());
         return configs;

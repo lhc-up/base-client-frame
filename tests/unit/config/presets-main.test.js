@@ -53,4 +53,32 @@ describe('config/presets/main', () => {
         const p = getMainPreset(baseCtx(), pkgJson, buildInfo);
         expect(p.resolve.extensions).toEqual(expect.arrayContaining(['.js', '.mjs', '.cjs', '.json']));
     });
+
+    describe('项目装了 toolkit：自动接入 toolkitExternals', () => {
+        const fse = require('fs-extra');
+        const tmpDir = path.join(__dirname, '../../tmp/main-preset-toolkit');
+        let oldCwd;
+
+        beforeAll(() => {
+            const toolkitDir = path.join(tmpDir, 'node_modules/@base-client/toolkit');
+            fse.outputJsonSync(path.join(toolkitDir, 'package.json'), {
+                name: '@base-client/toolkit',
+                exports: { './build': './build.js' },
+            });
+            fse.outputFileSync(path.join(toolkitDir, 'build.js'),
+                'function toolkitExternals() {}\nmodule.exports = { toolkitExternals };');
+            oldCwd = process.cwd();
+            process.chdir(tmpDir);
+        });
+        afterAll(() => {
+            process.chdir(oldCwd);
+            fse.removeSync(tmpDir);
+        });
+
+        test('externals 依次为 electron 与 toolkitExternals', () => {
+            const p = getMainPreset(baseCtx(), pkgJson, buildInfo);
+            const { toolkitExternals } = require(path.join(tmpDir, 'node_modules/@base-client/toolkit/build.js'));
+            expect(p.externals).toEqual([{ electron: 'commonjs electron' }, toolkitExternals]);
+        });
+    });
 });
