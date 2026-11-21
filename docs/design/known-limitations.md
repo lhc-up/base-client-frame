@@ -10,7 +10,7 @@
 
 ## 演进事项（非缺陷）
 
-- **base-client.bake 差异盘点**：与历史 bake 仓库的行为差异尚未系统梳理，接入新项目时按需补充。
+- **base-client.bake 差异盘点**：已完成功能对照，见 toolkit `docs/design/bake-feature-inventory.md`；缺失项逐条确认中。
 
 ## 复验记录
 
