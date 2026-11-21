@@ -60,6 +60,22 @@ describe('config/presets/user-env-plugin（实际编译）', () => {
         expect(out).not.toMatch(/process\.env\.BC_/);
     });
 
+    test('typeof 写法：未声明替换为 typeof undefined 并警告；已声明（含空值）求值为 "string"', async () => {
+        const { out, warnings } = await compile([
+            'exports.u = typeof process.env.BC_U;',
+            'exports.d = typeof process.env.BC_A;',
+            'exports.e = typeof process.env.BC_EMPTY;',
+            'if (typeof process.env.BC_U !== "undefined") exports.x = 1;',
+        ].join('\n'), { BC_A: 'a', BC_EMPTY: '' });
+
+        expect(out).toContain('exports.u = typeof undefined');
+        expect(out).toContain('exports.d = "string"');
+        expect(out).toContain('exports.e = "string"');
+        expect(out).toContain('if (typeof undefined !== "undefined")');
+        expect(out).not.toMatch(/process\.env\.BC_/);
+        expect(warnings).toEqual([expect.stringMatching(/^BC_U 未在 .*声明，已替换为 undefined（src[\\/]entry\.js:1）$/)]);
+    });
+
     test('空值也算声明：不警告，替换为空串', async () => {
         const { out, warnings } = await compile('exports.e = process.env.BC_EMPTY;', { BC_EMPTY: '' });
         expect(out).toContain('exports.e = ""');
