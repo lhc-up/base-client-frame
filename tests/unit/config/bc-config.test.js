@@ -1,5 +1,6 @@
 const path = require('path');
 const { resolveBuildConfig } = require('../../../src/config/bc-config');
+const { CircularDependencyPlugin } = require('../../../src/config/presets/circular-dependency-plugin');
 
 const fixtureDir = path.join(__dirname, '../../fixtures/bc-config-web');
 const pkgJson = { name: 'demo', version: '1.0.0' };
@@ -37,11 +38,26 @@ describe('config/bc-config', () => {
                 pkgJson,
                 { target: 'web' },
             );
-            // 预设有 2 个 DefinePlugin + 用户的 1 个 = 3 个
-            expect(web.plugins.length).toBe(3);
+            // 预设有 2 个 DefinePlugin + 用户的 1 个 + 循环依赖检测 1 个 = 4 个
+            expect(web.plugins.length).toBe(4);
         } finally {
             fs.rmSync(path.dirname(userConfigPath), { recursive: true, force: true });
         }
+    });
+
+    test('web 默认加循环依赖检测（警告）；circularDependency 可改为报错或关闭；非法值报错', () => {
+        const count = web => web.plugins.filter(p => p instanceof CircularDependencyPlugin);
+        const { web } = resolveBuildConfig(baseCtx({ userConfig: {} }), pkgJson, { target: 'web' });
+        expect(count(web).map(p => p.mode)).toEqual(['warn']);
+
+        const strict = resolveBuildConfig(baseCtx({ userConfig: { circularDependency: 'error' } }), pkgJson, { target: 'web' });
+        expect(count(strict.web).map(p => p.mode)).toEqual(['error']);
+
+        const off = resolveBuildConfig(baseCtx({ userConfig: { circularDependency: false } }), pkgJson, { target: 'web' });
+        expect(count(off.web)).toEqual([]);
+
+        expect(() => resolveBuildConfig(baseCtx({ userConfig: { circularDependency: 'off' } }), pkgJson, { target: 'web' }))
+            .toThrow('circularDependency');
     });
 
     test('--config 路径不存在时抛错', () => {
@@ -159,6 +175,34 @@ describe('config/bc-config (app target)', () => {
         expect(cfgs.preload).toBeDefined();
         expect(cfgs.renderer).toBeDefined();
         expect(cfgs.web).toBeUndefined();
+    });
+
+    test('app 的 main / preload / 每份 renderer 都加循环依赖检测；关闭时都不加', () => {
+        const info = { target: 'app', name: 'demo', version: '1.0.0', env: 'prod', encrypted: false };
+        const modes = config => config.plugins
+            .filter(p => p instanceof CircularDependencyPlugin)
+            .map(p => p.mode);
+        const userConfig = {
+            main: {},
+            preload: {},
+            renderer: [{ name: 'renderer', devServer: { port: 8023 } }, { name: 'other' }],
+        };
+        const cfgs = resolveBuildConfig(appCtx({ userConfig }), { name: 'demo', version: '1.0.0' }, info);
+        expect(modes(cfgs.main)).toEqual(['warn']);
+        expect(modes(cfgs.preload)).toEqual(['warn']);
+        expect(cfgs.renderer.length).toBeGreaterThanOrEqual(2);
+        for (const config of cfgs.renderer) {
+            expect(modes(config)).toEqual(['warn']);
+        }
+
+        const off = resolveBuildConfig(
+            appCtx({ userConfig: { ...userConfig, circularDependency: false } }),
+            { name: 'demo', version: '1.0.0' },
+            info,
+        );
+        for (const config of [off.main, off.preload, ...off.renderer]) {
+            expect(modes(config)).toEqual([]);
+        }
     });
 
     test('renderer.devServer 透传至 renderer 配置', () => {
@@ -300,7 +344,8 @@ describe('config/bc-config (app target)', () => {
             { name: 'demo', version: '1.0.0' },
             { target: 'app' },
         );
-        expect(main.plugins.length).toBe(3);
+        // 预设 2 个 + 用户的 1 个 + 循环依赖检测 1 个
+        expect(main.plugins.length).toBe(4);
     });
 });
 

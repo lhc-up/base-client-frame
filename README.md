@@ -81,6 +81,7 @@ module.exports = () => ({
         iv: 'fedcba9876543210',                  // 可选，16 个 ASCII 字节
     },
     bytenode: false,
+    circularDependency: 'warn', // 可选：'warn'（默认）| 'error' | false，见下方「循环依赖检测」
 });
 ```
 
@@ -96,6 +97,16 @@ module.exports = () => ({
 ### frame 提供的通用配置
 
 与技术栈无关的部分由 frame 统一，项目的 `bc.config.js` 只写 Vue / Less / babel、别名、页面模板、本地调试代理等。
+
+**循环依赖检测**（main / preload / renderer / web）：构建时检查项目自己的代码（不含 `node_modules`）有没有循环引用，
+`import`、`require` 及两者混用都算，`import()` 动态导入不算。默认作为警告输出循环路径，不影响构建，例如：
+
+```text
+⚠ 循环依赖：src/renderer/libs/js/a.js → src/renderer/libs/js/b.js → src/renderer/libs/js/a.js
+```
+
+`bc.config.js` 的 `circularDependency: 'error'` 改为构建失败，`false` 关闭。写在函数里的 `require('./x')`
+也会报出（构建期分不出写在顶层还是函数里）；`require(变量)` 构建期不知道引用的文件，查不出来。
 
 **main**：项目装了 `@base-client/toolkit` 时自动接入 `toolkitExternals`，宿主与包里的 toolkit 引用一律从宿主运行时取，项目不用再写。
 

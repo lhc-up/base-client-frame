@@ -9,6 +9,10 @@ const { getRendererPreset } = require('./presets/renderer');
 const { mergeConfigList } = require('./build-config-list');
 const { applyUpdatePage } = require('./update-page');
 const { applyPageDefaults } = require('./presets/renderer-defaults');
+const {
+    applyCircularDependencyCheck,
+    resolveCircularDependencyMode,
+} = require('./presets/circular-dependency-plugin');
 const logger = require('../core/logger');
 const { createLayout } = require('../paths');
 
@@ -105,12 +109,14 @@ function applyRendererDefaults(renderer, userRenderer, ctx) {
 
 function resolveBuildConfig(ctx, pkgJson, buildInfo) {
     const userConfig = ctx.userConfig ?? loadUserConfig(locateBcConfig(process.cwd(), ctx.cliOptions.config), ctx);
+    const circularMode = resolveCircularDependencyMode(userConfig.circularDependency);
 
     if (ctx.target === TARGETS.WEB) {
         const preset = getWebPreset(ctx, pkgJson, buildInfo);
         const userWeb = userConfig.web || {};
         const web = webpackMerge(preset, userWeb);
         applyPageDefaults(web, userWeb, { isDev: ctx.isDev, rootDir: process.cwd() });
+        applyCircularDependencyCheck(web, circularMode);
         return { web };
     }
 
@@ -127,6 +133,12 @@ function resolveBuildConfig(ctx, pkgJson, buildInfo) {
         applyRendererDefaults(configs.renderer, userConfig.renderer, ctx);
         applyUpdatePage(configs.renderer, { rootDir: process.cwd(), buildInfo });
         assertOutputLayout(configs, process.cwd());
+        applyCircularDependencyCheck(configs.main, circularMode);
+        applyCircularDependencyCheck(configs.preload, circularMode);
+        const rendererList = Array.isArray(configs.renderer) ? configs.renderer : [configs.renderer];
+        for (const config of rendererList) {
+            applyCircularDependencyCheck(config, circularMode);
+        }
         return configs;
     }
 

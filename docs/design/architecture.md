@@ -55,7 +55,7 @@ loadEnv(.env + .env.<name>) → BC_ENV 兜底 → BC_* 子集注入 process.env
 
 ## 5. 配置装配
 
-- `bc.config.js` 导出对象或 `(ctx) => config`；web 场景消费 `{ web }`，app 场景消费 `{ main, preload, renderer, encrypt?, bytenode? }`；`main` 片段作用于主进程的宿主与包两个入口（一次编译）。
+- `bc.config.js` 导出对象或 `(ctx) => config`；web 场景消费 `{ web }`，app 场景消费 `{ main, preload, renderer, encrypt?, bytenode? }`；两种场景都可写 `circularDependency?`（循环依赖检测，默认 `'warn'`）；`main` 片段作用于主进程的宿主与包两个入口（一次编译）。
 - webpack 配置合并：frame 预设为基底，用户片段经 `webpack-merge` 覆盖合并；`renderer` 支持多入口数组（`mergeConfigList` 按序对齐）。
 - `electron-builder.config.js` 走 `customMerge`：数组默认拼接，`replace()` 标记的数组整体替换；`directories.output` 强制为 `dist`。
 - 预设内置 `__BC_BUILD__` 逐字段注入（`build-info-plugin`）与 `BC_*` 环境变量注入（`user-env-plugin`）。
