@@ -3,10 +3,33 @@ const fse = require('fs-extra');
 const { normalizeKey, normalizeIv, encryptBuffer } = require('./crypto/aes-256-cbc');
 const { createLayout } = require('../paths');
 
-function computeCryptoState({ userConfig }) {
-    if (userConfig.encrypt === false) return { encrypted: false };
+const UNSUPPORTED_MESSAGE = '[base-client] 暂不支持产物加密：运行时解密尚未实现，开启后页面与 preload 无法加载。'
+    + '请删除 bc.config 的 encrypt 配置（或写 encrypt: false）';
 
-    const encryptConfig = userConfig.encrypt;
+/**
+ * 加密状态。产物加密暂不支持（运行时没有解密，见 docs/crypto-artifact-contract.md）：
+ * 不写 `encrypt` 或写 `false` 为不加密，写了其他值直接报错，避免打出打不开的包。
+ *
+ * @param {{ userConfig: Object }} options
+ * @returns {{ encrypted: false }}
+ * @throws {Error} 配置了 encrypt
+ */
+function computeCryptoState({ userConfig }) {
+    if (userConfig.encrypt === undefined || userConfig.encrypt === false) {
+        return { encrypted: false };
+    }
+    throw new Error(UNSUPPORTED_MESSAGE);
+}
+
+/**
+ * 解析并校验 `encrypt: { key, iv? }`。
+ *
+ * 加密暂不支持，当前没有调用方；与 `encryptRenderer` 一起保留，恢复加密时由 computeCryptoState 调用。
+ *
+ * @param {*} encryptConfig
+ * @returns {{ encrypted: true, encryptKey: string, encryptIv?: string }}
+ */
+function parseEncryptConfig(encryptConfig) {
     if (!encryptConfig || typeof encryptConfig !== 'object' || !encryptConfig.key) {
         throw new Error('[base-client] encrypt.key is required when encryption is enabled');
     }
@@ -56,4 +79,4 @@ async function encryptDirRecursive(dir, encryptKey, encryptIv) {
     }
 }
 
-module.exports = { computeCryptoState, encryptRenderer };
+module.exports = { computeCryptoState, parseEncryptConfig, encryptRenderer, UNSUPPORTED_MESSAGE };

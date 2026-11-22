@@ -9,6 +9,6 @@ module.exports = (ctx) => ({
             new HtmlWebpackPlugin({ template: 'src/renderer/index.html', filename: 'index.html', chunks: ['index'] }),
         ],
     },
-    encrypt: { key: '0123456789abcdef0123456789abcdef', iv: 'fedcba9876543210' },
+    // 产物加密暂不支持（运行时没有解密），不写 encrypt 即不加密
     bytenode: true,
 });

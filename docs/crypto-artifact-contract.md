@@ -2,6 +2,11 @@
 
 本文档定义 `@base-client/frame` 的加密构建输入、产物范围和运行时兼容约束。
 
+> **现状（2026-11-22）：产物加密暂不支持。** 运行时解密尚未实现（toolkit 与业务都没有），开启后页面经 `file://` 拿到密文、
+> `app/preload/` 也会被加密而无法由 Electron 直接加载。因此 `pack` 在不写 `encrypt` 或写 `encrypt: false` 时不加密，
+> 写了其他值直接报错。下文的配置、算法与范围是保留的实现（`src/pack/encrypt.js` 的 `parseEncryptConfig` / `encryptRenderer`），
+> 恢复加密时需同时设计运行时解密、排除 preload，并重新确定加密范围（baseline-checklist F7-S1 / F7-S2）。
+
 ## 构建配置
 
 在业务项目的 `bc.config.js` 中配置：

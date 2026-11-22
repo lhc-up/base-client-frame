@@ -43,7 +43,7 @@ loadEnv(.env + .env.<name>) → BC_ENV 兜底 → BC_* 子集注入 process.env
 `pack` 的三个阶段：
 
 - **阶段 A · 资源准备**：清空 `dist/`；计算加密状态与 `__BC_BUILD__`；合并 electron-builder 配置；适配 icon；生成安装/卸载 shell 脚本。
-- **阶段 B · 代码构建**：清空 `app/`；main（一次编译、宿主 `index` 与包 `pkg` 两个入口）/preload/renderer 生产编译；AES 加密渲染层（可选）；更新包（`--dir` 也产出，作为内置包）；bytenode 宿主主进程字节码（可选）。
+- **阶段 B · 代码构建**：清空 `app/`；main（一次编译、宿主 `index` 与包 `pkg` 两个入口）/preload/renderer 生产编译；AES 加密渲染层（暂不支持：配置了 `encrypt` 时在阶段 A 直接报错，见 `docs/crypto-artifact-contract.md`）；更新包（`--dir` 也产出，作为内置包）；bytenode 宿主主进程字节码（可选）。
 - **`pack --pkg-only`**：只编译包主进程与 renderer 并产出更新包，跳过阶段 A、preload、bytenode 与阶段 C。
 - **阶段 C · 安装包打包**：按 platform/arch 构建 electron-builder targets 并执行；`--dir` 时校验 unpacked 目录。
 

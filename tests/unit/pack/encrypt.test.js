@@ -2,7 +2,12 @@ const path = require('path');
 const fs = require('fs');
 const fse = require('fs-extra');
 const crypto = require('crypto');
-const { computeCryptoState, encryptRenderer } = require('../../../src/pack/encrypt');
+const {
+    computeCryptoState,
+    parseEncryptConfig,
+    encryptRenderer,
+    UNSUPPORTED_MESSAGE,
+} = require('../../../src/pack/encrypt');
 
 const tmpRoot = path.join(__dirname, '../../tmp/encrypt');
 const KEY = '0123456789abcdef0123456789abcdef';
@@ -12,49 +17,43 @@ beforeEach(() => fse.ensureDirSync(tmpRoot));
 afterEach(() => fse.removeSync(tmpRoot));
 
 describe('pack/encrypt.computeCryptoState', () => {
-    test('reads the key from bc.config encrypt.key without a key file', () => {
-        expect(computeCryptoState({
-            rootDir: tmpRoot,
-            userConfig: { encrypt: { key: KEY } },
-        })).toEqual({ encrypted: true, encryptKey: KEY });
+    test('不写 encrypt 或写 false：不加密', () => {
+        expect(computeCryptoState({ rootDir: tmpRoot, userConfig: {} })).toEqual({ encrypted: false });
+        expect(computeCryptoState({ rootDir: tmpRoot, userConfig: { encrypt: false } })).toEqual({ encrypted: false });
     });
 
-    test('requires encrypt.key when encryption is enabled', () => {
-        expect(() => computeCryptoState({ rootDir: tmpRoot, userConfig: {} }))
-            .toThrow(/encrypt\.key/);
-        expect(() => computeCryptoState({ rootDir: tmpRoot, userConfig: { encrypt: true } }))
-            .toThrow(/encrypt\.key/);
+    test.each([
+        { key: KEY },
+        { key: KEY, iv: LEGACY_IV },
+        true,
+        {},
+    ])('配置了加密 %p：暂不支持，直接报错', (encrypt) => {
+        expect(() => computeCryptoState({ rootDir: tmpRoot, userConfig: { encrypt } }))
+            .toThrow(UNSUPPORTED_MESSAGE);
+        expect(UNSUPPORTED_MESSAGE).toContain('暂不支持产物加密');
+    });
+});
+
+describe('pack/encrypt.parseEncryptConfig（保留，恢复加密时使用）', () => {
+    test('reads the key from encrypt.key', () => {
+        expect(parseEncryptConfig({ key: KEY })).toEqual({ encrypted: true, encryptKey: KEY });
     });
 
-    test('encrypt false remains an explicit opt-out', () => {
-        expect(computeCryptoState({ rootDir: tmpRoot, userConfig: { encrypt: false } }))
-            .toEqual({ encrypted: false });
+    test('requires encrypt.key', () => {
+        expect(() => parseEncryptConfig(undefined)).toThrow(/encrypt\.key/);
+        expect(() => parseEncryptConfig(true)).toThrow(/encrypt\.key/);
     });
 
     test('validates key and optional IV', () => {
-        expect(() => computeCryptoState({
-            rootDir: tmpRoot,
-            userConfig: { encrypt: { key: 'short' } },
-        })).toThrow(/32/);
-        expect(() => computeCryptoState({
-            rootDir: tmpRoot,
-            userConfig: { encrypt: { key: `${KEY}x` } },
-        })).toThrow(/32/);
-        expect(() => computeCryptoState({
-            rootDir: tmpRoot,
-            userConfig: { encrypt: { key: KEY, iv: 'short' } },
-        })).toThrow(/16/);
-        expect(computeCryptoState({
-            rootDir: tmpRoot,
-            userConfig: { encrypt: { key: `${KEY}\r\n`, iv: LEGACY_IV } },
-        })).toEqual({ encrypted: true, encryptKey: KEY, encryptIv: LEGACY_IV });
+        expect(() => parseEncryptConfig({ key: 'short' })).toThrow(/32/);
+        expect(() => parseEncryptConfig({ key: `${KEY}x` })).toThrow(/32/);
+        expect(() => parseEncryptConfig({ key: KEY, iv: 'short' })).toThrow(/16/);
+        expect(parseEncryptConfig({ key: `${KEY}\r\n`, iv: LEGACY_IV }))
+            .toEqual({ encrypted: true, encryptKey: KEY, encryptIv: LEGACY_IV });
     });
 
     test('rejects non-ASCII keys', () => {
-        expect(() => computeCryptoState({
-            rootDir: tmpRoot,
-            userConfig: { encrypt: { key: '密钥0123456789abcdef0123456789abcd' } },
-        })).toThrow(/ASCII/);
+        expect(() => parseEncryptConfig({ key: '密钥0123456789abcdef0123456789abcd' })).toThrow(/ASCII/);
     });
 });
 

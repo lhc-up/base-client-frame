@@ -53,11 +53,13 @@ module.exports = {
         }
 
         // 阶段 A · 资源准备
+        // 先检查配置再清空 dist/：配置有误时不丢已有产物
+        const userConfig = ctx.userConfig;
+        const cryptoState = computeCryptoState({ rootDir, userConfig });
+
         logger.info('清空 dist/（frame 约定输出目录，如有重要文件请移出）');
         fse.emptyDirSync(distDir);
 
-        const userConfig = ctx.userConfig;
-        const cryptoState = computeCryptoState({ rootDir, userConfig });
         const buildInfo = deriveBuildInfo(ctx, pkgJson, cryptoState);
 
         let mergedBuilderConfig;

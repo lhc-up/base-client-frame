@@ -1,7 +1,6 @@
 const path = require('path');
 const fs = require('fs');
 const fse = require('fs-extra');
-const crypto = require('crypto');
 const asar = require('@electron/asar');
 
 /** 生产环境的入口 js 带 contenthash（`<name>.<hash8>.js`），按入口名找到唯一的那个文件 */
@@ -14,10 +13,8 @@ function entryJs(dir, name) {
 
 const fixtureDir = path.join(__dirname, '../fixtures/minimal-pack-full');
 
-describe('E2E: pack 完整能力（encrypt + bytenode + 更新包 + 多入口）', () => {
+describe('E2E: pack 完整能力（bytenode + 更新包 + 多入口；产物加密暂不支持）', () => {
     let oldCwd;
-    const KEY = '0123456789abcdef0123456789abcdef';
-    const IV = 'fedcba9876543210';
 
     beforeAll(() => {
         oldCwd = process.cwd();
@@ -38,7 +35,7 @@ describe('E2E: pack 完整能力（encrypt + bytenode + 更新包 + 多入口）
         delete require.cache[path.join(fixtureDir, 'node_modules/electron-builder/out/index.js')];
     });
 
-    test('pack 全开：渲染层加密 + bytenode loader + 更新包含 update 入口', async () => {
+    test('pack 全开：bytenode loader + 更新包含 update 入口，页面 js 为明文', async () => {
         const cmd = require('../../src/cli/commands/pack');
         const { runCommand } = require('../../src/cli/index');
 
@@ -57,19 +54,15 @@ describe('E2E: pack 完整能力（encrypt + bytenode + 更新包 + 多入口）
         const lastCall = builder._getLastCall();
         expect(lastCall.config.extraMetadata.main).toBe('main/loader.js');
 
-        // 3. 渲染层加密
-        const rendererJsPath = entryJs(path.join(fixtureDir, 'app/renderer'), 'index');
-        const rendererBuf = fs.readFileSync(rendererJsPath);
-        const iv = Buffer.from(IV, 'utf8');
-        const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(KEY, 'utf8'), iv);
-        const decrypted = Buffer.concat([decipher.update(rendererBuf), decipher.final()]);
-        expect(decrypted.length).toBeGreaterThan(0);
-        expect(decrypted.toString('utf8')).toMatch(/(function|require|module|var|const)/);
+        // 3. 不写 encrypt 时不加密：页面与 preload 的 js 都是 webpack 明文产物
+        const rendererJs = fs.readFileSync(entryJs(path.join(fixtureDir, 'app/renderer'), 'index'), 'utf8');
+        expect(rendererJs).toMatch(/(function|require|module|var|const)/);
+        const preloadJs = fs.readFileSync(path.join(fixtureDir, 'app/preload/index.js'), 'utf8');
+        expect(preloadJs).toMatch(/(function|require|module|var|const)/);
 
-        // 4. update 入口也产出且加密
-        const updateBuf = fs.readFileSync(entryJs(path.join(fixtureDir, 'app/renderer'), 'update'));
-        const decipher2 = crypto.createDecipheriv('aes-256-cbc', Buffer.from(KEY, 'utf8'), iv);
-        Buffer.concat([decipher2.update(updateBuf), decipher2.final()]);
+        // 4. update 入口也产出，同样是明文
+        const updateJs = fs.readFileSync(entryJs(path.join(fixtureDir, 'app/renderer'), 'update'), 'utf8');
+        expect(updateJs).toMatch(/(function|require|module|var|const)/);
 
         // 5. 更新包产出：描述文件 + main/pkg.js + renderer/，不含宿主主进程与 preload
         const pkgName = JSON.parse(fs.readFileSync(path.join(fixtureDir, 'package.json'), 'utf8')).name;
@@ -87,7 +80,7 @@ describe('E2E: pack 完整能力（encrypt + bytenode + 更新包 + 多入口）
         const pkgDescriptor = JSON.parse(fs.readFileSync(path.join(extractDir, 'package.json'), 'utf8'));
         expect(pkgDescriptor.encryptKey).toBeUndefined();
         expect(pkgDescriptor.encryptIv).toBeUndefined();
-        expect(pkgDescriptor.encrypted).toBe(true);
+        expect(pkgDescriptor.encrypted).toBe(false);
     }, 120000);
 
     test('pack --dir：仍产出更新包（作为内置包）', async () => {
@@ -111,9 +104,7 @@ describe('E2E: pack 关闭加密 + 关闭 bytenode（独立 fixture）', () => {
         fse.copySync(fixtureDir, offFixtureDir);
         const cfgPath = path.join(offFixtureDir, 'bc.config.js');
         const original = fs.readFileSync(cfgPath, 'utf8');
-        fs.writeFileSync(cfgPath, original
-            .replace("encrypt: { key: '0123456789abcdef0123456789abcdef', iv: 'fedcba9876543210' }", 'encrypt: false')
-            .replace('bytenode: true', 'bytenode: false'));
+        fs.writeFileSync(cfgPath, original.replace('bytenode: true', 'encrypt: false,\n    bytenode: false'));
         // package.json 改名避免 require 缓存歧义
         const pkgPath = path.join(offFixtureDir, 'package.json');
         const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
