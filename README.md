@@ -9,7 +9,7 @@ Electron 客户端工程化构建框架。业务项目主要提供 `bc.config.js
 |---|---|---|
 | `dev:web` | web / development | 启动 webpack-dev-server |
 | `build` | web / production | 产出 Web 发布包 |
-| `dev:app` | app / development | 编译 main/preload/renderer 并启动 Electron |
+| `dev:app` | app / development | 编译 main/preload/renderer 并启动 Electron；`--inspect [port]` 开启主进程调试（默认端口 9229，VS Code 附加到进程或 `chrome://inspect` 连接） |
 | `pack` | app / production | 编译、加密/更新包/bytenode，并调用 electron-builder；`--pkg-only` 只产出更新包 |
 | `installer` | app / production | 复用 `pack --dir` 产出的 unpacked 目录生成安装器 |
 

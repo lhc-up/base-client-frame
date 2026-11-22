@@ -18,6 +18,36 @@ describe('cli/commands/dev-app', () => {
         expect(flags.some(f => f.includes('--host'))).toBe(true);
     });
 
+    test('options 含 --inspect [port]，并由 resolveCliOptions 规整', () => {
+        const flags = cmd.options.map(o => o[0]);
+        expect(flags).toContain('--inspect [port]');
+        expect(cmd.resolveCliOptions).toBe(cmd.resolveInspectOption);
+    });
+
+    test('默认端口：调试 9229（与 Node 一致），dev server 8023', () => {
+        expect(cmd.DEFAULT_INSPECT_PORT).toBe(9229);
+        expect(cmd.DEFAULT_DEV_SERVER_PORT).toBe(8023);
+    });
+
+    test('resolveInspectOption：未传为 undefined，只写 --inspect 用默认端口，写端口则用该端口', () => {
+        expect(cmd.resolveInspectOption({ port: 1 })).toEqual({ port: 1, inspect: undefined });
+        expect(cmd.resolveInspectOption({ inspect: false }).inspect).toBeUndefined();
+        expect(cmd.resolveInspectOption({ inspect: true }).inspect).toBe(9229);
+        expect(cmd.resolveInspectOption({ inspect: 9230 }).inspect).toBe(9230);
+        expect(cmd.resolveInspectOption({ inspect: '9231' }).inspect).toBe(9231);
+        expect(cmd.resolveInspectOption({ inspect: 1 }).inspect).toBe(1);
+        expect(cmd.resolveInspectOption({ inspect: 65535 }).inspect).toBe(65535);
+    });
+
+    test.each(['abc', 0, 65536, 9229.5, -1])('resolveInspectOption：非法端口 %p 报错', (value) => {
+        expect(() => cmd.resolveInspectOption({ inspect: value })).toThrow('--inspect 的端口必须是 1-65535 之间的整数');
+    });
+
+    test('electronArgs：不调试只传入口；调试时参数写在入口之前', () => {
+        expect(cmd.electronArgs('/app/main.js', undefined)).toEqual(['/app/main.js']);
+        expect(cmd.electronArgs('/app/main.js', 9229)).toEqual(['--inspect=9229', '--trace-warnings', '/app/main.js']);
+    });
+
     test('action 是 async function', () => {
         expect(cmd.action.constructor.name).toBe('AsyncFunction');
     });
