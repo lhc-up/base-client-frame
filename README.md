@@ -194,6 +194,24 @@ frame 打包时按下面的名字放置文件，toolkit 运行时按同样的名
 | `RESOURCES_DIR` | `resources` | 项目资源目录，打包时整体复制为安装包的 `resources/` |
 | `BUILTIN_PKG_DIR` | `packages` | 资源目录下放内置包的子目录 |
 
+## Linux 启动与沙箱
+
+Linux 下 Electron 以 root 运行时必须带 `--no-sandbox`，否则启动即退出
+（`Running as root without --no-sandbox is not supported`）。这个参数要在命令行上传：root 检查发生在 Chromium
+初始化沙箱进程时，早于主进程 JS 执行，`app.commandLine.appendSwitch('no-sandbox')` 来不及生效。
+
+electron-builder 的 `linux.executableArgs` 只写进 `.desktop` 文件的 `Exec=` 行（deb 没有默认值；AppImage 不配时默认带
+`--no-sandbox`），因此各启动方式是否带参数如下：
+
+| 启动方式 | 参数从哪来 | root 运行 |
+|---|---|---|
+| 桌面图标 / 应用菜单 | 项目 `electron-builder.config.js` 的 `linux.executableArgs: ['--no-sandbox']` | 支持 |
+| 终端执行 `/usr/bin/<name>` | 无（安装脚本建的软链接直接指向程序） | 不支持，需手动加：`sudo <name> --no-sandbox` |
+| 应用内重启（`app.relaunch()`） | 沿用本次启动的参数 | 与本次启动相同 |
+
+非 root 运行时沙箱正常开启：安装脚本给 `chrome-sandbox` 设置了 SUID（`chmod 4755`）。
+需要以 root 运行的项目必须在 `linux.executableArgs` 中写 `--no-sandbox`。
+
 ## 构建产物契约
 
 - [加密构建产物契约](docs/crypto-artifact-contract.md)
