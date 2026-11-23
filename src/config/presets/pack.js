@@ -50,7 +50,13 @@ function getPackPreset(ctx, pkgJson) {
             deleteAppDataOnUninstall: true,
             language: '2052',
             uninstallDisplayName: '${productName}',
+            // 安装完成页勾选「运行」（electron-builder 默认同样为 true，这里写明）
+            runAfterFinish: true,
         },
+
+        // macOS 暂不签名：null 表示明确跳过（不写时 electron-builder 会自动查找钥匙串中的开发者证书签名）。
+        // 需要签名时项目改为证书名，或用环境变量 CSC_NAME 指定
+        mac: { identity: null },
 
         // macOS 安装镜像挂载后的卷名不带版本号（electron-builder 默认 '${productName} ${version}'）
         dmg: { title: '${productName}' },
@@ -62,7 +68,9 @@ function getPackPreset(ctx, pkgJson) {
     // author 是字符串时默认作为 maintainer；是对象时不设置：electron-builder 会把 maintainer 原样作为 fpm 参数，
     // 传对象会出错，而带 email 的对象它自己能拼出「名字 <email>」。项目写了 linux.maintainer 时合并后以项目为准
     // Linux 应用菜单分类（.desktop 的 Categories）；不写时 electron-builder 用 Utility 并警告
-    preset.linux = { category: 'Education;Utility;Network' };
+    // executableArgs：Linux 下以 root 运行时 Chromium 要求 --no-sandbox，该参数只写进 .desktop 的 Exec=（桌面图标、
+    // 应用菜单启动时带上），终端启动不带，见 README「Linux 启动与沙箱」
+    preset.linux = { category: 'Education;Utility;Network', executableArgs: ['--no-sandbox'] };
     if (typeof pkgJson.author === 'string' && pkgJson.author.trim() !== '') {
         preset.linux.maintainer = pkgJson.author;
     }

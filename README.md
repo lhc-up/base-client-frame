@@ -152,16 +152,18 @@ frame 在项目的 `electron-builder.config.js` 之前提供以下默认值，�
 | `directories.output`、`files`、`extraMetadata.main` | 产物布局（见「产物布局」），`output` 固定为 `dist` |
 | `productName` / `copyright` / `artifactName` | `package.json` 的 `productName`（没有时用 `name`）/ `Copyright © <年份> <author>` / `${productName}_${os}_${arch}_${env.BC_ENV}_v${version}.${ext}` |
 | `win.requestedExecutionLevel` | `highestAvailable`（管理员账户启动时弹 UAC 确认；electron-builder 默认 `asInvoker`） |
-| `nsis` | 带向导（`oneClick: false`）、可改安装目录、为所有用户安装（`perMachine`）、简体中文（`language: '2052'`）、控制面板名称不带版本号；`deleteAppDataOnUninstall: true`：卸载（升级除外）时删除 `%APPDATA%` 下以 name、productName 命名的目录，productName 相同的客户端共用该目录，会一并删除 |
+| `nsis` | 带向导（`oneClick: false`）、可改安装目录、为所有用户安装（`perMachine`）、简体中文（`language: '2052'`）、控制面板名称不带版本号、安装完成后运行（`runAfterFinish: true`）；`deleteAppDataOnUninstall: true`：卸载（升级除外）时删除 `%APPDATA%` 下以 name、productName 命名的目录，productName 相同的客户端共用该目录，会一并删除 |
 | `dmg.title` | `${productName}`（electron-builder 默认带版本号） |
+| `mac.identity` | `null`：macOS 暂不签名（不写时 electron-builder 会自动用钥匙串里的开发者证书签名） |
 | `linux.category` | `Education;Utility;Network`（应用菜单分类） |
+| `linux.executableArgs` | `['--no-sandbox']`，见「Linux 启动与沙箱」 |
 | `linux.maintainer` | `author` 为字符串时取 `author`。deb 必须有维护者，electron-builder 没有它时要求 `author` 带 email |
 | `electronDownload` | npmmirror（龙芯用龙芯镜像），见「环境与依赖」 |
 | `win.icon` / `mac.icon` / `linux.icon` | 由 `build/icon.png` 生成，见 `docs/icon-artifact-contract.md` |
 | `nsis.include`、`deb.fpm` | frame 生成的安装 / 卸载脚本 |
 | `extraResources` | 安装包 `resources/`，见「资源目录」 |
 
-与这些默认值或 electron-builder 默认值相同的项，项目不要再写。
+与这些默认值或 electron-builder 默认值相同的项，项目不要再写。数组与预设拼接，要整体替换时用 `replace()`（`require('@base-client/frame').replace`）。
 
 ## 库入口
 
@@ -249,12 +251,12 @@ electron-builder 的 `linux.executableArgs` 只写进 `.desktop` 文件的 `Exec
 
 | 启动方式 | 参数从哪来 | root 运行 |
 |---|---|---|
-| 桌面图标 / 应用菜单 | 项目 `electron-builder.config.js` 的 `linux.executableArgs: ['--no-sandbox']` | 支持 |
+| 桌面图标 / 应用菜单 | frame 预设的 `linux.executableArgs: ['--no-sandbox']` | 支持 |
 | 终端执行 `/usr/bin/<name>` | 无（安装脚本建的软链接直接指向程序） | 不支持，需手动加：`sudo <name> --no-sandbox` |
 | 应用内重启（`app.relaunch()`） | 沿用本次启动的参数 | 与本次启动相同 |
 
 非 root 运行时沙箱正常开启：安装脚本给 `chrome-sandbox` 设置了 SUID（`chmod 4755`）。
-需要以 root 运行的项目必须在 `linux.executableArgs` 中写 `--no-sandbox`。
+frame 预设默认带 `--no-sandbox`；项目要去掉时用 `replace()` 整体替换 `linux.executableArgs`。
 
 ## 构建产物契约
 

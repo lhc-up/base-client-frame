@@ -73,6 +73,7 @@ describe('config/presets/pack', () => {
             deleteAppDataOnUninstall: true,
             language: '2052',
             uninstallDisplayName: '${productName}',
+            runAfterFinish: true,
         });
         const merged = customMerge(preset, { nsis: { perMachine: false, guid: 'x' } });
         expect(merged.nsis.perMachine).toBe(false);
@@ -80,10 +81,22 @@ describe('config/presets/pack', () => {
         expect(merged.nsis.oneClick).toBe(false);
     });
 
-    test('dmg.title、linux.category 默认值', () => {
+    test('dmg.title、mac.identity、linux.category、linux.executableArgs 默认值', () => {
         const preset = getPackPreset(baseCtx({ cliOptions: { platform: 'linux', arch: 'x64' } }), pkgJson);
         expect(preset.dmg).toEqual({ title: '${productName}' });
+        expect(preset.mac).toEqual({ identity: null });
         expect(preset.linux.category).toBe('Education;Utility;Network');
+        expect(preset.linux.executableArgs).toEqual(['--no-sandbox']);
+    });
+
+    test('项目可覆盖 nsis.runAfterFinish；linux.executableArgs 默认与预设拼接，用 replace() 整体替换', () => {
+        const { customMerge, replace } = require('../../../src/config/merge');
+        const preset = () => getPackPreset(baseCtx({ cliOptions: { platform: 'linux', arch: 'x64' } }), pkgJson);
+        const merged = customMerge(preset(), { nsis: { runAfterFinish: false }, linux: { executableArgs: ['--foo'] } });
+        expect(merged.nsis.runAfterFinish).toBe(false);
+        expect(merged.linux.executableArgs).toEqual(['--no-sandbox', '--foo']);
+        const replaced = customMerge(preset(), { linux: { executableArgs: replace(['--foo']) } });
+        expect(replaced.linux.executableArgs).toEqual(['--foo']);
     });
 
     describe('linux.maintainer', () => {
@@ -91,7 +104,7 @@ describe('config/presets/pack', () => {
 
         test('author 是字符串时默认作为 maintainer', () => {
             const preset = getPackPreset(ctx(), { ...pkgJson, author: '北京师范大学' });
-            expect(preset.linux).toEqual({ category: 'Education;Utility;Network', maintainer: '北京师范大学' });
+            expect(preset.linux).toEqual({ category: 'Education;Utility;Network', executableArgs: ['--no-sandbox'], maintainer: '北京师范大学' });
         });
 
         test('author 是对象、空字符串或没写时不设置', () => {
@@ -105,7 +118,7 @@ describe('config/presets/pack', () => {
             const { customMerge } = require('../../../src/config/merge');
             const preset = getPackPreset(ctx(), { ...pkgJson, author: '北京师范大学' });
             const merged = customMerge(preset, { linux: { maintainer: 'x <x@y.z>', category: 'Education' } });
-            expect(merged.linux).toEqual({ maintainer: 'x <x@y.z>', category: 'Education' });
+            expect(merged.linux).toEqual({ maintainer: 'x <x@y.z>', category: 'Education', executableArgs: ['--no-sandbox'] });
         });
     });
 
