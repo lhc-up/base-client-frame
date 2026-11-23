@@ -151,6 +151,7 @@ frame 在项目的 `electron-builder.config.js` 之前提供以下默认值，�
 |---|---|
 | `directories.output`、`files`、`extraMetadata.main` | 产物布局（见「产物布局」），`output` 固定为 `dist` |
 | `productName` / `copyright` / `artifactName` | `package.json` 的 `productName`（没有时用 `name`）/ `Copyright © <年份> <author>` / `${productName}_${os}_${arch}_${env.BC_ENV}_v${version}.${ext}` |
+| `win.requestedExecutionLevel` | `highestAvailable`（管理员账户启动时弹 UAC 确认；electron-builder 默认 `asInvoker`） |
 | `linux.maintainer` | `author` 为字符串时取 `author`。deb 必须有维护者，electron-builder 没有它时要求 `author` 带 email |
 | `electronDownload` | npmmirror（龙芯用龙芯镜像），见「环境与依赖」 |
 | `win.icon` / `mac.icon` / `linux.icon` | 由 `build/icon.png` 生成，见 `docs/icon-artifact-contract.md` |

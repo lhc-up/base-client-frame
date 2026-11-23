@@ -55,6 +55,14 @@ describe('config/presets/pack', () => {
         expect(p.appId).toBeUndefined();
     });
 
+    test('win.requestedExecutionLevel 默认 highestAvailable，项目写了以项目为准', () => {
+        const { customMerge } = require('../../../src/config/merge');
+        const preset = getPackPreset(baseCtx({ cliOptions: { platform: 'win', arch: 'x64' } }), pkgJson);
+        expect(preset.win).toEqual({ requestedExecutionLevel: 'highestAvailable' });
+        const merged = customMerge(preset, { win: { requestedExecutionLevel: 'asInvoker', legalTrademarks: 'x' } });
+        expect(merged.win).toEqual({ requestedExecutionLevel: 'asInvoker', legalTrademarks: 'x' });
+    });
+
     describe('linux.maintainer', () => {
         const ctx = () => baseCtx({ cliOptions: { platform: 'linux', arch: 'x64' } });
 

@@ -34,6 +34,10 @@ function getPackPreset(ctx, pkgJson) {
         productName,
         copyright: `Copyright © ${year} ${author}`.trim(),
         artifactName: '${productName}_${os}_${arch}_${env.BC_ENV}_v${version}.${ext}',
+
+        // Windows 以当前用户能获得的最高权限运行：管理员账户每次启动弹 UAC 确认，普通用户正常启动。
+        // electron-builder 默认 asInvoker（不提权）。项目可在 win.requestedExecutionLevel 中改写
+        win: { requestedExecutionLevel: 'highestAvailable' },
     };
 
     // deb 必须有维护者。electron-builder 先取 linux.maintainer；没写时取 package.json 的 author，
