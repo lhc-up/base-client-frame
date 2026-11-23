@@ -63,7 +63,8 @@ dist/<name>-<env>-v<version>.asax
 - 内置包：自身的更新包改名为 `.asar` 放入 `resources/packages/`，宿主从这里读取内置包。
 - 项目资源：项目根目录的 `resources/` 是安装包 `resources/` 的镜像。打包时先整理到 `dist/resources/`，再整体复制：
   - `resources/packages/` 放其他内置包（分发名 `.asax`），整理时改名为 `.asar`；与自身包、或 `.asax` 与 `.asar` 落盘名冲突时构建报错；
-  - 其余（如 `addons/`、`icons/`）原样复制，`.gitkeep`、`.gitignore`、`.DS_Store`、`Thumbs.db`、`desktop.ini` 不复制；
+  - `build/icon.png` 复制为 `resources/app-icon.png`（应用图标；项目 `resources/` 中已有该文件时构建报错）；
+  - 其余（如 `addons/`）原样复制，`.gitkeep`、`.gitignore`、`.DS_Store`、`Thumbs.db`、`desktop.ini` 不复制；
   - 业务不再在 electron-builder 配置里写 `extraResources`。
   运行时由 toolkit `main/libs/resourceRoot` 计算资源根目录（本地调试为项目的 `resources/`，打包运行为 `process.resourcesPath`），
   见 toolkit `docs/design/pkg-source.md`。

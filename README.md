@@ -61,10 +61,12 @@ Electron 客户端工程化构建框架。业务项目主要提供 `bc.config.js
 |---|---|
 | `resources/packages/*.asax`（内置的其他包） | `resources/packages/*.asar` |
 | —（自身的包，frame 构建） | `resources/packages/<name>-<env>-v<版本>.asar` |
-| `resources/` 下其他内容（如 `addons/`、`icons/`） | 原样复制 |
+| `build/icon.png` | `resources/app-icon.png`（应用图标，toolkit `BaseWindow` 在 Linux 上用作窗口图标） |
+| `resources/` 下其他内容（如 `addons/`） | 原样复制 |
 | `.gitkeep`、`.gitignore`、`.DS_Store`、`Thumbs.db`、`desktop.ini` | 不复制 |
 
 - 落盘名冲突（内置包与自身包同名、同一个包同时有 `.asax` 与 `.asar`）时构建报错。
+- 应用图标只来自 `build/icon.png`，项目不要在 `resources/` 里放图标；`resources/app-icon.png` 已存在时构建报错。
 - 安装包里的 `resources/` 是什么样，打包后直接看 `dist/resources/`。
 - 业务不要再在 `electron-builder.config.js` 里为这些资源写 `extraResources`。
 - 运行时取资源根目录用 toolkit `main/libs/resourceRoot`。`build/icon.png` 是生成安装包图标的构建输入，留在 `build/`。

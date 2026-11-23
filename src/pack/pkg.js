@@ -3,7 +3,7 @@ const fse = require('fs-extra');
 const os = require('os');
 const asar = require('@electron/asar');
 const { derivePackageDescriptor } = require('./package-descriptor');
-const { DESCRIPTOR_FILE, RESOURCES_DIR, BUILTIN_PKG_DIR, createLayout, toOutputRelative } = require('../paths');
+const { DESCRIPTOR_FILE, RESOURCES_DIR, BUILTIN_PKG_DIR, APP_ICON_FILE, createLayout, toOutputRelative } = require('../paths');
 
 const ASAX_RE = /\.asax$/i;
 const toInstalledName = name => name.replace(ASAX_RE, '.asar');
@@ -25,15 +25,17 @@ function isBusinessResource(src) {
  * 1. 项目 `resources/` 整体复制，跳过 `IGNORED_RESOURCE_FILES`
  * 2. `packages/` 中的内置包：`.asax`（分发名）改名为 `.asar`（落盘名）
  * 3. 自身包放入 `packages/`，落盘名为 `.asar`
+ * 4. 项目有 `build/icon.png` 时复制为应用图标 `app-icon.png`（运行时由 toolkit BaseWindow 用作 Linux 窗口图标）
  *
- * 改名或放入时目标已存在（同一个包同时有 `.asax` 与 `.asar`、内置包与自身包同名）则报错，避免静默覆盖。
+ * 改名或放入时目标已存在（同一个包同时有 `.asax` 与 `.asar`、内置包与自身包同名）则报错，避免静默覆盖；
+ * 应用图标只来自 `build/icon.png`，项目 `resources/` 中也有 `app-icon.png` 时报错。
  *
  * @param {Object} options
  * @param {string} options.rootDir 项目根目录
  * @param {string} options.distDir 输出目录 `dist/`
  * @param {string} options.pkgPath 自身包（更新包）绝对路径
  * @returns {string} 整理好的目录（`dist/resources/`）
- * @throws {Error} 落盘名冲突
+ * @throws {Error} 落盘名冲突；项目 `resources/` 中有 `app-icon.png`
  */
 function stageResources({ rootDir, distDir, pkgPath }) {
     const stageDir = path.join(distDir, RESOURCES_DIR);
@@ -62,6 +64,14 @@ function stageResources({ rootDir, distDir, pkgPath }) {
         throw new Error(`[base-client] ${RESOURCES_DIR}/${BUILTIN_PKG_DIR}/ 中有与自身包同名的包，落盘名冲突：${BUILTIN_PKG_DIR}/${selfName}`);
     }
     fse.copySync(pkgPath, path.join(pkgDir, selfName));
+
+    const sourceIcon = path.join(rootDir, 'build', 'icon.png');
+    if (fse.existsSync(sourceIcon)) {
+        if (fse.existsSync(path.join(srcDir, APP_ICON_FILE))) {
+            throw new Error(`[base-client] 应用图标由 frame 从 build/icon.png 复制，请删除项目中的 ${RESOURCES_DIR}/${APP_ICON_FILE}`);
+        }
+        fse.copySync(sourceIcon, path.join(stageDir, APP_ICON_FILE));
+    }
 
     return stageDir;
 }

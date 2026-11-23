@@ -17,6 +17,8 @@ const DESCRIPTOR_FILE = 'package.json';
 const RESOURCES_DIR = 'resources';
 /** 资源目录下放内置包的子目录 */
 const BUILTIN_PKG_DIR = 'packages';
+/** 资源目录下的应用图标：frame 打包时从 build/icon.png 复制，运行时用作窗口图标等 */
+const APP_ICON_FILE = 'app-icon.png';
 // -------------------------------------------------------------------------------------
 
 /**
@@ -87,4 +89,4 @@ function toOutputRelative(layout, absolute) {
     return path.relative(layout.out.root, absolute).split(path.sep).join('/');
 }
 
-module.exports = { DESCRIPTOR_FILE, RESOURCES_DIR, BUILTIN_PKG_DIR, createLayout, resolveLayout, toOutputRelative };
+module.exports = { DESCRIPTOR_FILE, RESOURCES_DIR, BUILTIN_PKG_DIR, APP_ICON_FILE, createLayout, resolveLayout, toOutputRelative };

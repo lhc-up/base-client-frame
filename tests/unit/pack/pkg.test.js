@@ -167,6 +167,26 @@ describe('pack/pkg', () => {
             expect(listFiles(stageDir)).toEqual(['packages/demo-prod-v1.2.3.asar']);
         });
 
+        test('有 build/icon.png 时复制为 app-icon.png；重复整理不报错', () => {
+            fse.outputFileSync(path.join(rootDir, 'build/icon.png'), 'icon');
+            stageResources({ rootDir, distDir, pkgPath });
+            const stageDir = stageResources({ rootDir, distDir, pkgPath });
+            expect(listFiles(stageDir)).toEqual(['app-icon.png', 'packages/demo-prod-v1.2.3.asar']);
+            expect(fs.readFileSync(path.join(stageDir, 'app-icon.png'), 'utf8')).toBe('icon');
+        });
+
+        test('没有 build/icon.png 时不放应用图标', () => {
+            const stageDir = stageResources({ rootDir, distDir, pkgPath });
+            expect(fs.existsSync(path.join(stageDir, 'app-icon.png'))).toBe(false);
+        });
+
+        test('项目 resources/ 中也有 app-icon.png 时报错', () => {
+            fse.outputFileSync(path.join(rootDir, 'build/icon.png'), 'icon');
+            fse.outputFileSync(path.join(rootDir, 'resources/app-icon.png'), 'other');
+            expect(() => stageResources({ rootDir, distDir, pkgPath }))
+                .toThrow(/请删除项目中的 resources\/app-icon\.png/);
+        });
+
         test('重复整理时先清掉上一次的内容', () => {
             fse.outputFileSync(path.join(distDir, 'resources/stale.txt'), 'x');
             const stageDir = stageResources({ rootDir, distDir, pkgPath });

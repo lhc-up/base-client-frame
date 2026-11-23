@@ -1,5 +1,5 @@
 const path = require('path');
-const { DESCRIPTOR_FILE, RESOURCES_DIR, BUILTIN_PKG_DIR, createLayout, resolveLayout, toOutputRelative } = require('../../src/paths');
+const { DESCRIPTOR_FILE, RESOURCES_DIR, BUILTIN_PKG_DIR, APP_ICON_FILE, createLayout, resolveLayout, toOutputRelative } = require('../../src/paths');
 
 describe('paths', () => {
     const root = path.resolve('/proj');
@@ -46,5 +46,6 @@ describe('paths', () => {
         expect(DESCRIPTOR_FILE).toBe('package.json');
         expect(RESOURCES_DIR).toBe('resources');
         expect(BUILTIN_PKG_DIR).toBe('packages');
+        expect(APP_ICON_FILE).toBe('app-icon.png');
     });
 });
