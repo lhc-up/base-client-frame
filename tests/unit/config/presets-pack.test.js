@@ -55,6 +55,29 @@ describe('config/presets/pack', () => {
         expect(p.appId).toBeUndefined();
     });
 
+    describe('linux.maintainer', () => {
+        const ctx = () => baseCtx({ cliOptions: { platform: 'linux', arch: 'x64' } });
+
+        test('author 是字符串时默认作为 maintainer', () => {
+            const preset = getPackPreset(ctx(), { ...pkgJson, author: '北京师范大学' });
+            expect(preset.linux).toEqual({ maintainer: '北京师范大学' });
+        });
+
+        test('author 是对象、空字符串或没写时不设置', () => {
+            expect(getPackPreset(ctx(), { ...pkgJson, author: { name: 'a', email: 'a@b.c' } }).linux).toBeUndefined();
+            expect(getPackPreset(ctx(), { ...pkgJson, author: '  ' }).linux).toBeUndefined();
+            const { author: _ignored, ...noAuthor } = pkgJson;
+            expect(getPackPreset(ctx(), noAuthor).linux).toBeUndefined();
+        });
+
+        test('项目写了 linux.maintainer 时合并后以项目为准，其他 linux 项保留', () => {
+            const { customMerge } = require('../../../src/config/merge');
+            const preset = getPackPreset(ctx(), { ...pkgJson, author: '北京师范大学' });
+            const merged = customMerge(preset, { linux: { maintainer: 'x <x@y.z>', category: 'Education' } });
+            expect(merged.linux).toEqual({ maintainer: 'x <x@y.z>', category: 'Education' });
+        });
+    });
+
     describe('Electron 下载镜像', () => {
         const saved = {};
         const KEYS = ['ELECTRON_MIRROR', 'npm_config_electron_mirror'];

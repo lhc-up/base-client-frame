@@ -143,6 +143,22 @@ module.exports = (ctx) => ({
 });
 ```
 
+## electron-builder 预设
+
+frame 在项目的 `electron-builder.config.js` 之前提供以下默认值，项目写了同名项时合并后以项目为准：
+
+| 项 | 默认值 |
+|---|---|
+| `directories.output`、`files`、`extraMetadata.main` | 产物布局（见「产物布局」），`output` 固定为 `dist` |
+| `productName` / `copyright` / `artifactName` | `package.json` 的 `productName`（没有时用 `name`）/ `Copyright © <年份> <author>` / `${productName}_${os}_${arch}_${env.BC_ENV}_v${version}.${ext}` |
+| `linux.maintainer` | `author` 为字符串时取 `author`。deb 必须有维护者，electron-builder 没有它时要求 `author` 带 email |
+| `electronDownload` | npmmirror（龙芯用龙芯镜像），见「环境与依赖」 |
+| `win.icon` / `mac.icon` / `linux.icon` | 由 `build/icon.png` 生成，见 `docs/icon-artifact-contract.md` |
+| `nsis.include`、`deb.fpm` | frame 生成的安装 / 卸载脚本 |
+| `extraResources` | 安装包 `resources/`，见「资源目录」 |
+
+与这些默认值或 electron-builder 默认值相同的项，项目不要再写。
+
 ## 库入口
 
 ```js
