@@ -55,7 +55,49 @@ describe('config/presets/pack', () => {
         expect(p.appId).toBeUndefined();
     });
 
-    test('loong64：合并龙芯 Electron 镜像配置；其他架构不带', () => {
+    describe('Electron 下载镜像', () => {
+        const saved = {};
+        const KEYS = ['ELECTRON_MIRROR', 'npm_config_electron_mirror'];
+        beforeEach(() => {
+            for (const key of KEYS) {
+                saved[key] = process.env[key];
+                delete process.env[key];
+            }
+        });
+        afterEach(() => {
+            for (const key of KEYS) {
+                if (saved[key] === undefined) {
+                    delete process.env[key];
+                } else {
+                    process.env[key] = saved[key];
+                }
+            }
+        });
+
+        test('龙芯以外的架构默认用 npmmirror', () => {
+            for (const arch of ['x64', 'arm64', 'ia32']) {
+                const p = getPackPreset(baseCtx({ cliOptions: { platform: 'linux', arch } }), pkgJson);
+                expect(p.electronDownload).toEqual({ mirror: 'https://npmmirror.com/mirrors/electron/' });
+            }
+        });
+
+        test('环境变量 ELECTRON_MIRROR 或 npm_config_electron_mirror 已指定时不设置', () => {
+            process.env.ELECTRON_MIRROR = 'https://mirror.example/electron/';
+            expect(getPackPreset(baseCtx({ cliOptions: { platform: 'win', arch: 'x64' } }), pkgJson).electronDownload).toBeUndefined();
+            delete process.env.ELECTRON_MIRROR;
+            process.env.npm_config_electron_mirror = 'https://mirror.example/electron/';
+            expect(getPackPreset(baseCtx({ cliOptions: { platform: 'win', arch: 'x64' } }), pkgJson).electronDownload).toBeUndefined();
+        });
+
+        test('项目写了 electronDownload 时合并后以项目为准', () => {
+            const { customMerge } = require('../../../src/config/merge');
+            const preset = getPackPreset(baseCtx({ cliOptions: { platform: 'win', arch: 'x64' } }), pkgJson);
+            const merged = customMerge(preset, { electronDownload: { mirror: 'https://mirror.example/electron/' } });
+            expect(merged.electronDownload.mirror).toBe('https://mirror.example/electron/');
+        });
+    });
+
+    test('loong64：合并龙芯 Electron 镜像配置；其他架构不带龙芯配置', () => {
         const loong = getPackPreset(baseCtx({ cliOptions: { platform: 'linux', arch: 'loong64' } }), pkgJson);
         expect(loong.electronVersion).toBe('22.3.27');
         expect(loong.electronDownload).toEqual({
@@ -69,7 +111,7 @@ describe('config/presets/pack', () => {
         for (const arch of ['x64', 'arm64', 'ia32']) {
             const p = getPackPreset(baseCtx({ cliOptions: { platform: 'linux', arch } }), pkgJson);
             expect(p.electronVersion).toBeUndefined();
-            expect(p.electronDownload).toBeUndefined();
+            expect(p.electronDownload && p.electronDownload.arch).toBeUndefined();
         }
     });
 

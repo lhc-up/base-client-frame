@@ -251,6 +251,11 @@ electron-builder 的 `linux.executableArgs` 只写进 `.desktop` 文件的 `Exec
   （例如 Electron 22 内置 Node 16.17），**不由上面的 `engines` 表达**。业务与 toolkit 的运行时代码不得使用高于
   该版本的 API；toolkit 用 `eslint-plugin-n` 按 `peerDependencies.electron` 自动约束，见其 README「环境要求」。
   frame 中会打进主进程的 `src/paths.js` 同样按 Node 16.17 检查（`npm run lint`）；项目应对 `src/main`、`src/preload`、`src/shared` 做同样的检查。
+- **Electron 下载镜像**：Electron 默认从 GitHub 下载，国内经常连不上。下载发生在两处：
+  - `npm install` 时 `electron` 包的安装脚本：frame 管不到，项目根目录放 `.npmrc`：`electron_mirror=https://npmmirror.com/mirrors/electron/`；
+  - 打包时 electron-builder 下载目标平台的 Electron：frame 预设默认 `electronDownload.mirror` 为 npmmirror（龙芯用龙芯镜像）。
+    环境变量 `ELECTRON_MIRROR` 或 `npm_config_electron_mirror`（`.npmrc` 的 `electron_mirror` 经 `npm run` / `npx` 传入）已指定时不设置；
+    项目在 electron-builder 配置中写了 `electronDownload` 时以项目为准。
 - 必需 peer：`webpack@^5`、`webpack-dev-server@^5`
 - 可选 peer：`electron`、`electron-builder`、`bytenode`
 
