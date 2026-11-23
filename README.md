@@ -54,15 +54,18 @@ Electron 客户端工程化构建框架。业务项目主要提供 `bc.config.js
 
 ## 资源目录
 
-项目根目录的 `resources/` 是安装包 `resources/` 的镜像，凡是随安装包分发、运行时读取的资源都放这里，打包时 frame 整体复制：
+项目根目录的 `resources/` 是安装包 `resources/` 的镜像，凡是随安装包分发、运行时读取的资源都放这里。
+打包时 frame 先把安装包 `resources/` 的内容整理到 `dist/resources/`，再整体复制进安装包：
 
 | 源码 | 安装包 |
 |---|---|
 | `resources/packages/*.asax`（内置的其他包） | `resources/packages/*.asar` |
 | —（自身的包，frame 构建） | `resources/packages/<name>-<env>-v<版本>.asar` |
 | `resources/` 下其他内容（如 `addons/`、`icons/`） | 原样复制 |
+| `.gitkeep`、`.gitignore`、`.DS_Store`、`Thumbs.db`、`desktop.ini` | 不复制 |
 
 - 落盘名冲突（内置包与自身包同名、同一个包同时有 `.asax` 与 `.asar`）时构建报错。
+- 安装包里的 `resources/` 是什么样，打包后直接看 `dist/resources/`。
 - 业务不要再在 `electron-builder.config.js` 里为这些资源写 `extraResources`。
 - 运行时取资源根目录用 toolkit `main/libs/resourceRoot`。`build/icon.png` 是生成安装包图标的构建输入，留在 `build/`。
 

@@ -86,8 +86,9 @@ describe('E2E: pack（宿主 + 包模型）', () => {
         const appFiles = lastCall.config.files.find(f => f && f.from === 'app');
         expect(appFiles.filter).toEqual(expect.arrayContaining(['main/**', '!main/pkg.js', 'preload/**']));
         expect(lastCall.config.extraResources).toEqual(expect.arrayContaining([
-            { from: pkgFile, to: 'packages/minimal-pack-pkg-prod-v1.0.0.asar' },
+            { from: 'dist/resources', to: '.' },
         ]));
+        expect(fs.existsSync(path.join(dir, 'dist/resources/packages/minimal-pack-pkg-prod-v1.0.0.asar'))).toBe(true);
     }, 120000);
 
     test('pack --pkg-only：只产出更新包，不编译宿主、不调用 electron-builder', async () => {

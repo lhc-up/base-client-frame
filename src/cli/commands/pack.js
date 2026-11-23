@@ -10,7 +10,7 @@ const { runProductionBuild } = require('../../webpack-runner/run-build');
 const { adaptIcon } = require('../../pack/icon');
 const { generateShellScripts } = require('../../pack/shell');
 const { computeCryptoState } = require('../../pack/encrypt');
-const { buildPkgAsar, applyPkgToBuilderConfig } = require('../../pack/pkg');
+const { buildPkgAsar, stageResources, applyPkgToBuilderConfig } = require('../../pack/pkg');
 const { resolveElectronBuilder } = require('../../electron/resolve-electron-builder');
 const { assertLoong64Builder } = require('../../electron/loong64');
 const {
@@ -120,7 +120,9 @@ module.exports = {
         // 阶段 C · 安装包打包
         const targets = buildTargets(ctx.cliOptions);
         const builder = await resolveElectronBuilder(rootDir);
-        await builder.build({ ...targets, config: applyPkgToBuilderConfig(mergedBuilderConfig, pkgPath, rootDir) });
+        // 安装包 resources/ 先整理到 dist/resources/，再整体复制
+        const stageDir = stageResources({ rootDir, distDir, pkgPath });
+        await builder.build({ ...targets, config: applyPkgToBuilderConfig(mergedBuilderConfig, stageDir, rootDir) });
 
         // --dir 场景校验：unpacked 目录名由 electron-builder 命名约定决定；installer 会用相同 platform/arch 现算路径
         if (ctx.cliOptions.dir) {
