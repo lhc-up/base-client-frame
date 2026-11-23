@@ -63,6 +63,23 @@ describe('config/presets/pack', () => {
         expect(merged.win).toEqual({ requestedExecutionLevel: 'asInvoker', legalTrademarks: 'x' });
     });
 
+    test('nsis 安装选项默认值，项目写了以项目为准', () => {
+        const { customMerge } = require('../../../src/config/merge');
+        const preset = getPackPreset(baseCtx({ cliOptions: { platform: 'win', arch: 'x64' } }), pkgJson);
+        expect(preset.nsis).toEqual({
+            oneClick: false,
+            allowToChangeInstallationDirectory: true,
+            perMachine: true,
+            deleteAppDataOnUninstall: true,
+            language: '2052',
+            uninstallDisplayName: '${productName}',
+        });
+        const merged = customMerge(preset, { nsis: { perMachine: false, guid: 'x' } });
+        expect(merged.nsis.perMachine).toBe(false);
+        expect(merged.nsis.guid).toBe('x');
+        expect(merged.nsis.oneClick).toBe(false);
+    });
+
     describe('linux.maintainer', () => {
         const ctx = () => baseCtx({ cliOptions: { platform: 'linux', arch: 'x64' } });
 

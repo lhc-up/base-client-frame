@@ -38,6 +38,19 @@ function getPackPreset(ctx, pkgJson) {
         // Windows 以当前用户能获得的最高权限运行：管理员账户每次启动弹 UAC 确认，普通用户正常启动。
         // electron-builder 默认 asInvoker（不提权）。项目可在 win.requestedExecutionLevel 中改写
         win: { requestedExecutionLevel: 'highestAvailable' },
+
+        // Windows 安装程序：带向导、可改安装目录、为所有用户安装（Program Files，需管理员权限）、简体中文界面，
+        // 控制面板中的名称不带版本号。
+        // deleteAppDataOnUninstall：卸载时（升级除外）删除 %APPDATA% 下以 name、productName 命名的目录，
+        // 即 Electron 的用户数据目录；productName 相同的客户端共用该目录，会一并删除
+        nsis: {
+            oneClick: false,
+            allowToChangeInstallationDirectory: true,
+            perMachine: true,
+            deleteAppDataOnUninstall: true,
+            language: '2052',
+            uninstallDisplayName: '${productName}',
+        },
     };
 
     // deb 必须有维护者。electron-builder 先取 linux.maintainer；没写时取 package.json 的 author，
