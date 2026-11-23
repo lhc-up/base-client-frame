@@ -200,6 +200,20 @@ frame 打包时按下面的名字放置文件，toolkit 运行时按同样的名
 | `RESOURCES_DIR` | `resources` | 项目资源目录，打包时整体复制为安装包的 `resources/` |
 | `BUILTIN_PKG_DIR` | `packages` | 资源目录下放内置包的子目录 |
 
+## package.json 的 name
+
+客户端命令（`dev:app`、`pack`、`installer`）启动时检查，不符合即报错：
+
+- 只用小写字母、数字、`.`、`_`、`-`，以小写字母或数字开头，不以 `.` 结尾；
+- 不是 Windows 保留名（`con`、`prn`、`aux`、`nul`、`com0`–`com9`、`lpt0`–`lpt9`，含 `con.x` 这类带扩展名的形式）；
+- 不超过 116 个字符；不支持 `@scope/` 作用域。
+
+依据：name 原样用作 Linux 可执行文件名与安装脚本的 `APP_NAME`（两者须一致，脚本中未加引号）、Windows 安装目录名、
+更新包文件名，以及项目 appId `com.eachina.<name>`（Windows AppUserModelID 最长 128 字符、不能有空格）。
+npm 不检查项目自身的 name。
+
+name 同时是与后台约定的客户端 / 子应用标识，发布后不能改。
+
 ## Linux 启动与沙箱
 
 Linux 下 Electron 以 root 运行时必须带 `--no-sandbox`，否则启动即退出

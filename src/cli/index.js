@@ -1,3 +1,4 @@
+const path = require('path');
 const { cac } = require('cac');
 const { version } = require('../../package.json');
 const { loadEnv } = require('../core/env');
@@ -5,6 +6,8 @@ const { buildCtx } = require('../core/ctx');
 const { preloadBcConfig } = require('../config/bc-config');
 const { preloadBuilderConfig } = require('../config/builder-config');
 const logger = require('../core/logger');
+const { TARGETS } = require('../core/target');
+const { assertAppName } = require('../core/app-name');
 
 const COMMANDS = [
     require('./commands/dev-web'),
@@ -32,6 +35,9 @@ async function runCommand(cmd, cliOptions) {
         injectBcSubsetToProcessEnv(env);
 
         const ctx = buildCtx(cmd, cliOptions, env);
+        if (ctx.target === TARGETS.APP) {
+            assertAppName(require(path.resolve(process.cwd(), 'package.json')).name);
+        }
         if (cmd.resolveCliOptions) {
             ctx.cliOptions = cmd.resolveCliOptions(ctx.cliOptions);
         }
