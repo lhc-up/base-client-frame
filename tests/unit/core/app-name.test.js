@@ -33,4 +33,38 @@ describe('core/app-name', () => {
     ])('不可用（%s）：%s', (_reason, name) => {
         expect(() => assertAppName(name)).toThrow(/package\.json 的 name/);
     });
+
+    function messageOf(name) {
+        try {
+            assertAppName(name);
+        } catch (err) {
+            return err.message;
+        }
+        return '';
+    }
+
+    test('报错列出每一条具体原因', () => {
+        const scoped = messageOf('@Eachina/my app.');
+        expect(scoped).toContain('  - 带 @scope/ 作用域');
+        expect(scoped).toContain('  - 含大写字母：「E」');
+        expect(scoped).toContain('  - 含不支持的字符：空格');
+        expect(scoped).toContain('  - 以 . 结尾');
+        expect(scoped).not.toContain('「@」');
+        expect(messageOf('MyApp')).toContain('  - 含大写字母：「M」、「A」');
+        expect(messageOf('MyApp')).not.toContain('  - 以「');
+        expect(messageOf('-app')).toContain('  - 以「-」开头');
+        expect(messageOf('中文')).toContain('  - 含不支持的字符：「中」、「文」');
+        expect(messageOf('nul.app')).toContain('  - 是 Windows 保留名（nul）');
+        expect(messageOf('a'.repeat(117))).toContain('  - 长度 117，超过 116 个字符');
+        expect(messageOf(undefined)).toContain('  - 没有填写 name');
+    });
+
+    test('报错列出完整的支持格式', () => {
+        const message = messageOf('MyApp');
+        expect(message).toContain('支持的格式：');
+        expect(message).toContain('  - 只用小写字母 a-z、数字 0-9、. _ -');
+        expect(message).toContain('  - 以小写字母或数字开头，不以 . 结尾');
+        expect(message).toContain('  - 不是 Windows 保留名');
+        expect(message).toContain('  - 不超过 116 个字符，不支持 @scope/ 作用域');
+    });
 });
