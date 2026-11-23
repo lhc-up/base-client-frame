@@ -3,6 +3,7 @@ const WebpackDevServer = require('webpack-dev-server');
 const logger = require('../core/logger');
 const { extractStatsSummary } = require('./format-stats');
 const { createCompileSpinner } = require('./compile-spinner');
+const { resolveFreePort } = require('./free-port');
 
 function resolveDevServerOptions(ctx, userDev, { defaultPort }) {
     const host = ctx.cliOptions.host ?? userDev.host ?? 'localhost';
@@ -22,6 +23,17 @@ function resolveDevServerOptions(ctx, userDev, { defaultPort }) {
             ...(userDev.devMiddleware || {}),
         },
     };
+}
+
+/**
+ * 配置的端口被占用时换成可用端口（见 free-port.js）。须在创建 webpack 编译器之前调用。
+ *
+ * @param {Object} devServerOptions resolveDevServerOptions 的结果
+ * @returns {Promise<Object>} 端口为实际可用端口的新配置
+ */
+async function withFreePort(devServerOptions) {
+    const port = await resolveFreePort({ port: devServerOptions.port, host: devServerOptions.host, warn: logger.warn });
+    return { ...devServerOptions, port };
 }
 
 async function runDevServer(webpackConfig, devServerOptions, name, ctx) {
@@ -50,4 +62,4 @@ async function runDevServer(webpackConfig, devServerOptions, name, ctx) {
     return server;
 }
 
-module.exports = { resolveDevServerOptions, runDevServer };
+module.exports = { resolveDevServerOptions, withFreePort, runDevServer };

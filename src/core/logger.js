@@ -11,12 +11,14 @@ function success(msg) {
     console.log(`${PREFIX} ${pc.green('✓')} ${msg}`);
 }
 
+/** 警告：正文黄色 */
 function warn(msg) {
-    console.warn(`${PREFIX} ${pc.yellow('⚠')} ${msg}`);
+    console.warn(`${PREFIX} ${pc.yellow(msg)}`);
 }
 
+/** 错误：前缀与正文红色，命令名加粗 */
 function error(scope, msg) {
-    console.error(`${pc.red('[base-client]')} ${pc.bold(scope)} ${msg}`);
+    console.error(`${pc.red('[base-client]')} ${pc.red(`${pc.bold(scope)} ${msg}`)}`);
 }
 
 function debug(msg) {
@@ -39,12 +41,12 @@ function compileSuccess(name, ms, sizeBytes) {
 }
 
 function compileFailure(name) {
-    console.log(`${PREFIX} ${pc.red('✗')} ${name} 编译失败`);
+    console.log(`${PREFIX} ${pc.red(`✗ ${name} 编译失败`)}`);
 }
 
 function compileWarning(name, count) {
     if (!count) return;
-    console.warn(`${PREFIX} ${pc.yellow('⚠')} ${name} ${count} warnings`);
+    console.warn(`${PREFIX} ${pc.yellow(`${name} ${count} warnings`)}`);
 }
 
 function formatBytes(n) {

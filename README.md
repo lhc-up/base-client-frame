@@ -15,6 +15,10 @@ Electron 客户端工程化构建框架。业务项目主要提供 `bc.config.js
 
 全局选项：`--env <name>`、`--config <path>`、`--pack-config <path>`、`--debug`。
 
+dev server 端口（`dev:web` 默认 9000，`dev:app` 默认 8023；`--port` 或 `bc.config` 的 `devServer.port` 可改）被占用时，
+自动往后找可用端口并打印警告（能查到时写明占用的进程与 PID）。`dev:app --pkg-only` 换了端口时，
+宿主 `.env` 的 `BC_DEV_PKG_SOURCES` 要按新打印的地址修改后重启宿主。
+
 ## 变量
 
 `--env <name>` 指代码对接的**后台环境**（如 dev / test / prod），与是否本地调试无关。是否本地调试只由命令决定：

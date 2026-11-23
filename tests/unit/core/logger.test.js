@@ -20,10 +20,11 @@ describe('core/logger', () => {
         expect(logSpy.mock.calls[0][0]).toContain('✓');
     });
 
-    test('warn 含 ⚠ 且走 console.warn（stderr）', () => {
+    test('warn 走 console.warn（stderr），不带图标', () => {
         logger.warn('careful');
         expect(warnSpy).toHaveBeenCalled();
-        expect(warnSpy.mock.calls[0][0]).toContain('⚠');
+        expect(warnSpy.mock.calls[0][0]).toContain('careful');
+        expect(warnSpy.mock.calls[0][0]).not.toContain('⚠');
         expect(logSpy).not.toHaveBeenCalled();
     });
 

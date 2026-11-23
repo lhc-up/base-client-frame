@@ -9,7 +9,7 @@ const {
     selectDevRendererConfigs,
     withoutDevServer,
 } = require('../../config/build-config-list');
-const { resolveDevServerOptions, runDevServer } = require('../../webpack-runner/run-dev-server');
+const { resolveDevServerOptions, withFreePort, runDevServer } = require('../../webpack-runner/run-dev-server');
 const { createDevDescriptor, withDescriptorRoute } = require('../../webpack-runner/dev-descriptor');
 const { DESCRIPTOR_FILE } = require('../../paths');
 const { resolveElectron } = require('../../electron/resolve-electron');
@@ -168,7 +168,8 @@ module.exports = {
         const { served, oneShot } = selectDevRendererConfigs(renderer);
         const { devServer: userDev = {} } = served;
         const rendererWebpack = withoutDevServer(served);
-        const resolvedDevServer = resolveDevServerOptions(ctx, userDev, { defaultPort: DEFAULT_DEV_SERVER_PORT });
+        const configuredDevServer = resolveDevServerOptions(ctx, userDev, { defaultPort: DEFAULT_DEV_SERVER_PORT });
+        const resolvedDevServer = await withFreePort(configuredDevServer);
         const devUrl = `http://${resolvedDevServer.host}:${resolvedDevServer.port}/`;
         // 必须在创建 webpack compiler 之前写入：buildInfoPlugin 在 apply 时才读取 buildInfo
         buildInfo.devUrl = devUrl;
@@ -188,6 +189,9 @@ module.exports = {
         if (pkgOnly) {
             if (ctx.cliOptions.inspect !== undefined) {
                 logger.warn('--pkg-only 不启动 Electron，--inspect 不起作用；请在宿主上开启调试');
+            }
+            if (resolvedDevServer.port !== Number(configuredDevServer.port)) {
+                logger.warn(`端口已从 ${configuredDevServer.port} 改为 ${resolvedDevServer.port}，宿主 .env 的 BC_DEV_PKG_SOURCES 需改为下面的地址后重启宿主`);
             }
             logger.info(`包描述文件：${devUrl}${DESCRIPTOR_FILE}`);
             logger.info(`宿主 .env 的 BC_DEV_PKG_SOURCES 中配置：{ "${buildInfo.name}": { "type": "devServer", "url": "${devUrl}" } }`);
