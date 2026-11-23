@@ -51,6 +51,9 @@ function getPackPreset(ctx, pkgJson) {
             language: '2052',
             uninstallDisplayName: '${productName}',
         },
+
+        // macOS 安装镜像挂载后的卷名不带版本号（electron-builder 默认 '${productName} ${version}'）
+        dmg: { title: '${productName}' },
     };
 
     // deb 必须有维护者。electron-builder 先取 linux.maintainer；没写时取 package.json 的 author，
@@ -58,8 +61,10 @@ function getPackPreset(ctx, pkgJson) {
     // "Please specify author 'email'"（app-builder-lib targets/FpmTarget.js）。
     // author 是字符串时默认作为 maintainer；是对象时不设置：electron-builder 会把 maintainer 原样作为 fpm 参数，
     // 传对象会出错，而带 email 的对象它自己能拼出「名字 <email>」。项目写了 linux.maintainer 时合并后以项目为准
+    // Linux 应用菜单分类（.desktop 的 Categories）；不写时 electron-builder 用 Utility 并警告
+    preset.linux = { category: 'Education;Utility;Network' };
     if (typeof pkgJson.author === 'string' && pkgJson.author.trim() !== '') {
-        preset.linux = { maintainer: pkgJson.author };
+        preset.linux.maintainer = pkgJson.author;
     }
 
     // 龙芯：官方 Electron 没有 loong64，改用龙芯镜像（见 electron/loong64.js）

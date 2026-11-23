@@ -153,6 +153,8 @@ frame 在项目的 `electron-builder.config.js` 之前提供以下默认值，�
 | `productName` / `copyright` / `artifactName` | `package.json` 的 `productName`（没有时用 `name`）/ `Copyright © <年份> <author>` / `${productName}_${os}_${arch}_${env.BC_ENV}_v${version}.${ext}` |
 | `win.requestedExecutionLevel` | `highestAvailable`（管理员账户启动时弹 UAC 确认；electron-builder 默认 `asInvoker`） |
 | `nsis` | 带向导（`oneClick: false`）、可改安装目录、为所有用户安装（`perMachine`）、简体中文（`language: '2052'`）、控制面板名称不带版本号；`deleteAppDataOnUninstall: true`：卸载（升级除外）时删除 `%APPDATA%` 下以 name、productName 命名的目录，productName 相同的客户端共用该目录，会一并删除 |
+| `dmg.title` | `${productName}`（electron-builder 默认带版本号） |
+| `linux.category` | `Education;Utility;Network`（应用菜单分类） |
 | `linux.maintainer` | `author` 为字符串时取 `author`。deb 必须有维护者，electron-builder 没有它时要求 `author` 带 email |
 | `electronDownload` | npmmirror（龙芯用龙芯镜像），见「环境与依赖」 |
 | `win.icon` / `mac.icon` / `linux.icon` | 由 `build/icon.png` 生成，见 `docs/icon-artifact-contract.md` |
