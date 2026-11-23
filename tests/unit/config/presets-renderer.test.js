@@ -32,6 +32,22 @@ describe('config/presets/renderer', () => {
         expect(getRendererPreset(baseCtx({ isDev: false, isProd: true, mode: 'production' }), pkgJson, buildInfo).output.publicPath).toBe('./');
     });
 
+    test('生产构建拆分公共代码（splitChunks.chunks=all），本地调试不拆', () => {
+        const prod = getRendererPreset(baseCtx({ isDev: false, isProd: true, mode: 'production' }), pkgJson, buildInfo);
+        expect(prod.optimization).toEqual({ splitChunks: { chunks: 'all' } });
+        const dev = getRendererPreset(baseCtx({ isDev: true, isProd: false, mode: 'development' }), pkgJson, buildInfo);
+        expect(dev.optimization).toEqual({});
+    });
+
+    test('项目写了 optimization 时与预设合并：写 minimizer 保留拆分，写 splitChunks 以项目为准', () => {
+        const { mergeConfigList } = require('../../../src/config/build-config-list');
+        const prod = getRendererPreset(baseCtx({ isDev: false, isProd: true, mode: 'production' }), pkgJson, buildInfo);
+        expect(mergeConfigList(prod, { optimization: { minimizer: ['...'] } }).optimization)
+            .toEqual({ splitChunks: { chunks: 'all' }, minimizer: ['...'] });
+        expect(mergeConfigList(prod, { optimization: { splitChunks: false } }).optimization)
+            .toEqual({ splitChunks: false });
+    });
+
     test('externals 为空（renderer 跑浏览器）', () => {
         const p = getRendererPreset(baseCtx(), pkgJson, buildInfo);
         expect(p.externals).toBeUndefined();

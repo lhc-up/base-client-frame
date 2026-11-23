@@ -120,6 +120,7 @@ module.exports = () => ({
 | 字体规则：`fonts/` | 写一条能匹配 `.woff2` 的规则 |
 | 生产环境把 CSS 抽离到 `css/`（需项目安装 `mini-css-extract-plugin`） | 在 `plugins` 里自己 new `MiniCssExtractPlugin` |
 | 生产环境压缩 CSS，保留 webpack 默认的 JS 压缩（需项目安装 `css-minimizer-webpack-plugin`） | 写 `optimization.minimizer` |
+| 仅 renderer：生产环境拆分公共代码 `splitChunks: { chunks: 'all' }`（主页面与启动页共用的库只打一份，拆出的文件与页面同在包内） | 写 `optimization.splitChunks`（`false` 关闭） |
 
 样式规则的第一个 loader 用 `styleLoader(ctx)`：开发环境为 `style-loader`，生产环境为 CSS 抽离 loader，
 并带好 `publicPath: '../'`（css 在 `css/` 下，引用的图片、字体在上一级）：
