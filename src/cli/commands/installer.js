@@ -4,8 +4,8 @@ const { TARGETS } = require('../../core/target');
 const { resolveBuilderConfig } = require('../../config/builder-config');
 const { adaptIcon } = require('../../pack/icon');
 const { generateShellScripts } = require('../../pack/shell');
-const { resolveElectronBuilder } = require('../../electron/resolve-electron-builder');
-const { assertLoong64Builder } = require('../../electron/loong64');
+const { runBuilder } = require('../../electron/resolve-electron-builder');
+const { assertLoongTargetSupported } = require('../../electron/loong');
 const {
     resolveBuildTargetOptions,
     buildTargets,
@@ -31,11 +31,7 @@ module.exports = {
         const distDir = path.join(rootDir, 'dist');
         const pkgJson = require(path.resolve(rootDir, 'package.json'));
 
-        assertLoong64Builder({
-            rootDir,
-            arch: ctx.cliOptions.arch,
-            command: `npx base-client ${process.argv.slice(2).join(' ')}`,
-        });
+        assertLoongTargetSupported(ctx.cliOptions.arch);
 
         // 阶段 A 子集：不清 dist、不派生 __BC_BUILD__、不读 bc.config
         const mergedBuilderConfig = resolveBuilderConfig(ctx, pkgJson);
@@ -43,7 +39,7 @@ module.exports = {
         generateShellScripts({
             rootDir, distDir, mergedBuilderConfig,
             appName: pkgJson.name,
-            appDirName: mergedBuilderConfig.productName ?? pkgJson.name,
+            appInstallDir: mergedBuilderConfig.linux.installDir,
             appId: mergedBuilderConfig.appId,
         });
 
@@ -51,11 +47,10 @@ module.exports = {
         //   目录不存在 / 平台错配 → electron-builder 自然抛错，frame 不做前置校验
         const unpackedPath = path.resolve(rootDir, 'dist', computeUnpackedDir(ctx.cliOptions));
 
-        const targets = buildTargets(ctx.cliOptions);
-        const builder = await resolveElectronBuilder(rootDir);
-        await builder.build({
-            ...targets,
+        const target = buildTargets(ctx.cliOptions);
+        await runBuilder(target, {
             config: mergedBuilderConfig,
+            projectDir: rootDir,
             prepackaged: unpackedPath,
         });
 

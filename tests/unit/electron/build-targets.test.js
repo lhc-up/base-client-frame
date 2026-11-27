@@ -1,20 +1,20 @@
-const { buildTargets, computeUnpackedDir } = require('../../../src/electron/build-targets');
+const { buildTargets, computeUnpackedDir, toBuilderTargetMap } = require('../../../src/electron/build-targets');
 
 describe('electron/build-targets', () => {
-    test('win + x64：{ win: ["nsis"], x64: true }', () => {
-        expect(buildTargets({ platform: 'win', arch: 'x64' })).toEqual({ win: ['nsis'], x64: true });
+    test('win + x64', () => {
+        expect(buildTargets({ platform: 'win', arch: 'x64' })).toEqual({ platform: 'win', types: ['nsis'], builderArch: 'x64' });
     });
 
-    test('mac + arm64：{ mac: ["dmg"], arm64: true }', () => {
-        expect(buildTargets({ platform: 'mac', arch: 'arm64' })).toEqual({ mac: ['dmg'], arm64: true });
+    test('mac + arm64', () => {
+        expect(buildTargets({ platform: 'mac', arch: 'arm64' })).toEqual({ platform: 'mac', types: ['dmg'], builderArch: 'arm64' });
     });
 
-    test('linux + x64：{ linux: ["deb"], x64: true }', () => {
-        expect(buildTargets({ platform: 'linux', arch: 'x64' })).toEqual({ linux: ['deb'], x64: true });
+    test('linux + x64', () => {
+        expect(buildTargets({ platform: 'linux', arch: 'x64' })).toEqual({ platform: 'linux', types: ['deb'], builderArch: 'x64' });
     });
 
     test('--dir 时 targets 改为 dir', () => {
-        expect(buildTargets({ platform: 'win', arch: 'x64', dir: true })).toEqual({ win: ['dir'], x64: true });
+        expect(buildTargets({ platform: 'win', arch: 'x64', dir: true })).toEqual({ platform: 'win', types: ['dir'], builderArch: 'x64' });
     });
 
     test('未知 platform → 抛错', () => {
@@ -25,11 +25,28 @@ describe('electron/build-targets', () => {
         expect(() => buildTargets({ platform: 'win', arch: 'mips' })).toThrow(/不支持的架构/);
     });
 
-    test('loong64 / armv7l / universal / ia32 均合法', () => {
-        expect(buildTargets({ platform: 'linux', arch: 'loong64' })).toEqual({ linux: ['deb'], loong64: true });
-        expect(buildTargets({ platform: 'linux', arch: 'armv7l' })).toEqual({ linux: ['deb'], armv7l: true });
-        expect(buildTargets({ platform: 'mac', arch: 'universal' })).toEqual({ mac: ['dmg'], universal: true });
-        expect(buildTargets({ platform: 'win', arch: 'ia32' })).toEqual({ win: ['nsis'], ia32: true });
+    test('龙芯两个目标（loongarch64 旧世界、loong64 新世界）在 electron-builder 中都是 loong64', () => {
+        expect(buildTargets({ platform: 'linux', arch: 'loongarch64' })).toEqual({ platform: 'linux', types: ['deb'], builderArch: 'loong64' });
+        expect(buildTargets({ platform: 'linux', arch: 'loong64' })).toEqual({ platform: 'linux', types: ['deb'], builderArch: 'loong64' });
+    });
+
+    test('toBuilderTargetMap：转成 app-builder-lib 的 Map<Platform, Map<Arch, types>>', () => {
+        const lib = require('../../helpers/mock-app-builder-lib');
+        const map = toBuilderTargetMap(buildTargets({ platform: 'linux', arch: 'loongarch64', dir: true }), lib);
+        const [[platform, archMap]] = [...map.entries()];
+        expect(platform).toBe(lib.Platform.LINUX);
+        expect([...archMap.entries()]).toEqual([[lib.Arch.loong64, ['dir']]]);
+    });
+
+    test('computeUnpackedDir：龙芯目标按 electron-builder 的架构名 loong64 命名', () => {
+        expect(computeUnpackedDir({ platform: 'linux', arch: 'loongarch64' })).toBe('linux-loong64-unpacked');
+        expect(computeUnpackedDir({ platform: 'linux', arch: 'x64' })).toBe('linux-unpacked');
+    });
+
+    test('armv7l / universal / ia32 均合法', () => {
+        expect(buildTargets({ platform: 'linux', arch: 'armv7l' })).toEqual({ platform: 'linux', types: ['deb'], builderArch: 'armv7l' });
+        expect(buildTargets({ platform: 'mac', arch: 'universal' })).toEqual({ platform: 'mac', types: ['dmg'], builderArch: 'universal' });
+        expect(buildTargets({ platform: 'win', arch: 'ia32' })).toEqual({ platform: 'win', types: ['nsis'], builderArch: 'ia32' });
     });
 
     describe('宿主兜底（M1）', () => {
@@ -48,19 +65,19 @@ describe('electron/build-targets', () => {
         test('缺 platform + 宿主 win32 → 默认 win', () => {
             Object.defineProperty(process, 'platform', { value: 'win32' });
             Object.defineProperty(process, 'arch', { value: 'x64' });
-            expect(buildTargets({})).toEqual({ win: ['nsis'], x64: true });
+            expect(buildTargets({})).toEqual({ platform: 'win', types: ['nsis'], builderArch: 'x64' });
         });
 
         test('缺 platform + 宿主 darwin → 默认 mac', () => {
             Object.defineProperty(process, 'platform', { value: 'darwin' });
             Object.defineProperty(process, 'arch', { value: 'arm64' });
-            expect(buildTargets({})).toEqual({ mac: ['dmg'], arm64: true });
+            expect(buildTargets({})).toEqual({ platform: 'mac', types: ['dmg'], builderArch: 'arm64' });
         });
 
         test('缺 platform + 宿主 linux → 默认 linux', () => {
             Object.defineProperty(process, 'platform', { value: 'linux' });
             Object.defineProperty(process, 'arch', { value: 'x64' });
-            expect(buildTargets({})).toEqual({ linux: ['deb'], x64: true });
+            expect(buildTargets({})).toEqual({ platform: 'linux', types: ['deb'], builderArch: 'x64' });
         });
 
         test('缺 platform + 宿主是不受支持的 freebsd → 抛错', () => {
@@ -72,7 +89,7 @@ describe('electron/build-targets', () => {
         test('缺 arch → 默认宿主 arch', () => {
             Object.defineProperty(process, 'platform', { value: 'linux' });
             Object.defineProperty(process, 'arch', { value: 'arm64' });
-            expect(buildTargets({ platform: 'linux' })).toEqual({ linux: ['deb'], arm64: true });
+            expect(buildTargets({ platform: 'linux' })).toEqual({ platform: 'linux', types: ['deb'], builderArch: 'arm64' });
         });
 
         test('缺 arch + 宿主 arch 不在白名单 → 抛错', () => {
@@ -90,7 +107,7 @@ describe('electron/build-targets', () => {
         test('用户显式 --platform 覆盖宿主兜底', () => {
             Object.defineProperty(process, 'platform', { value: 'linux' });
             Object.defineProperty(process, 'arch', { value: 'x64' });
-            expect(buildTargets({ platform: 'win', arch: 'x64' })).toEqual({ win: ['nsis'], x64: true });
+            expect(buildTargets({ platform: 'win', arch: 'x64' })).toEqual({ platform: 'win', types: ['nsis'], builderArch: 'x64' });
         });
     });
 });

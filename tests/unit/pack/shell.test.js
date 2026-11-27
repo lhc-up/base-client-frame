@@ -22,7 +22,7 @@ describe('pack/shell', () => {
             distDir,
             mergedBuilderConfig,
             appName: 'demo',
-            appDirName: 'Demo App',
+            appInstallDir: '/opt/com.demo.app',
             appId: 'com.demo.app',
             templatesDir,
         });
@@ -34,7 +34,12 @@ describe('pack/shell', () => {
         expect(nsh).not.toContain('customInit');
         expect(nsh).not.toMatch(/\{\{[A-Z_]+\}\}/);
         expect(pre).toContain('APP_NAME=demo');
-        expect(post).toContain('APP_DIR_NAME=Demo App');
+        expect(post).toContain('APP_INSTALL_DIR=/opt/com.demo.app');
+        expect(post).toContain('"$APP_INSTALL_DIR/chrome-sandbox"');
+        expect(post).not.toContain('/opt/$APP_DIR_NAME');
+        // 桌面快捷方式：属主改为该用户、权限 755，不再 4777
+        expect(post).toContain('chmod 755');
+        expect(post).not.toContain('4777');
         expect(nsh).not.toContain('\r\n');
         expect(pre).not.toContain('\r\n');
     });
@@ -45,7 +50,7 @@ describe('pack/shell', () => {
             rootDir: tmpDir,
             distDir: path.join(tmpDir, 'dist'),
             mergedBuilderConfig,
-            appName: 'demo', appDirName: 'demo', appId: 'com.demo',
+            appName: 'demo', appInstallDir: '/opt/com.demo', appId: 'com.demo',
             templatesDir,
         });
         expect(mergedBuilderConfig.nsis.include).toBe('dist/shell/win-installer.nsh');
@@ -57,7 +62,7 @@ describe('pack/shell', () => {
             rootDir: tmpDir,
             distDir: path.join(tmpDir, 'dist'),
             mergedBuilderConfig,
-            appName: 'demo', appDirName: 'demo', appId: 'com.demo',
+            appName: 'demo', appInstallDir: '/opt/com.demo', appId: 'com.demo',
             templatesDir,
         });
         expect(mergedBuilderConfig.nsis.include).toBe('build/custom.nsh');
@@ -69,7 +74,7 @@ describe('pack/shell', () => {
             rootDir: tmpDir,
             distDir: path.join(tmpDir, 'dist'),
             mergedBuilderConfig,
-            appName: 'demo', appDirName: 'demo', appId: 'com.demo',
+            appName: 'demo', appInstallDir: '/opt/com.demo', appId: 'com.demo',
             templatesDir,
         });
         expect(mergedBuilderConfig.deb.fpm).toEqual(expect.arrayContaining([
@@ -79,15 +84,20 @@ describe('pack/shell', () => {
         ]));
     });
 
-    test('已有 deb.fpm 数组（非空）时不追加', () => {
-        const mergedBuilderConfig = { deb: { fpm: ['--my-flag'] } };
+    test('项目 deb.fpm 中的其他参数保留，frame 的脚本参数照样补上；项目已写的脚本参数不重复', () => {
+        const mergedBuilderConfig = { deb: { fpm: ['--replaces=guojiajiance', '--after-remove=custom.sh'] } };
         generateShellScripts({
             rootDir: tmpDir,
             distDir: path.join(tmpDir, 'dist'),
             mergedBuilderConfig,
-            appName: 'demo', appDirName: 'demo', appId: 'com.demo',
+            appName: 'demo', appInstallDir: '/opt/com.demo', appId: 'com.demo',
             templatesDir,
         });
-        expect(mergedBuilderConfig.deb.fpm).toEqual(['--my-flag']);
+        expect(mergedBuilderConfig.deb.fpm).toEqual([
+            '--replaces=guojiajiance',
+            '--after-remove=custom.sh',
+            '--before-install=dist/shell/deb-preinstall.sh',
+            '--after-install=dist/shell/deb-postinstall.sh',
+        ]);
     });
 });

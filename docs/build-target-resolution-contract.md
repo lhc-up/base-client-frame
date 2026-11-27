@@ -8,7 +8,7 @@
 
 - 显式 `--platform` 支持 `win`、`mac`、`linux`；
 - 省略 `--platform` 时，宿主 `win32`、`darwin`、`linux` 分别映射为 `win`、`mac`、`linux`；
-- 显式 `--arch` 支持 `ia32`、`x64`、`armv7l`、`arm64`、`universal`、`loong64`；
+- 显式 `--arch` 支持 `ia32`、`x64`、`armv7l`、`arm64`、`universal`、`loongarch64`（龙芯旧世界）、`loong64`（龙芯新世界，尚未支持）；
 - 省略 `--arch` 时使用 `process.arch`；
 - 无法映射的平台或不受支持的架构立即报错，不生成含 `undefined` 的产物路径。
 
@@ -25,38 +25,20 @@ frame 遵循 electron-builder 的目录命名：
 
 因此同一宿主上依次执行 `pack --dir` 与 `installer` 时，可以同时省略 platform/arch；两个命令会解析到同一目录。跨平台打包或两次命令目标不同时仍应显式传参。
 
-## 龙芯（loong64）
+## 龙芯
 
-`--arch loong64` 只能在龙芯构建机（Linux）上打包，Windows 打不了 deb。
+龙架构上有两套互不兼容的软件体系（旧世界 ABI1.0、新世界 ABI2.0），deb 的架构名不同，Electron 也必须是对应世界编译的。
+frame 按 dpkg 的架构名分成两个打包目标，**一个命令打一个包**，各自的配置固定在 `src/electron/loong.js`，项目不需要写：
 
-**Electron**：官方 Electron 没有 loong64 版本。frame 在 `--arch loong64` 时把龙芯镜像合并进打包预设，项目不需要再写：
+| `--arch` | 世界 | Electron | deb `Architecture` | 状态 |
+|---|---|---|---|---|
+| `loongarch64` | 旧世界（如 Loongnix 20） | 龙芯镜像 22.3.27（`http://ftp.loongnix.cn/electron/LoongArch/`，`customDir: v22.3.27`） | `loongarch64` | 可用 |
+| `loong64` | 新世界（如 deepin V23、新版麒麟） | 待定（官方没有龙芯版本） | `loong64` | 尚未支持：`pack`（`--pkg-only` 除外）与 `installer` 在编译前直接报错 |
 
-```js
-// src/electron/loong64.js
-electronVersion: '22.3.27',
-electronDownload: {
-    version: '22.3.27',
-    mirror: 'http://ftp.loongnix.cn/electron/LoongArch/',
-    customDir: 'v22.3.27',
-    platform: 'linux',
-    arch: 'loong64',
-},
-```
-
-项目的 `electron-builder.config.js` 仍可覆盖这两项（项目配置优先）。
-
-**electron-builder**：官方版依赖的 builder-util 不认识 loong64。它不会报错，而是改用构建机架构，打出一个「装着龙芯 Electron、标成 amd64」的 deb，龙芯机器装不上。因此 `pack`（`--pkg-only` 除外）与 `installer` 在 `--arch loong64` 时，会先检查项目里 electron-builder 实际使用的 builder-util 的 `Arch` 是否含 `loong64`。不含就停止打包，并在控制台输出完整处理步骤：
-
-```text
-[base-client] 打包 loong64 需要龙芯版 electron-builder，当前项目装的是官方版，已停止打包。
-官方版不认识 loong64，会改用构建机架构，打出一个标成 amd64、龙芯机器装不上的安装包。
-
-请在龙芯构建机（Linux）的项目根目录依次执行：
-  1. rm -rf node_modules/electron-builder node_modules/builder-util package-lock.json
-  2. npm i electron-builder@24.13.3 -D --registry=https://registry.loongnix.cn:4873/
-  3. <本次执行的命令>
-
-打完包后恢复官方版（否则本地调试 dev:app 可能因 Electron 架构不对而报 SIGSEGV）：
-  4. git checkout -- package.json package-lock.json
-  5. rm -rf node_modules && npm i
-```
+- 判断目标机属于哪个世界看 `dpkg --print-architecture`（`uname -m` 两边都是 `loongarch64`，不能用来判断）。
+- 两个目标在 electron-builder 内部都是 `Arch.loong64`：unpacked 目录都是 `linux-loong64-unpacked`；产物文件名里的架构改为 deb 架构名
+  （如 `…_linux_loongarch64_…deb`），便于区分。
+- electron-builder 用的是 frame 依赖的 `@base-client/app-builder-lib` 改版（支持 `loong64` 与 `deb.architecture`），
+  不再需要从龙芯源安装龙芯版 electron-builder，也不用在官方版与龙芯版之间切换。
+- 只能在 Linux 或 macOS 上打 deb（electron-builder 依赖 fpm）；`--dir` 可在任何系统上打。
+- 项目的 `electron-builder.config.js` 仍可覆盖 `electronVersion`、`electronDownload`、`deb.architecture`（项目配置优先）。

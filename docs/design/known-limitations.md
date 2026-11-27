@@ -6,7 +6,7 @@
 
 ## 已知限制
 
-- **龙芯（loong64）打包需要龙芯版 electron-builder**：官方 electron-builder 不支持 loong64，打包前要从龙芯源安装龙芯版，打完再恢复官方版。frame 已内置龙芯 Electron 镜像，并在打包前检查，用错版本时直接报错并输出处理步骤（见 `docs/build-target-resolution-contract.md`「龙芯（loong64）」）。
+- **龙芯新世界（`--arch loong64`）尚未支持**：需要新世界版本的 Electron（官方没有龙芯版本），来源确定前选择该目标会直接报错。龙芯旧世界用 `--arch loongarch64`（见 `docs/build-target-resolution-contract.md`「龙芯」）。
 
 ## 演进事项（非缺陷）
 

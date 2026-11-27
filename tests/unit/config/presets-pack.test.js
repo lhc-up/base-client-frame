@@ -164,8 +164,8 @@ describe('config/presets/pack', () => {
         });
     });
 
-    test('loong64：合并龙芯 Electron 镜像配置；其他架构不带龙芯配置', () => {
-        const loong = getPackPreset(baseCtx({ cliOptions: { platform: 'linux', arch: 'loong64' } }), pkgJson);
+    test('loongarch64（旧世界）：龙芯镜像 Electron、deb 架构名 loongarch64、产物文件名用 loongarch64', () => {
+        const loong = getPackPreset(baseCtx({ cliOptions: { platform: 'linux', arch: 'loongarch64' } }), pkgJson);
         expect(loong.electronVersion).toBe('22.3.27');
         expect(loong.electronDownload).toEqual({
             version: '22.3.27',
@@ -174,16 +174,26 @@ describe('config/presets/pack', () => {
             platform: 'linux',
             arch: 'loong64',
         });
+        expect(loong.deb).toEqual({ architecture: 'loongarch64' });
+        expect(loong.artifactName).toBe('${productName}_${os}_loongarch64_${env.BC_ENV}_v${version}.${ext}');
 
         for (const arch of ['x64', 'arm64', 'ia32']) {
             const p = getPackPreset(baseCtx({ cliOptions: { platform: 'linux', arch } }), pkgJson);
             expect(p.electronVersion).toBeUndefined();
             expect(p.electronDownload && p.electronDownload.arch).toBeUndefined();
+            expect(p.deb).toBeUndefined();
+            expect(p.artifactName).toContain('${arch}');
         }
     });
 
-    test('loong64：每次返回新的 electronDownload 对象，改动不影响下一次', () => {
-        const ctx = baseCtx({ cliOptions: { platform: 'linux', arch: 'loong64' } });
+    test('loong64（新世界）：只带 deb 架构名 loong64，不带龙芯旧世界的 Electron', () => {
+        const p = getPackPreset(baseCtx({ cliOptions: { platform: 'linux', arch: 'loong64' } }), pkgJson);
+        expect(p.deb).toEqual({ architecture: 'loong64' });
+        expect(p.electronVersion).toBeUndefined();
+    });
+
+    test('loongarch64：每次返回新的 electronDownload 对象，改动不影响下一次', () => {
+        const ctx = baseCtx({ cliOptions: { platform: 'linux', arch: 'loongarch64' } });
         const first = getPackPreset(ctx, pkgJson);
         first.electronDownload.mirror = 'changed';
         expect(getPackPreset(ctx, pkgJson).electronDownload.mirror).toBe('http://ftp.loongnix.cn/electron/LoongArch/');

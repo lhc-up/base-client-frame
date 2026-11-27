@@ -36,7 +36,6 @@
     "peerDependencies": {
         "bytenode": "^1.4.0",
         "electron": ">=22.0.0",
-        "electron-builder": ">=24.0.0",
         "webpack": "^5.0.0",
         "webpack-dev-server": "^5.0.0"
     },
@@ -45,9 +44,6 @@
             "optional": true
         },
         "electron": {
-            "optional": true
-        },
-        "electron-builder": {
             "optional": true
         }
     },
@@ -60,6 +56,7 @@
         "webpack-dev-server": "^5.2.4"
     },
     "dependencies": {
+        "@base-client/app-builder-lib": "24.13.3-bc.1",
         "@electron/asar": "^3.4.1",
         "cac": "^6.7.14",
         "dotenv": "^17.4.2",

@@ -46,12 +46,28 @@ function enforceDistOutput(mergedConfig) {
     mergedConfig.directories = { ...(mergedConfig.directories || {}), output: 'dist' };
 }
 
+/**
+ * Linux 安装目录：默认 /opt/<appId>（项目写了 linux.installDir 时以项目为准）。
+ *
+ * electron-builder 官方把安装目录写死为 /opt/<productName>，productName 相同的不同客户端会装进同一目录；
+ * appId 按客户端区分（com.eachina.<name>），用它作目录名。appId 未配置时与 electron-builder 默认值一致。
+ * 生效依赖 @base-client/app-builder-lib 改版的 linux.installDir。
+ */
+function applyLinuxInstallDir(mergedConfig, pkgJson) {
+    const appId = mergedConfig.appId || `com.electron.${pkgJson.name}`;
+    mergedConfig.linux = mergedConfig.linux || {};
+    if (mergedConfig.linux.installDir == null || mergedConfig.linux.installDir === '') {
+        mergedConfig.linux.installDir = `/opt/${appId}`;
+    }
+}
+
 function resolveBuilderConfig(ctx, pkgJson) {
     const userConfig = ctx.userBuilderConfig ?? loadUserBuilderConfig(locateBuilderConfig(process.cwd(), ctx.cliOptions.packConfig), ctx);
     const preset = getPackPreset(ctx, pkgJson);
     const merged = customMerge(preset, userConfig);
     enforceDistOutput(merged);
+    applyLinuxInstallDir(merged, pkgJson);
     return merged;
 }
 
-module.exports = { resolveBuilderConfig, locateBuilderConfig, preloadBuilderConfig };
+module.exports = { resolveBuilderConfig, locateBuilderConfig, preloadBuilderConfig, applyLinuxInstallDir };

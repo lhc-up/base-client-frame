@@ -2,6 +2,9 @@ const path = require('path');
 const fs = require('fs');
 const fse = require('fs-extra');
 
+// frame 直接依赖 @base-client/app-builder-lib：用记录调用的假实现代替
+jest.mock('@base-client/app-builder-lib', () => require('../helpers/mock-app-builder-lib'));
+
 /** 生产环境的入口 js 带 contenthash（`<name>.<hash8>.js`），按入口名找到唯一的那个文件 */
 function entryJs(dir, name) {
     const pattern = new RegExp(`^${name}\\.[0-9a-f]{8}\\.js$`);
@@ -32,8 +35,7 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
     });
 
     beforeEach(() => {
-        const ebPath = path.join(fixtureDir, 'node_modules/electron-builder/out/index.js');
-        delete require.cache[ebPath];
+        require('@base-client/app-builder-lib')._clearLastCall();
     });
 
     test('pack 跑通：app/ 宿主 + 包产物 + dist/shell/* + 调 electron-builder.build', async () => {
@@ -51,9 +53,7 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
 
             expect(fs.existsSync(path.join(fixtureDir, 'dist/shell/win-installer.nsh'))).toBe(true);
             expect(fs.existsSync(path.join(fixtureDir, 'dist/shell/deb-preinstall.sh'))).toBe(true);
-
-            const builderPath = path.join(fixtureDir, 'node_modules/electron-builder/out/index.js');
-            const builder = require(builderPath);
+            const builder = require('@base-client/app-builder-lib');
             const lastCall = builder._getLastCall();
             expect(lastCall).toBeTruthy();
             expect(lastCall.win).toEqual(['nsis']);
@@ -74,12 +74,11 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
 
         const cmd = require('../../src/cli/commands/pack');
         const { runCommand } = require('../../src/cli/index');
-        const builderPath = path.join(fixtureDir, 'node_modules/electron-builder/out/index.js');
-        delete require.cache[builderPath];
+        require('@base-client/app-builder-lib')._clearLastCall();
 
         await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64', dir: true });
 
-        const builder = require(builderPath);
+        const builder = require('@base-client/app-builder-lib');
         const lastCall = builder._getLastCall();
         expect(lastCall.win).toEqual(['dir']);
     }, 60000);

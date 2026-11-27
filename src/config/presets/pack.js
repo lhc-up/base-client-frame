@@ -1,4 +1,4 @@
-const { LOONG64_ELECTRON_CONFIG } = require('../../electron/loong64');
+const { LOONG_TARGETS } = require('../../electron/loong');
 
 /** Electron 下载镜像：electron-builder 默认从 GitHub 下载目标平台的 Electron，国内经常连不上 */
 const ELECTRON_MIRROR = 'https://npmmirror.com/mirrors/electron/';
@@ -75,13 +75,19 @@ function getPackPreset(ctx, pkgJson) {
         preset.linux.maintainer = pkgJson.author;
     }
 
-    // 龙芯：官方 Electron 没有 loong64，改用龙芯镜像（见 electron/loong64.js）
+    // 龙芯：官方 Electron 没有龙芯版本，按目标用对应的 Electron 与 deb 架构名（见 electron/loong.js）。
+    // 产物文件名里的 ${arch} 是 electron-builder 的架构名（两个龙芯目标都是 loong64），改为 deb 架构名以区分。
     // 其他架构：默认用 npmmirror；环境变量已指定镜像时不设置，以环境变量为准。项目写了 electronDownload 时合并后以项目为准
-    if (ctx.cliOptions?.arch === 'loong64') {
-        preset.electronVersion = LOONG64_ELECTRON_CONFIG.electronVersion;
-        preset.electronDownload = { ...LOONG64_ELECTRON_CONFIG.electronDownload };
+    const loongTarget = LOONG_TARGETS[ctx.cliOptions?.arch];
+    if (loongTarget && loongTarget.electron) {
+        preset.electronVersion = loongTarget.electron.electronVersion;
+        preset.electronDownload = { ...loongTarget.electron.electronDownload };
     } else if (!envElectronMirror()) {
         preset.electronDownload = { mirror: ELECTRON_MIRROR };
+    }
+    if (loongTarget) {
+        preset.deb = { architecture: loongTarget.debArchitecture };
+        preset.artifactName = preset.artifactName.replace('${arch}', loongTarget.debArchitecture);
     }
 
     return preset;

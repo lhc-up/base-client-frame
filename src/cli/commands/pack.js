@@ -11,12 +11,13 @@ const { adaptIcon } = require('../../pack/icon');
 const { generateShellScripts } = require('../../pack/shell');
 const { computeCryptoState } = require('../../pack/encrypt');
 const { buildPkgAsar, stageResources, applyPkgToBuilderConfig } = require('../../pack/pkg');
-const { resolveElectronBuilder } = require('../../electron/resolve-electron-builder');
-const { assertLoong64Builder } = require('../../electron/loong64');
+const { runBuilder } = require('../../electron/resolve-electron-builder');
+const { assertLoongTargetSupported } = require('../../electron/loong');
 const {
     resolveBuildTargetOptions,
     buildTargets,
     computeUnpackedDir,
+    toBuilderArchName,
 } = require('../../electron/build-targets');
 const logger = require('../../core/logger');
 const { createLayout } = require('../../paths');
@@ -31,7 +32,7 @@ module.exports = {
     resolveCliOptions: resolveBuildTargetOptions,
     options: [
         ['--platform <p>', '目标平台：win / mac / linux'],
-        ['--arch <a>', '目标架构：ia32 / x64 / armv7l / arm64 / universal / loong64'],
+        ['--arch <a>', '目标架构：ia32 / x64 / armv7l / arm64 / universal / loongarch64（龙芯旧世界）/ loong64（龙芯新世界，尚未支持）'],
         ['--dir', '仅产 unpacked 目录，跳过 installer 阶段'],
         ['--sign', '签名标志（透传至 cliOptions.sign 与 __BC_BUILD__.sign）'],
         ['--pkg-only', '只构建包（更新包），不构建宿主与安装包'],
@@ -43,13 +44,9 @@ module.exports = {
         const pkgJson = require(path.resolve(rootDir, 'package.json'));
         const pkgOnly = !!ctx.cliOptions.pkgOnly;
 
-        // 编译要几分钟，龙芯版 electron-builder 的检查放在最前面
+        // 编译要几分钟，龙芯目标是否支持的检查放在最前面
         if (!pkgOnly) {
-            assertLoong64Builder({
-                rootDir,
-                arch: ctx.cliOptions.arch,
-                command: `npx base-client ${process.argv.slice(2).join(' ')}`,
-            });
+            assertLoongTargetSupported(ctx.cliOptions.arch);
         }
 
         // 阶段 A · 资源准备
@@ -71,7 +68,7 @@ module.exports = {
                 distDir,
                 mergedBuilderConfig,
                 appName: pkgJson.name,
-                appDirName: mergedBuilderConfig.productName ?? pkgJson.name,
+                appInstallDir: mergedBuilderConfig.linux.installDir,
                 appId: mergedBuilderConfig.appId,
             });
         }
@@ -112,17 +109,20 @@ module.exports = {
                 appDir,
                 mergedBuilderConfig,
                 targetPlatform: ctx.cliOptions.platform,
-                targetArch: ctx.cliOptions.arch,
+                // 与 Node 的 process.arch 比较：龙芯两个目标都是 loong64
+                targetArch: ctx.cliOptions.arch && toBuilderArchName(ctx.cliOptions.arch),
             });
             logger.info('bytenode 字节码完成');
         }
 
         // 阶段 C · 安装包打包
-        const targets = buildTargets(ctx.cliOptions);
-        const builder = await resolveElectronBuilder(rootDir);
+        const target = buildTargets(ctx.cliOptions);
         // 安装包 resources/ 先整理到 dist/resources/，再整体复制
         const stageDir = stageResources({ rootDir, distDir, pkgPath });
-        await builder.build({ ...targets, config: applyPkgToBuilderConfig(mergedBuilderConfig, stageDir, rootDir) });
+        await runBuilder(target, {
+            config: applyPkgToBuilderConfig(mergedBuilderConfig, stageDir, rootDir),
+            projectDir: rootDir,
+        });
 
         // --dir 场景校验：unpacked 目录名由 electron-builder 命名约定决定；installer 会用相同 platform/arch 现算路径
         if (ctx.cliOptions.dir) {

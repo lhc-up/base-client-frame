@@ -1,34 +1,29 @@
-const path = require('path');
-const fs = require('fs');
-const { resolveElectronBuilder } = require('../../../src/electron/resolve-electron-builder');
+jest.mock('@base-client/app-builder-lib', () => require('../../helpers/mock-app-builder-lib'));
 
-const fixtureDir = path.join(__dirname, '../../tmp/resolve-electron-builder');
-
-beforeEach(() => {
-    fs.mkdirSync(fixtureDir, { recursive: true });
-    const ebDir = path.join(fixtureDir, 'node_modules/electron-builder');
-    fs.mkdirSync(ebDir, { recursive: true });
-    fs.writeFileSync(path.join(ebDir, 'package.json'), JSON.stringify({
-        name: 'electron-builder', main: 'out/index.js', version: '24.0.0',
-    }));
-    fs.mkdirSync(path.join(ebDir, 'out'), { recursive: true });
-    fs.writeFileSync(path.join(ebDir, 'out/index.js'), `module.exports = { build: () => Promise.resolve([]) };`);
-});
-afterEach(() => { fs.rmSync(fixtureDir, { recursive: true, force: true }); });
+const { resolveAppBuilderLib, runBuilder } = require('../../../src/electron/resolve-electron-builder');
 
 describe('electron/resolve-electron-builder', () => {
-    test('从 rootDir 解析 electron-builder 模块，返回其默认导出', async () => {
-        const eb = await resolveElectronBuilder(fixtureDir);
-        expect(typeof eb.build).toBe('function');
+    test('使用 frame 自己依赖的 @base-client/app-builder-lib', () => {
+        const lib = resolveAppBuilderLib();
+        expect(typeof lib.build).toBe('function');
+        expect(lib.Arch.loong64).toBe(5);
     });
 
-    test('rootDir 下无 electron-builder 时抛错', async () => {
-        const empty = path.join(__dirname, '../../tmp/no-eb');
-        fs.mkdirSync(empty, { recursive: true });
-        try {
-            await expect(resolveElectronBuilder(empty)).rejects.toThrow(/electron-builder/i);
-        } finally {
-            fs.rmSync(empty, { recursive: true, force: true });
-        }
+    test('runBuilder：targets 转成 Map，传入 config、projectDir、prepackaged', async () => {
+        const lib = resolveAppBuilderLib();
+        lib._clearLastCall();
+        const config = { appId: 'com.test.x' };
+        await runBuilder({ platform: 'linux', types: ['deb'], builderArch: 'loong64' }, {
+            config,
+            projectDir: '/proj',
+            prepackaged: '/proj/dist/linux-loong64-unpacked',
+        });
+        expect(lib._getLastCall()).toEqual({
+            linux: ['deb'],
+            loong64: true,
+            config,
+            projectDir: '/proj',
+            prepackaged: '/proj/dist/linux-loong64-unpacked',
+        });
     });
 });

@@ -1,6 +1,9 @@
 const path = require('path');
 const fs = require('fs');
 const fse = require('fs-extra');
+
+// frame 直接依赖 @base-client/app-builder-lib：用记录调用的假实现代替
+jest.mock('@base-client/app-builder-lib', () => require('../helpers/mock-app-builder-lib'));
 const asar = require('@electron/asar');
 
 /** 生产环境的入口 js 带 contenthash（`<name>.<hash8>.js`），按入口名找到唯一的那个文件 */
@@ -32,7 +35,7 @@ describe('E2E: pack 完整能力（bytenode + 更新包 + 多入口；产物加�
         // bc.config.js / electron-builder mock 都需要重新 require
         delete require.cache[path.join(fixtureDir, 'bc.config.js')];
         delete require.cache[path.join(fixtureDir, 'electron-builder.config.js')];
-        delete require.cache[path.join(fixtureDir, 'node_modules/electron-builder/out/index.js')];
+        require('@base-client/app-builder-lib')._clearLastCall();
     });
 
     test('pack 全开：bytenode loader + 更新包含 update 入口，页面 js 为明文', async () => {
@@ -50,7 +53,7 @@ describe('E2E: pack 完整能力（bytenode + 更新包 + 多入口；产物加�
         expect(fs.existsSync(path.join(fixtureDir, 'app/main/vendor/bytenode/package.json'))).toBe(true);
 
         // 2. extraMetadata.main 被 frame 注入
-        const builder = require(path.join(fixtureDir, 'node_modules/electron-builder/out/index.js'));
+        const builder = require('@base-client/app-builder-lib');
         const lastCall = builder._getLastCall();
         expect(lastCall.config.extraMetadata.main).toBe('main/loader.js');
 
@@ -121,7 +124,7 @@ describe('E2E: pack 关闭加密 + 关闭 bytenode（独立 fixture）', () => {
     });
 
     beforeEach(() => {
-        delete require.cache[path.join(offFixtureDir, 'node_modules/electron-builder/out/index.js')];
+        require('@base-client/app-builder-lib')._clearLastCall();
     });
 
     test('encrypt:false + bytenode:false 时跳过加密、不写 loader.js', async () => {
