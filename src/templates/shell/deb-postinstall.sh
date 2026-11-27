@@ -16,6 +16,12 @@ if type update-alternatives 2>/dev/null >&1; then
         rm -f "/usr/bin/$APP_NAME"
     fi
     update-alternatives --install "/usr/bin/$APP_NAME" "$APP_NAME" "$APP_INSTALL_DIR/$APP_NAME" 100 || ln -sf "$APP_INSTALL_DIR/$APP_NAME" "/usr/bin/$APP_NAME"
+    # 去掉指向其他目录的同名候选（如旧版本装在 /opt/<productName> 时注册的）：优先级相同时自动模式可能仍指向旧目录
+    for OTHER in $(update-alternatives --list "$APP_NAME" 2>/dev/null); do
+        if [ "$OTHER" != "$APP_INSTALL_DIR/$APP_NAME" ]; then
+            update-alternatives --remove "$APP_NAME" "$OTHER" || true
+        fi
+    done
 else
     ln -sf "$APP_INSTALL_DIR/$APP_NAME" "/usr/bin/$APP_NAME"
 fi

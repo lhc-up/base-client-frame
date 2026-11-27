@@ -40,6 +40,9 @@ describe('pack/shell', () => {
         // 桌面快捷方式：属主改为该用户、权限 755，不再 4777
         expect(post).toContain('chmod 755');
         expect(post).not.toContain('4777');
+        // 升级自旧目录：去掉指向其他目录的同名 update-alternatives 候选
+        expect(post).toContain('update-alternatives --list "$APP_NAME"');
+        expect(post).toContain('update-alternatives --remove "$APP_NAME" "$OTHER"');
         expect(nsh).not.toContain('\r\n');
         expect(pre).not.toContain('\r\n');
     });
