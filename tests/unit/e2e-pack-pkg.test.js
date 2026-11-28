@@ -2,8 +2,8 @@ const path = require('path');
 const fs = require('fs');
 const fse = require('fs-extra');
 
-// frame 直接依赖 @base-client/app-builder-lib：用记录调用的假实现代替
-jest.mock('@base-client/app-builder-lib', () => require('../helpers/mock-app-builder-lib'));
+// frame 依赖 @base-client/electron-builder：用记录调用的假实现代替
+jest.mock('@base-client/electron-builder', () => require('../helpers/mock-electron-builder'));
 const asar = require('@electron/asar');
 
 /** 生产环境的入口 js 带 contenthash（`<name>.<hash8>.js`），按入口名找到唯一的那个文件 */
@@ -54,7 +54,7 @@ describe('E2E: pack（宿主 + 包模型）', () => {
         const dir = setupFixture('minimal-pack-pkg');
         dirs.push(dir);
         process.chdir(dir);
-        require('@base-client/app-builder-lib')._clearLastCall();
+        require('@base-client/electron-builder')._clearLastCall();
 
         const cmd = require('../../src/cli/commands/pack');
         const { runCommand } = require('../../src/cli/index');
@@ -84,7 +84,7 @@ describe('E2E: pack（宿主 + 包模型）', () => {
         expect('child' in descriptor).toBe(false);
         expect(descriptor.encryptKey).toBeUndefined();
 
-        const lastCall = require('@base-client/app-builder-lib')._getLastCall();
+        const lastCall = require('@base-client/electron-builder')._getLastCall();
         const appFiles = lastCall.config.files.find(f => f && f.from === 'app');
         expect(appFiles.filter).toEqual(expect.arrayContaining(['main/**', '!main/pkg.js', 'preload/**']));
         expect(lastCall.config.extraResources).toEqual(expect.arrayContaining([
@@ -97,7 +97,7 @@ describe('E2E: pack（宿主 + 包模型）', () => {
         const dir = setupFixture('minimal-pack-pkg-only');
         dirs.push(dir);
         process.chdir(dir);
-        require('@base-client/app-builder-lib')._clearLastCall();
+        require('@base-client/electron-builder')._clearLastCall();
 
         const cmd = require('../../src/cli/commands/pack');
         const { runCommand } = require('../../src/cli/index');
@@ -108,6 +108,6 @@ describe('E2E: pack（宿主 + 包模型）', () => {
         expect(fs.existsSync(path.join(dir, 'app/main/index.js'))).toBe(false);
         expect(fs.existsSync(path.join(dir, 'app/preload'))).toBe(false);
         expect(fs.existsSync(path.join(dir, 'dist/shell'))).toBe(false);
-        expect(require('@base-client/app-builder-lib')._getLastCall()).toBeFalsy();
+        expect(require('@base-client/electron-builder')._getLastCall()).toBeFalsy();
     }, 120000);
 });

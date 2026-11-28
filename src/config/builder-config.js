@@ -51,7 +51,7 @@ function enforceDistOutput(mergedConfig) {
  *
  * electron-builder 官方把安装目录写死为 /opt/<productName>，productName 相同的不同客户端会装进同一目录；
  * appId 按客户端区分（com.eachina.<name>），用它作目录名。appId 未配置时与 electron-builder 默认值一致。
- * 生效依赖 @base-client/app-builder-lib 改版的 linux.installDir。
+ * 生效依赖 @base-client/electron-builder 改版的 linux.installDir。
  */
 function applyLinuxInstallDir(mergedConfig, pkgJson) {
     const appId = mergedConfig.appId || `com.electron.${pkgJson.name}`;

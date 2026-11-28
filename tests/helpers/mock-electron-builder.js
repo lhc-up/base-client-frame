@@ -1,8 +1,8 @@
 /**
- * 测试用的 @base-client/app-builder-lib：记录 build 调用，dir 目标时按真实命名规则建出 unpacked 目录。
+ * 测试用的 @base-client/electron-builder：记录 build 调用，dir 目标时按真实命名规则建出 unpacked 目录。
  *
  * _getLastCall() 返回便于断言的形状：{ [platform]: types, [arch]: true, config, prepackaged, projectDir }。
- * 用法：jest.mock('@base-client/app-builder-lib', () => require('../helpers/mock-app-builder-lib'));
+ * 用法：jest.mock('@base-client/electron-builder', () => require('../helpers/mock-electron-builder'));
  */
 const path = require('path');
 const fs = require('fs');
@@ -27,12 +27,6 @@ const Platform = {
 };
 
 let lastBuildCall = null;
-
-class Packager {
-    constructor(options) {
-        this.options = options;
-    }
-}
 
 async function build(options) {
     const [[platform, archMap]] = [...options.targets.entries()];
@@ -61,7 +55,6 @@ async function build(options) {
 module.exports = {
     Arch,
     Platform,
-    Packager,
     build,
     _getLastCall: () => lastBuildCall,
     _clearLastCall: () => { lastBuildCall = null; },

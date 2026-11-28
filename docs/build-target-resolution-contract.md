@@ -38,7 +38,7 @@ frame 按 dpkg 的架构名分成两个打包目标，**一个命令打一个包
 - 判断目标机属于哪个世界看 `dpkg --print-architecture`（`uname -m` 两边都是 `loongarch64`，不能用来判断）。
 - 两个目标在 electron-builder 内部都是 `Arch.loong64`：unpacked 目录都是 `linux-loong64-unpacked`；产物文件名里的架构改为 deb 架构名
   （如 `…_linux_loongarch64_…deb`），便于区分。
-- electron-builder 用的是 frame 依赖的 `@base-client/app-builder-lib` 改版（支持 `loong64` 与 `deb.architecture`），
+- electron-builder 用的是 frame 依赖的 `@base-client/electron-builder` 改版（支持 `loong64` 与 `deb.architecture`），
   不再需要从龙芯源安装龙芯版 electron-builder，也不用在官方版与龙芯版之间切换。
 - 只能在 Linux 或 macOS 上打 deb（electron-builder 依赖 fpm）；`--dir` 可在任何系统上打。
 - 项目的 `electron-builder.config.js` 仍可覆盖 `electronVersion`、`electronDownload`、`deb.architecture`（项目配置优先）。

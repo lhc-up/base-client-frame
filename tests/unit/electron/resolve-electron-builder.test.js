@@ -1,16 +1,16 @@
-jest.mock('@base-client/app-builder-lib', () => require('../../helpers/mock-app-builder-lib'));
+jest.mock('@base-client/electron-builder', () => require('../../helpers/mock-electron-builder'));
 
-const { resolveAppBuilderLib, runBuilder } = require('../../../src/electron/resolve-electron-builder');
+const { resolveElectronBuilder, runBuilder } = require('../../../src/electron/resolve-electron-builder');
 
 describe('electron/resolve-electron-builder', () => {
-    test('使用 frame 自己依赖的 @base-client/app-builder-lib', () => {
-        const lib = resolveAppBuilderLib();
+    test('使用 frame 自己依赖的 @base-client/electron-builder', () => {
+        const lib = resolveElectronBuilder();
         expect(typeof lib.build).toBe('function');
         expect(lib.Arch.loong64).toBe(5);
     });
 
     test('runBuilder：targets 转成 Map，传入 config、projectDir、prepackaged', async () => {
-        const lib = resolveAppBuilderLib();
+        const lib = resolveElectronBuilder();
         lib._clearLastCall();
         const config = { appId: 'com.test.x' };
         await runBuilder({ platform: 'linux', types: ['deb'], builderArch: 'loong64' }, {

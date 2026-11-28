@@ -1,12 +1,11 @@
 /**
- * 打包用的 electron-builder：frame 直接依赖 @base-client/app-builder-lib（改版，见其 README），
- * 项目不再安装 electron-builder。返回 build、Packager、Platform、Arch（Arch 由 app-builder-lib 从
- * @base-client/builder-util 转出，与 Platform 同源）。
+ * 打包用的 electron-builder：frame 依赖 @base-client/electron-builder（electron-builder 及其内部包的改版，
+ * 支持 loong64、linux.installDir、deb.architecture），项目不安装 electron-builder。
  *
- * @returns {{ build: Function, Packager: Function, Platform: object, Arch: object }}
+ * @returns {{ build: Function, Platform: object, Arch: object }}
  */
-function resolveAppBuilderLib() {
-    return require('@base-client/app-builder-lib');
+function resolveElectronBuilder() {
+    return require('@base-client/electron-builder');
 }
 
 /**
@@ -51,10 +50,10 @@ async function withConfigMirror(config, fn) {
  */
 async function runBuilder(target, { config, projectDir, prepackaged }) {
     const { toBuilderTargetMap } = require('./build-targets');
-    const lib = resolveAppBuilderLib();
-    const options = { targets: toBuilderTargetMap(target, lib), config, projectDir };
+    const builder = resolveElectronBuilder();
+    const options = { targets: toBuilderTargetMap(target, builder), config, projectDir };
     if (prepackaged) options.prepackaged = prepackaged;
-    return withConfigMirror(config, () => lib.build(options, new lib.Packager(options)));
+    return withConfigMirror(config, () => builder.build(options));
 }
 
-module.exports = { resolveAppBuilderLib, runBuilder, withConfigMirror, MIRROR_ENV_KEYS };
+module.exports = { resolveElectronBuilder, runBuilder, withConfigMirror, MIRROR_ENV_KEYS };

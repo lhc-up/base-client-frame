@@ -158,7 +158,7 @@ frame 在项目的 `electron-builder.config.js` 之前提供以下默认值，�
 | `linux.category` | `Education;Utility;Network`（应用菜单分类） |
 | `linux.executableArgs` | `['--no-sandbox']`，见「Linux 启动与沙箱」 |
 | `linux.maintainer` | `author` 为字符串时取 `author`。deb 必须有维护者，electron-builder 没有它时要求 `author` 带 email |
-| `linux.installDir` | `/opt/<appId>`（`appId` 未配置时为 electron-builder 默认的 `com.electron.<name>`）。官方写死为 `/opt/<productName>`，productName 相同的不同客户端会装进同一目录；需 `@base-client/app-builder-lib` 改版，见「环境与依赖」 |
+| `linux.installDir` | `/opt/<appId>`（`appId` 未配置时为 electron-builder 默认的 `com.electron.<name>`）。官方写死为 `/opt/<productName>`，productName 相同的不同客户端会装进同一目录；需 `@base-client/electron-builder` 改版，见「环境与依赖」 |
 | `deb.architecture`、`electronVersion`、`electronDownload`（龙芯） | `--arch loongarch64` / `loong64` 时按目标设置，见 `docs/build-target-resolution-contract.md`「龙芯」 |
 | `electronDownload` | npmmirror（龙芯用龙芯镜像），见「环境与依赖」 |
 | `win.icon` / `mac.icon` / `linux.icon` | 由 `build/icon.png` 生成，见 `docs/icon-artifact-contract.md` |
@@ -286,7 +286,7 @@ frame 预设默认带 `--no-sandbox`；项目要去掉时用 `replace()` 整体�
     项目在 electron-builder 配置中写了 `electronDownload` 时以项目为准。
 - 必需 peer：`webpack@^5`、`webpack-dev-server@^5`
 - 可选 peer：`electron`、`bytenode`
-- **electron-builder**：frame 直接依赖 `@base-client/app-builder-lib`（`app-builder-lib@24.13.3` 的改版，支持 `linux.installDir`、`deb.architecture` 与 `loong64`，
+- **electron-builder**：frame 依赖 `@base-client/electron-builder`（`electron-builder@24.13.3` 及其内部包的改版，支持 `linux.installDir`、`deb.architecture` 与 `loong64`，
   见仓库 base-client-electron-builder），调用它的 `build`。项目**不要再安装 electron-builder**。
 
 更多设计说明见 `docs/design/`。

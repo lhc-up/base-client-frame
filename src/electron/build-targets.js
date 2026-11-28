@@ -54,10 +54,10 @@ function buildTargets(options) {
 }
 
 /**
- * 转成 app-builder-lib 的 targets（Map<Platform, Map<Arch, string[]>>）。
+ * 转成 electron-builder 的 targets（Map<Platform, Map<Arch, string[]>>）。
  *
  * @param {{ platform: string, types: string[], builderArch: string }} target buildTargets 的结果
- * @param {{ Platform: object, Arch: object }} lib app-builder-lib
+ * @param {{ Platform: object, Arch: object }} lib electron-builder
  */
 function toBuilderTargetMap(target, lib) {
     const platformMap = { win: lib.Platform.WINDOWS, mac: lib.Platform.MAC, linux: lib.Platform.LINUX };

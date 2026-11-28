@@ -8,7 +8,7 @@
  *
  * 两个目标在 electron-builder 内部都是 Arch.loong64（CPU 架构相同），区别只在 Electron 与 deb 架构名，
  * 二者必须配套：旧世界的 Electron 只能装在 dpkg 架构为 loongarch64 的系统上。
- * electron-builder 使用 @base-client/app-builder-lib 改版（支持 loong64 与 deb.architecture），不再需要龙芯源的版本。
+ * electron-builder 使用 @base-client/electron-builder 改版（支持 loong64 与 deb.architecture），不再需要龙芯源的版本。
  *
  * 规则见 docs/build-target-resolution-contract.md「龙芯」。
  */

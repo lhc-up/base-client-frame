@@ -2,8 +2,8 @@ const path = require('path');
 const fs = require('fs');
 const fse = require('fs-extra');
 
-// frame 直接依赖 @base-client/app-builder-lib：用记录调用的假实现代替
-jest.mock('@base-client/app-builder-lib', () => require('../helpers/mock-app-builder-lib'));
+// frame 依赖 @base-client/electron-builder：用记录调用的假实现代替
+jest.mock('@base-client/electron-builder', () => require('../helpers/mock-electron-builder'));
 
 const sourceFixtureDir = path.join(__dirname, '../fixtures/minimal-pack');
 
@@ -28,7 +28,7 @@ describe('E2E: pack --dir → installer 链路（独立 fixture）', () => {
     beforeEach(() => {
         fse.removeSync(path.join(installerFixtureDir, 'app'));
         try { fs.rmSync(path.join(installerFixtureDir, 'dist'), { recursive: true, force: true }); } catch {}
-        require('@base-client/app-builder-lib')._clearLastCall();
+        require('@base-client/electron-builder')._clearLastCall();
     });
 
     test('pack --dir：产出 dist/<platform>-unpacked/ 与更新包', async () => {
@@ -46,12 +46,12 @@ describe('E2E: pack --dir → installer 链路（独立 fixture）', () => {
         const packCmd = require('../../src/cli/commands/pack');
         const { runCommand } = require('../../src/cli/index');
         await runCommand(packCmd, { env: 'prod', platform: 'win', arch: 'x64', dir: true });
-        require('@base-client/app-builder-lib')._clearLastCall();
+        require('@base-client/electron-builder')._clearLastCall();
 
         const installerCmd = require('../../src/cli/commands/installer');
         await runCommand(installerCmd, { env: 'prod', platform: 'win', arch: 'x64' });
 
-        const builder = require('@base-client/app-builder-lib');
+        const builder = require('@base-client/electron-builder');
         const lastCall = builder._getLastCall();
         expect(lastCall.win).toEqual(['nsis']);
         expect(lastCall.prepackaged).toBeDefined();

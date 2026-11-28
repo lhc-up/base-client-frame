@@ -30,8 +30,8 @@ describe('electron/build-targets', () => {
         expect(buildTargets({ platform: 'linux', arch: 'loong64' })).toEqual({ platform: 'linux', types: ['deb'], builderArch: 'loong64' });
     });
 
-    test('toBuilderTargetMap：转成 app-builder-lib 的 Map<Platform, Map<Arch, types>>', () => {
-        const lib = require('../../helpers/mock-app-builder-lib');
+    test('toBuilderTargetMap：转成 electron-builder 的 Map<Platform, Map<Arch, types>>', () => {
+        const lib = require('../../helpers/mock-electron-builder');
         const map = toBuilderTargetMap(buildTargets({ platform: 'linux', arch: 'loongarch64', dir: true }), lib);
         const [[platform, archMap]] = [...map.entries()];
         expect(platform).toBe(lib.Platform.LINUX);

@@ -2,8 +2,8 @@ const path = require('path');
 const fs = require('fs');
 const fse = require('fs-extra');
 
-// frame 直接依赖 @base-client/app-builder-lib：用记录调用的假实现代替
-jest.mock('@base-client/app-builder-lib', () => require('../helpers/mock-app-builder-lib'));
+// frame 依赖 @base-client/electron-builder：用记录调用的假实现代替
+jest.mock('@base-client/electron-builder', () => require('../helpers/mock-electron-builder'));
 
 /** 生产环境的入口 js 带 contenthash（`<name>.<hash8>.js`），按入口名找到唯一的那个文件 */
 function entryJs(dir, name) {
@@ -35,7 +35,7 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
     });
 
     beforeEach(() => {
-        require('@base-client/app-builder-lib')._clearLastCall();
+        require('@base-client/electron-builder')._clearLastCall();
     });
 
     test('pack 跑通：app/ 宿主 + 包产物 + dist/shell/* + 调 electron-builder.build', async () => {
@@ -53,7 +53,7 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
 
             expect(fs.existsSync(path.join(fixtureDir, 'dist/shell/win-installer.nsh'))).toBe(true);
             expect(fs.existsSync(path.join(fixtureDir, 'dist/shell/deb-preinstall.sh'))).toBe(true);
-            const builder = require('@base-client/app-builder-lib');
+            const builder = require('@base-client/electron-builder');
             const lastCall = builder._getLastCall();
             expect(lastCall).toBeTruthy();
             expect(lastCall.win).toEqual(['nsis']);
@@ -74,11 +74,11 @@ describe('E2E: pack 核心阶段编排（mock electron-builder）', () => {
 
         const cmd = require('../../src/cli/commands/pack');
         const { runCommand } = require('../../src/cli/index');
-        require('@base-client/app-builder-lib')._clearLastCall();
+        require('@base-client/electron-builder')._clearLastCall();
 
         await runCommand(cmd, { env: 'prod', platform: 'win', arch: 'x64', dir: true });
 
-        const builder = require('@base-client/app-builder-lib');
+        const builder = require('@base-client/electron-builder');
         const lastCall = builder._getLastCall();
         expect(lastCall.win).toEqual(['dir']);
     }, 60000);
