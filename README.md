@@ -3,6 +3,23 @@
 Electron 客户端工程化构建框架。业务项目主要提供 `bc.config.js` 和
 `electron-builder.config.js`，由 frame 统一处理 Web、Electron、打包、安装器和子进程包（产物加密暂不支持）。
 
+## 安装
+
+```bash
+npm i -D @base-client/frame
+```
+
+需要项目自行安装的 peer 依赖：
+
+| 包 | 版本范围 | |
+|---|---|---|
+| `webpack` | `^5.0.0` | 必需 |
+| `webpack-dev-server` | `^5.0.0` | 必需 |
+| `electron` | `>=22 <29`（实际只在 Electron 22 上验证过） | 可选（`dev:app` 需要） |
+| `bytenode` | `^1.4.0` | 可选（`bc.config.js` 开启 `bytenode` 时需要） |
+
+项目**不要再安装 electron-builder**：frame 依赖其改版 `@base-client/electron-builder`，见「环境与依赖」。
+
 ## 命令
 
 | 命令 | target / mode | 说明 |

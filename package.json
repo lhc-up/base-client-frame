@@ -1,6 +1,6 @@
 {
     "name": "@base-client/frame",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "description": "Electron 客户端工程化构建框架",
     "type": "commonjs",
     "main": "src/index.js",
@@ -10,11 +10,21 @@
         "./package.json": "./package.json"
     },
     "bin": {
-        "base-client": "./bin/base-client.js"
+        "base-client": "bin/base-client.js"
     },
     "private": false,
     "author": "lhc-up",
-    "license": "ISC",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/lhc-up/base-client-frame.git"
+    },
+    "homepage": "https://github.com/lhc-up/base-client-frame#readme",
+    "bugs": "https://github.com/lhc-up/base-client-frame/issues",
+    "publishConfig": {
+        "access": "public",
+        "registry": "https://registry.npmjs.org/"
+    },
     "engines": {
         "node": "^20.19.0 || ^22.13.0 || >=24"
     },
@@ -35,7 +45,7 @@
     },
     "peerDependencies": {
         "bytenode": "^1.4.0",
-        "electron": ">=22.0.0",
+        "electron": ">=22 <29",
         "webpack": "^5.0.0",
         "webpack-dev-server": "^5.0.0"
     },
